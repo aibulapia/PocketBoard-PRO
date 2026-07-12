@@ -1,0 +1,1654 @@
+﻿
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+   <meta name="mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+   <meta name="theme-color" content="#f59e0b">
+   <link rel="manifest" href="manifest.json">
+   <title>MMEEC 현장 점검 포켓보드 PRO</title>
+   <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+   <style>
+       body {
+           font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+           -webkit-tap-highlight-color: transparent;
+           padding-bottom: env(safe-area-inset-bottom);
+       }
+       .safe-bottom { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+       /* 가로 스크롤바 숨김 처리 */
+       .no-scrollbar::-webkit-scrollbar { display: none; }
+       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+   </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-amber-100">
+
+   <div id="root"></div>
+
+   <script src="config.js"></script>
+   <script src="storage.js"></script>
+   <script>
+       Babel.registerPreset('react-classic', {
+           presets: [[Babel.availablePresets['react'], { runtime: 'classic' }]]
+       });
+   </script>
+   <script type="text/babel" data-presets="react-classic">
+       const { useState, useEffect, useMemo } = React;
+
+       // 고정 공장 명단
+       const SUPPORTED_FACTORIES = [
+           "1공장", "2공장", "3공장", "4공장", "5공장", 
+           "6.엔진", "7.변속기", "8.소재", "9.기타", "10.아산", "11.남양", "12.광명"
+       ];
+
+       // 하위 공장(부서) 명단 정의
+       const SUB_FACTORIES = {
+ 
+           "1공장": ["1프레스", "1차체", "1도장", "11의장", "12의장"],
+           "2공장": ["2프레스", "2차체", "2도장", "21의장", "22의장"],
+           "3공장": ["3프레스", "3차체", "3도장", "31의장", "32의장"],
+           "4공장": ["4프레스", "4차체", "4도장", "41의장", "42의장"],
+           "5공장": ["5프레스", "5차체", "5도장", "51의장", "52의장"],
+           "6.엔진": ["감마1", "감마2", "누우3", "카파HV4", "감마세타4", "감마크랑크4"],
+           "7.변속기": ["변속1", "변속2", "변속2신소", "변속2전륜", "변속3전륜", "변속기타"],
+           "8.소재": ["헤드1", "헤드2", "블록1", "블록2", "케이스1", "케이스2"],
+           "9.기타": ["시트1", "시트2", "시트3", "기타"]
+
+       };
+
+       // 고정 감독자 명단
+       const FIXED_SUPERVISORS = {
+           "1공장": ["김숙자", "이은정", "송혜정", "전선희", "차진숙", "이송희", "황정희", "심윤아"],
+           "2공장": ["이화선", "홍은경", "이수진", "이아름", "정희선", "최정미", "박혜영", "장혜정", "김신희", "박남정", "윤은숙", "이규화"],
+           "3공장": ["이은미", "이화선2", "임경숙", "김명희", "박수영", "김류원", "윤신영"],
+           "4공장": ["한경희", "심숙희", "위은서", "이인혜", "정다교", "이현숙"],
+           "5공장": ["전미선", "차상숙", "윤상미", "신명숙", "조은영", "김은주", "손정욱"],
+           "6.엔진": ["최은순"],
+           "7.변속기": ["김규리"],
+           "8.소재": ["박라희"],
+           "9.기타": ["이미향", "이남선", "정인선", "김미정",  "배지은", "김병훈", "박혜란"],
+           "10.아산": [],
+           "11.남양": [],
+           "12.광명": []
+
+       };
+
+       // 공장 이름 자동 보정 로직
+       const normalizeFactoryName = (rawName) => {
+           if (!rawName) return "9.기타";
+           const name = rawName.toString().trim();
+           if (name.includes("1공장") || name === "1") return "1공장";
+           if (name.includes("2공장") || name === "2") return "2공장";
+           if (name.includes("3공장") || name === "3") return "3공장";
+           if (name.includes("4공장") || name === "4") return "4공장";
+           if (name.includes("5공장") || name === "5") return "5공장";
+           if (name.includes("엔진")) return "6.엔진";
+           if (name.includes("변속기")) return "7.변속기";
+           if (name.includes("소재")) return "8.소재";
+		   if (name.includes("기타")) return "9.기타";
+           if (name.includes("아산")) return "10.아산";
+           if (name.includes("남양")) return "11.남양";
+           if (name.includes("광명")) return "12.광명";
+           return "9.기타";
+       };
+
+       function App() {
+           const [items, setItems] = useState([]);
+           const [activeTab, setActiveTab] = useState("전체");
+           const [selectedItem, setSelectedItem] = useState(null);
+           const [toast, setToast] = useState(null);
+           const [sessionId, setSessionId] = useState(MMEECStorage.getSessionId());
+           const [sheetTitle, setSheetTitle] = useState("");
+           const [syncStatus, setSyncStatus] = useState("idle");
+           const [isLoading, setIsLoading] = useState(true);
+           const [showSessionModal, setShowSessionModal] = useState(false);
+           const [sessionInput, setSessionInput] = useState(MMEECStorage.getSessionId());
+
+           // 회사명 (수정 가능, localStorage 저장)
+           const [companyName, setCompanyName] = useState(() =>
+               localStorage.getItem("MMEEC_COMPANY_NAME") || "MMEEC"
+           );
+           const [companyNameDraft, setCompanyNameDraft] = useState("");
+
+           // 프로그램 정보 모달
+           const [showInfo, setShowInfo] = useState(false);
+
+           // 암호 입력 모달 (초기화 / 회사명 수정 공용)
+           const [showPwModal, setShowPwModal] = useState(false);
+           const [pwInput, setPwInput] = useState("");
+           const [pwTarget, setPwTarget] = useState(""); // "reset" | "company"
+           const [pwError, setPwError] = useState(false);
+
+           // 최초 실행 여부 (내 공장 세팅 팝업)
+           const [firstRun] = useState(() => !localStorage.getItem("MMEEC_MY_FACTORIES"));
+
+           // 개인별 공장 필터 (localStorage 기반, 기기마다 독립)
+           const [myFactories, setMyFactories] = useState(() => {
+               try {
+                   const saved = localStorage.getItem("MMEEC_MY_FACTORIES");
+                   if (saved) return JSON.parse(saved);
+                   // 기본값: 4공장, 5공장
+                   const defaults = ["4공장", "5공장"];
+                   localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(defaults));
+                   return defaults;
+               } catch { return ["4공장", "5공장"]; }
+           });
+           const [showFactoryFilter, setShowFactoryFilter] = useState(false);
+           const [filterDraft, setFilterDraft] = useState([]);
+
+           // 바텀시트 입력 폼 상태 관리
+           const [spotLocation, setSpotLocation] = useState("");
+           const [assignedSupervisor, setAssignedSupervisor] = useState("");
+           const [memo, setMemo] = useState("");
+           const [directWorkers, setDirectWorkers] = useState("");
+           const [dailyWorkers, setDailyWorkers] = useState("");
+           const [partnerName, setPartnerName] = useState("");
+           const [partnerWorkers, setPartnerWorkers] = useState("");
+           const [reportStage, setReportStage] = useState("전");   // 전 / 중 / 후
+           const [hasElderly, setHasElderly] = useState(false);
+           const [elderlyCount, setElderlyCount] = useState(1);
+
+           // 체감온도(열지수) 계산기
+           const [heatTemp, setHeatTemp] = useState("");
+           const [heatHumidity, setHeatHumidity] = useState("");
+           const [heatResults, setHeatResults] = useState([]); // 누적 결과 배열
+           const [currentHeatStatus, setCurrentHeatStatus] = useState(null); // 바텀시트 내 계산기 표시용만
+
+           // ── 구글 시트 체감온도 자동 기록 ──────────────
+           const sendHeatToSheet = async (item, entry) => {
+               const cfg = window.APP_CONFIG || {};
+               if (!cfg.sheetsWebhookUrl) return; // URL 미설정 시 무시
+               try {
+                   await fetch(cfg.sheetsWebhookUrl, {
+                       method: "POST",
+                       headers: { "Content-Type": "text/plain" },
+                       body: JSON.stringify({
+                           factory: item.factory || "",
+                           company: item.company || item.location || "",
+                           title: item.title || "",
+                           grade: item.grade || "",
+                           workType: item.workType || "",
+                           value: entry.value,
+                           level: entry.level,
+                           temp: entry.temp,
+                           humidity: entry.humidity,
+                       }),
+                   });
+               } catch (e) {
+                   console.warn("시트 기록 실패:", e);
+               }
+           };
+
+           // 안전보건공단/기상청 공식 체감온도 (2022.6.2 개정 산출식)
+           // Tw: 습구온도 (Stull 추정식), Ta: 기온, RH: 상대습도
+           const calcHeatIndex = () => {
+               const Ta = parseFloat(heatTemp);
+               const RH = parseFloat(heatHumidity);
+               if (isNaN(Ta) || isNaN(RH)) {
+                   showToast("기온과 습도를 입력해주세요.");
+                   return;
+               }
+
+               // Stull(2011) 습구온도 추정식
+               const Tw = Ta * Math.atan(0.151977 * Math.pow(RH + 8.313659, 0.5))
+                   + Math.atan(Ta + RH)
+                   - Math.atan(RH - 1.67633)
+                   + 0.00391838 * Math.pow(RH, 1.5) * Math.atan(0.023101 * RH)
+                   - 4.686035;
+
+               // 기상청 2022 개정 체감온도 공식
+               const HIc = -0.2442 + 0.55399 * Tw + 0.45535 * Ta
+                   - 0.0022 * Tw * Tw + 0.00278 * Tw * Ta + 3.0;
+
+               // KOSHA 포털 색상 기준
+               if (HIc >= 38)      { level = "위험";  color = "red";    guide = "작업 중지 권고, 즉시 대피"; }
+               else if (HIc >= 35) { level = "경고";  color = "orange"; guide = "매시간 15분 휴식 권고"; }
+               else if (HIc >= 33) { level = "주의";  color = "yellow"; guide = "2시간 작업 시 20분 휴식"; }
+               else if (HIc >= 31) { level = "관심";  color = "sky";    guide = "충분한 물 섭취, 주기적 휴식"; }
+               else                { level = "보통";  color = "slate";  guide = "쾌적한 작업 환경"; }
+
+               const entry = {
+                   temp: Ta, humidity: RH,
+                   value: HIc.toFixed(2),
+                   level, color, guide,
+                   time: new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+               };
+               setHeatResults(prev => [entry, ...prev]);
+               setCurrentHeatStatus(entry);
+               // 해당 카드에만 체감온도 기록 저장
+               if (selectedItem) {
+                   const updatedItems = items.map(it =>
+                       it.id === selectedItem.id ? { ...it, lastHeatStatus: entry } : it
+                   );
+                   persistItems(updatedItems);
+                   sendHeatToSheet(selectedItem, entry);
+               }
+           };
+
+           // 긴급공사 직접 입력 모달 상태 관리 (5단계 프로세스용)
+           const [showAddModal, setShowAddModal] = useState(false);
+           const [addModalTab, setAddModalTab] = useState("extra"); // "extra" | "urgent"
+           const [selectedExtras, setSelectedExtras] = useState([]);
+           const [urgentFactory, setUrgentFactory] = useState("1공장");
+           const [urgentSubFactory, setUrgentSubFactory] = useState("");
+           const [urgentWorkLocation, setUrgentWorkLocation] = useState("");
+           const [urgentWorkContent, setUrgentWorkContent] = useState("");
+           const [urgentWorkTypes, setUrgentWorkTypes] = useState([]);
+           const [urgentSupervisor, setUrgentSupervisor] = useState("");
+
+           const WORK_TYPE_OPTIONS = ["고소", "중량물", "화기", "밀폐", "건설기계", "전기"];
+
+           const toggleUrgentWorkType = (type) => {
+               setUrgentWorkTypes(prev =>
+                   prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+               );
+           };
+
+           const handleAddUrgent = () => {
+               if (!urgentFactory) { showToast("공장을 선택해주세요."); return; }
+               const availableSubFactories = SUB_FACTORIES[urgentFactory] || [];
+               if (availableSubFactories.length > 0 && !urgentSubFactory) { showToast("하위 공장을 선택해주세요."); return; }
+               if (!urgentWorkLocation.trim()) { showToast("작업 위치를 입력해주세요."); return; }
+               if (!urgentWorkContent.trim()) { showToast("작업 내용을 입력해주세요."); return; }
+               if (!urgentSupervisor.trim()) { showToast("담당 감독자를 입력해주세요."); return; }
+
+               // 자동 완성 데이터 조합 (빈칸은 정규식으로 다듬어 단일 공백 처리)
+               const generatedTitle = `${urgentFactory} ${urgentSubFactory} ${urgentWorkLocation.trim()} ${urgentWorkContent.trim()}`.replace(/\s+/g, ' ').trim();
+               const generatedLocation = `${urgentSubFactory} ${urgentWorkLocation.trim()}`.trim();
+
+               const newItem = {
+                   id: `urgent-${Date.now()}`,
+                   no: `긴급`,
+                   factory: urgentFactory,
+                   rawFactory: urgentFactory,
+                   location: generatedLocation,
+                   title: generatedTitle,
+                   company: "긴급공사",
+                   supervisor: urgentSupervisor.trim(),
+                   assignedSupervisor: urgentSupervisor.trim(),
+                   spotLocation: generatedLocation,
+                   status: "pending",
+                   grade: "긴급",
+                   workType: urgentWorkTypes.length > 0 ? urgentWorkTypes.join("+") : "일반",
+                   memo: "",
+                   isUrgent: true
+               };
+
+               const updatedItems = [...items, newItem];
+               persistItems(updatedItems);
+               setShowAddModal(false);
+               
+               // 모달 닫기 시 상태 초기화
+               setUrgentFactory("1공장"); 
+               setUrgentSubFactory("");
+               setUrgentWorkLocation(""); 
+               setUrgentWorkContent("");
+               setUrgentSupervisor("");
+               setUrgentWorkTypes([]);
+               showToast("⚡ 긴급공사가 추가되었습니다.");
+           };
+
+           const showToast = (message) => {
+               setToast(message);
+               setTimeout(() => setToast(null), 2500);
+           };
+
+           const persistItems = async (newItems, metaOverride) => {
+               setItems(newItems);
+               setSyncStatus("saving");
+               const meta = metaOverride || { sheetTitle: sheetTitle || null };
+               try {
+                   const result = await MMEECStorage.save(newItems, meta);
+                   setSyncStatus(result.mode === "cloud" ? "saved" : "local");
+               } catch (e) {
+                   console.error(e);
+                   setSyncStatus("error");
+                   showToast("저장 실패 — 네트워크 확인 후 다시 시도");
+               }
+           };
+
+           useEffect(() => {
+               let mounted = true;
+               (async () => {
+                   setIsLoading(true);
+                   try {
+                       const data = await MMEECStorage.load();
+                       if (!mounted) return;
+                       setItems(data.items || []);
+                       setSessionId(data.sessionId);
+                       if (data.meta?.sheetTitle) setSheetTitle(data.meta.sheetTitle);
+                       setSyncStatus(MMEECStorage.isCloudEnabled() ? "saved" : "local");
+                   } catch (e) {
+                       console.error(e);
+                       showToast("데이터 불러오기 실패");
+                   } finally {
+                       if (mounted) setIsLoading(false);
+                   }
+               })();
+               return () => { mounted = false; };
+           }, []);
+
+           // ── Realtime 구독 ──────────────────────────────
+           useEffect(() => {
+               if (!MMEECStorage.isCloudEnabled()) return;
+               const sessionId = MMEECStorage.getSessionId();
+               const socket = MMEECStorage.subscribeRealtime(sessionId, async () => {
+                   try {
+                       const data = await MMEECStorage.load();
+                       setItems(data.items || []);
+                       if (data.meta?.sheetTitle) setSheetTitle(data.meta.sheetTitle);
+                       showToast("📡 데이터가 자동으로 업데이트되었습니다.");
+                   } catch (e) {
+                       console.warn("Realtime 업데이트 실패:", e);
+                   }
+               });
+               return () => { if (socket) socket.close(); };
+           }, []);
+
+           const handleChangeSession = async () => {
+               if (!sessionInput.trim()) { showToast("공사 코드를 입력해주세요."); return; }
+               MMEECStorage.setSessionId(sessionInput.trim());
+               setSessionId(sessionInput.trim());
+               setShowSessionModal(false);
+               setIsLoading(true);
+               try {
+                   const data = await MMEECStorage.load();
+                   setItems(data.items || []);
+                   if (data.meta?.sheetTitle) setSheetTitle(data.meta.sheetTitle);
+                   showToast(`공사 코드 [${sessionInput.trim()}] 로드 완료`);
+               } catch (e) {
+                   showToast("공사 코드 데이터 불러오기 실패");
+               } finally {
+                   setIsLoading(false);
+               }
+           };
+
+           const syncLabel = {
+               idle: "준비",
+               saving: "저장 중…",
+               saved: "☁️ 저장됨",
+               local: "📱 기기 저장",
+               error: "⚠️ 저장 실패"
+           }[syncStatus] || "";
+
+           // SheetJS 활용 엑셀/CSV 파일 파싱
+           const handleFileUpload = (e) => {
+               const file = e.target.files[0];
+               if (!file) return;
+
+               const reader = new FileReader();
+               reader.onload = (evt) => {
+                   const data = new Uint8Array(evt.target.result);
+                   const workbook = XLSX.read(data, { type: 'array' });
+                   const firstSheetName = workbook.SheetNames[0];
+                   const worksheet = workbook.Sheets[firstSheetName];
+                   
+                   const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                   const titleRow = rows.find(r => r && r[0] && String(r[0]).includes("주차"));
+                   const detectedTitle = titleRow ? String(titleRow[0]).trim() : firstSheetName;
+                   
+                   let headerRowIndex = -1;
+                   for (let i = 0; i < rows.length; i++) {
+                       if (rows[i] && rows[i].includes("NO") && rows[i].includes("공장")) {
+                           headerRowIndex = i;
+                           break;
+                       }
+                   }
+
+                   if (headerRowIndex === -1) {
+                       showToast("올바른 공사 양식 행(NO, 공장...)을 찾을 수 없습니다.");
+                       return;
+                   }
+
+                   const headers = rows[headerRowIndex];
+                   const noIdx = headers.indexOf("NO");
+                   const factoryIdx = headers.indexOf("공장");
+                   const bizIdx = headers.indexOf("사업장");
+                   const locIdx = headers.indexOf("세부위치");
+                   const nameIdx = headers.indexOf("공사명");
+                   const gradeIdx = headers.indexOf("등급");
+                   const workIdx = headers.indexOf("작업");
+                   const supervisorIdx = headers.indexOf("감독");
+
+                   // 날짜 컬럼 파싱: "11(토)", "12(일)" 형태 감지
+                   const dateColMap = {}; // { colIdx: { day, dow } }  dow: 0=일,6=토
+                   headers.forEach((h, i) => {
+                       if (!h) return;
+                       const m = String(h).match(/^(\d+)\s*[\(\（]([가-힣]+)[\)\）]/);
+                       if (!m) return;
+                       const dowMap = { 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6, 일: 0 };
+                       const dow = dowMap[m[2]];
+                       if (dow !== undefined) dateColMap[i] = { day: Number(m[1]), dow };
+                   });
+
+                   const parsedList = [];
+                   for (let i = headerRowIndex + 1; i < rows.length; i++) {
+                       const row = rows[i];
+                       if (!row || row.length === 0 || !row[noIdx]) continue;
+
+                       const rawFactory = row[factoryIdx] || "";
+                       const normalizedFactory = normalizeFactoryName(rawFactory);
+                       const rawSupervisor = row[supervisorIdx] || "";
+
+                       // 날짜별 투입 인원 수집
+                       const dateWorkers = {};
+                       Object.entries(dateColMap).forEach(([ci, info]) => {
+                           const val = Number(row[ci] || 0);
+                           dateWorkers[info.dow] = { day: info.day, workers: val };
+                       });
+
+                       parsedList.push({
+                           id: `mmeec-${row[noIdx]}-${normalizedFactory}-${String(row[nameIdx] || "").slice(0, 20)}`,
+                           no: row[noIdx],
+                           factory: normalizedFactory,
+                           rawFactory: rawFactory,
+                           location: row[locIdx] || "",
+                           title: row[nameIdx] || "",
+                           company: row[bizIdx] || "미지정 업체",
+                           supervisor: rawSupervisor,
+                           assignedSupervisor: rawSupervisor,
+                           spotLocation: "",
+                           status: "pending",
+                           grade: row[gradeIdx] || "B",
+                           workType: row[workIdx] || "",
+                           memo: "",
+                           dateWorkers, // { 6: {day:11,workers:5}, 0: {day:12,workers:3} }
+                       });
+                   }
+
+                   if (parsedList.length > 0) {
+                       const merged = MMEECStorage.mergeItems(items, parsedList);
+                       setSheetTitle(detectedTitle);
+                       persistItems(merged, { sheetTitle: detectedTitle });
+                       setActiveTab("전체");
+                       showToast(`총 ${parsedList.length}건 업로드 (기존 입력 유지)`);
+                   } else {
+                       showToast("추출된 공사 데이터가 없습니다.");
+                   }
+               };
+               reader.readAsArrayBuffer(file);
+           };
+
+           // 오늘 요일 자동 감지 (0=일 ~ 6=토)
+           const todayDow = new Date().getDay();
+
+           // TODAY 배지: 오늘 요일에 투입인원 > 0 이면 true
+           const isTodayItem = (item) => {
+               const dw = item.dateWorkers?.[todayDow];
+               return dw && dw.workers > 0;
+           };
+
+           // 당일 미포함 공사 (공사 추가 탭용) - 오늘 요일 기준
+           const extraItems = useMemo(() => {
+               return items.filter(item => {
+                   if (item.isUrgent) return false;
+                   const dw = item.dateWorkers?.[todayDow];
+                   return !dw || dw.workers === 0;
+               });
+           }, [items]);
+
+           const toggleExtraSelect = (id) => {
+               setSelectedExtras(prev =>
+                   prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+               );
+           };
+
+           const addExtraItems = () => {
+               const toAdd = items.map(item =>
+                   selectedExtras.includes(item.id)
+                       ? { ...item, dateWorkers: { ...item.dateWorkers, [todayDow]: { day: 0, workers: 1 } } }
+                       : item
+               );
+               persistItems(toAdd);
+               setSelectedExtras([]);
+               setShowAddModal(false);
+               showToast(`${selectedExtras.length}건이 오늘 목록에 추가됐습니다.`);
+           };
+
+           const activeFactories = useMemo(() => {
+               const set = new Set(items.map(item => item.factory));
+               const inData = SUPPORTED_FACTORIES.filter(f => set.has(f));
+               // myFactories가 설정된 경우 해당 공장만 표시
+               const filtered = myFactories
+                   ? inData.filter(f => myFactories.includes(f))
+                   : inData;
+               return ["전체", ...filtered];
+           }, [items, myFactories]);
+
+           const filteredItems = useMemo(() => {
+               // 날짜로 목록을 숨기지 않고 전체를 표시 (TODAY 배지로만 구분)
+               if (activeTab === "전체") return items;
+               return items.filter(item => item.factory === activeTab);
+           }, [items, activeTab]);
+
+           const getSupervisorPool = (factoryName) => {
+               const fixed = FIXED_SUPERVISORS[factoryName] || [];
+               const dynamicallyAssigned = items
+                   .filter(item => item.factory === factoryName && item.assignedSupervisor)
+                   .map(item => item.assignedSupervisor.trim());
+               return Array.from(new Set([...fixed, ...dynamicallyAssigned])).filter(Boolean);
+           };
+
+           const openBottomSheet = (item) => {
+               setSelectedItem(item);
+               setSpotLocation(item.spotLocation || "");
+               setAssignedSupervisor(item.assignedSupervisor || "");
+               setMemo(item.memo || "");
+               setDirectWorkers(item.directWorkers || "");
+               setDailyWorkers(item.dailyWorkers || "");
+               setPartnerName(item.partnerName || "");
+               setPartnerWorkers(item.partnerWorkers || "");
+               setReportStage(item.reportStage || "전");
+               setHasElderly(item.hasElderly || false);
+               setElderlyCount(item.elderlyCount || 1);
+               setShowHeatCalc && setShowHeatCalc(false);
+               setHeatTemp("");
+               setHeatHumidity("");
+               setHeatResults([]);
+           };
+
+           const handleSaveDetails = () => {
+               if (!selectedItem) return;
+
+               const isChecked = spotLocation.trim() !== "" && assignedSupervisor.trim() !== "";
+               const updatedItems = items.map(item => {
+                   if (item.id === selectedItem.id) {
+                       return {
+                           ...item,
+                           spotLocation: spotLocation.trim(),
+                           assignedSupervisor: assignedSupervisor.trim(),
+                           ...(item.isUrgent ? { location: spotLocation.trim() } : {}),
+                           memo: memo.trim(),
+                           directWorkers: directWorkers.toString().trim(),
+                           dailyWorkers: dailyWorkers.toString().trim(),
+                           partnerName: partnerName.trim(),
+                           partnerWorkers: partnerWorkers.toString().trim(),
+                           reportStage,
+                           hasElderly,
+                           elderlyCount,
+                           status: isChecked ? "checked" : "pending"
+                       };
+                   }
+                   return item;
+               });
+
+               persistItems(updatedItems);
+               setSelectedItem(null);
+               showToast("점검 기록이 저장되었습니다.");
+           };
+
+           // ── 작업유형 코드 → 안전대책 자동 매핑 ──────────────
+           const WORK_TYPE_SAFETY = {
+               "고": { name: "고소작업", measures: [
+                   "안전벨트(그네식) 착용 및 2중 고리 상부 구조물에 체결",
+                   "A형 사다리 사용 시 2인 1조 작업 및 아웃트리거 전개 (구역 설정)",
+                   "말비계 사용 시 끝단부 사용 금지",
+               ]},
+               "중": { name: "중량물", measures: [
+                   "중량물 취급 시 2인 1조 작업 및 상호 신호 철저",
+                   "체인블럭 사용 및 안전장치 체결",
+                   "중량물 이동 시 작업 지휘자 배치 및 낙하위험 방지",
+               ]},
+               "자": { name: "자동화설비", measures: [
+                   "자동화 공정(라인) 진입 시 전원 차단 및 LOTO 체결 (인적사항 기록)",
+                   "라인 투입 시 주위 장애물 확인",
+                   "2인 1조 작업 및 상호 신호 철저",
+               ]},
+               "화": { name: "화기작업", measures: [
+                   "화기(화재) 감시자 배치",
+                   "소화기 비치 및 소화전 통수",
+                   "불티방지막(방화포) 설치 및 가연물 제거",
+                   "화기 작업 후 잔불씨 확인",
+               ]},
+               "밀": { name: "밀폐공간", measures: [
+                   "밀폐 안전수칙 준수",
+                   "작업 전 산소 및 가스 측정 실시",
+                   "위험물 취급 주의 철저",
+               ]},
+               "건": { name: "건설기계", measures: [
+                   "렌탈(고소작업대) / 스카이 장비 사용 시 신호수 배치",
+                   "작업장(타 작업자, 차량) 통제",
+               ]},
+               "청": { name: "청소", measures: [
+                   "안전보호구 착용",
+                   "작업 전/후 구역 설정 및 주변 정리정돈",
+               ]},
+               "운": { name: "운반", measures: [
+                   "중량물 취급 시 2인 1조 작업 및 상호 신호 철저",
+                   "중량물 이동 시 작업 지휘자 배치 및 낙하위험 방지",
+               ]},
+               "전": { name: "전기작업", measures: [
+                   "자동화 공정(라인) 진입 시 전원 차단 및 LOTO 체결 (인적사항 기록)",
+                   "2인 1조 작업 및 상호 신호 철저",
+               ]},
+           };
+
+           // 공통 기본 수칙 (항상 포함)
+           const COMMON_MEASURES = [
+               "안전보호구 착용",
+               "작업 전/후 구역 설정 및 주변 정리정돈",
+               "작업자 건강 및 음주 여부 확인",
+           ];
+
+           const buildSafetyReport = (item, stage, elderly, elderlyCount) => {
+               const grade = (item.grade || "").trim();
+               const workCode = (item.workType || "").trim();
+
+               // 한 글자씩 분리 — 유효한 코드만
+               const validKeys = Object.keys(WORK_TYPE_SAFETY);
+               const codes = workCode.split("").filter(c => validKeys.includes(c));
+
+               // 유형별 대표 안전대책 1개씩만
+               const specificMeasures = [];
+               codes.forEach(c => {
+                   const entry = WORK_TYPE_SAFETY[c];
+                   if (entry && entry.measures.length > 0) {
+                       specificMeasures.push(entry.measures[0]);
+                   }
+               });
+
+               // 공통 수칙 + 유형별 대표 1개씩
+               const allMeasures = [...COMMON_MEASURES, ...specificMeasures];
+
+               const stageLabel = stage === "전" ? "공사 전" : stage === "중" ? "공사 중" : "공사 후";
+               // 작업유형: 등급만 표시
+               const workTypeLine = `${grade}급`;
+
+               // 고령자 문구
+               const elderlyLine = elderly
+                   ? `65세 이상 고령자 ${elderlyCount || "O"}명 / 작업 전 하지근력 및 평형성 테스트 실시`
+                   : `65세 이상 작업자 없음`;
+
+               // 작업위치: 직접 입력 우선, 없으면 사업장+세부위치
+               const fallbackLocation = [item.company, item.location].filter(Boolean).join(" ");
+               const location = item.spotLocation || fallbackLocation || "";
+
+               if (stage === "후") {
+                   return [
+                       `공사 후 안전작업 이행결과`,
+                       `*업 체 명 : ${item.companyName || "MMEEC"}`,
+                       `*허가번호 : 2607`,
+                       `*작업위치 : ${location}`,
+                       `*작업유형 : ${workTypeLine}`,
+                       `*작업내용 : ${item.title || ""}`,
+                       `*작업장 주변 정리정돈 후 작업 종료합니다.`,
+                   ].join("\n");
+               }
+
+               return [
+                   `공사 ${stage === "전" ? "전" : "중"} 안전작업 이행결과`,
+                   `*업 체 명 : ${item.companyName || "MMEEC"}`,
+                   `*허가번호 : 2607`,
+                   `*작업위치 : ${location}`,
+                   `*작업유형 : ${workTypeLine}`,
+                   `*작업내용 : ${item.title || ""}`,
+                   `*안전대책 :`,
+                   ...allMeasures.map(m => `  - ${m}`),
+                   `*65세이상 고령자 : ${elderlyLine}`,
+                   `* TBM 실시 후 작업 시작합니다.`,
+               ].join("\n");
+           };
+
+           const handleSafetyReportCopy = (item, e) => {
+               if (e) e.stopPropagation();
+               const location = item.spotLocation || item.location || "";
+               if (!location) {
+                   showToast("작업위치를 입력해주세요.");
+                   return;
+               }
+               const text = buildSafetyReport(item, item.reportStage || "전", item.hasElderly || false, item.elderlyCount || 1);
+               navigator.clipboard.writeText(text).then(() => {
+                   showToast("📋 안전보고문이 복사되었습니다.");
+               }).catch(() => {
+                   showToast("클립보드 복사에 실패했습니다.");
+               });
+           };
+
+           // 카톡 전송용 축약 복사 (카드별 개별 실행)
+           const handleKakaoCopy = (item, e) => {
+               if (e) e.stopPropagation();
+
+               if (!item.title || !item.spotLocation || !item.assignedSupervisor) {
+                   showToast("먼저 카드를 눌러 공사위치·감독자를 입력해주세요.");
+                   return;
+               }
+
+               const line1 = item.title;
+               const line2 = `  ${item.spotLocation}  감독-${item.assignedSupervisor}`;
+               const dCount = parseInt(item.directWorkers, 10) || 0;
+               const wCount = parseInt(item.dailyWorkers, 10) || 0;
+               const pCount = parseInt(item.partnerWorkers, 10) || 0;
+               const manpowerParts = [];
+               if (dCount > 0) manpowerParts.push(`직${dCount}`);
+               if (wCount > 0) manpowerParts.push(`일용${wCount}`);
+               if (item.partnerName && pCount > 0) manpowerParts.push(`${item.partnerName} ${pCount}`);
+               const line3 = manpowerParts.join(" ");
+
+               const text = [line1, line2, line3].filter(Boolean).join("\n");
+
+               navigator.clipboard.writeText(text).then(() => {
+                   showToast("💬 카톡용 문구가 복사되었습니다.");
+               }).catch(() => {
+                   showToast("클립보드 복사에 실패했습니다.");
+               });
+           };
+
+           const openFactoryFilter = () => {
+               setFilterDraft(myFactories ? [...myFactories] : [...SUPPORTED_FACTORIES]);
+               setShowFactoryFilter(true);
+           };
+
+           // 최초 실행 시 자동 팝업
+           useEffect(() => {
+               if (firstRun) {
+                   setFilterDraft(["4공장", "5공장"]);
+                   setShowFactoryFilter(true);
+               }
+           }, []);
+
+           // 암호 확인 후 실행
+           const openPwModal = (target) => {
+               setPwTarget(target);
+               setPwInput("");
+               setPwError(false);
+               setShowPwModal(true);
+           };
+
+           const confirmPw = () => {
+               if (pwInput !== "1895") {
+                   setPwError(true);
+                   return;
+               }
+               setShowPwModal(false);
+               if (pwTarget === "reset") {
+                   doReset();
+               } else if (pwTarget === "company") {
+                   setCompanyNameDraft(companyName);
+                   setShowCompanyEdit(true);
+               }
+           };
+
+           const toggleFilterFactory = (f) => {
+               setFilterDraft(prev =>
+                   prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
+               );
+           };
+
+           const saveFactoryFilter = () => {
+               const sorted = SUPPORTED_FACTORIES.filter(f => filterDraft.includes(f));
+               const value = sorted.length === SUPPORTED_FACTORIES.length ? null : sorted;
+               setMyFactories(value);
+               localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(value));
+               setShowFactoryFilter(false);
+               setActiveTab("전체");
+               showToast("내 공장 설정이 저장됐습니다.");
+           };
+
+           const [showCompanyEdit, setShowCompanyEdit] = useState(false);
+
+           const saveCompanyName = () => {
+               const name = companyNameDraft.trim() || "MMEEC";
+               setCompanyName(name);
+               localStorage.setItem("MMEEC_COMPANY_NAME", name);
+               setShowCompanyEdit(false);
+               showToast("회사명이 저장됐습니다.");
+           };
+
+           const doReset = async () => {
+               try {
+                   await MMEECStorage.clear(sessionId);
+               } catch (e) {
+                   console.error(e);
+               }
+               setItems([]);
+               setSheetTitle("");
+               setActiveTab("전체");
+               showToast("데이터가 초기화되었습니다.");
+           };
+
+           return (
+               <div class="max-w-md mx-auto bg-slate-50 min-h-screen pb-32 flex flex-col relative shadow-xl">
+                   
+                   {/* 상단 헤더 영역 */}
+                   <header class="bg-white border-b border-slate-200 px-4 py-4 shadow-xs">
+                       <div class="flex items-center justify-between mb-3">
+                           {/* 회사명 버튼 + 앱 제목 */}
+                           <div class="flex items-center gap-2">
+                               <button
+                                   onClick={() => openPwModal("company")}
+                                   class="bg-slate-900 text-amber-400 font-black text-sm px-2.5 py-1 rounded-lg active:scale-95 transition-all"
+                               >
+                                   {companyName}
+                               </button>
+                               <div>
+                                   <h1 class="text-xl font-bold text-slate-900 tracking-tight">포켓보드 <span class="text-amber-500 font-black">PRO</span></h1>
+                               </div>
+                           </div>
+                           {/* 우측 버튼 그룹 */}
+                           <div class="flex items-center gap-1.5">
+                               {items.length > 0 && (
+                                   <button onClick={() => openPwModal("reset")} class="text-xs text-rose-500 bg-rose-50 px-2.5 py-1.5 rounded-lg font-medium active:scale-95 transition-all">
+                                       초기화
+                                   </button>
+                               )}
+                               <button onClick={openFactoryFilter} class={`text-xs px-2.5 py-1.5 rounded-lg font-medium active:scale-95 transition-all ${myFactories ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                                   🏭 내 공장
+                               </button>
+                               <button onClick={() => setShowInfo(true)} class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1.5 rounded-lg font-medium active:scale-95 transition-all">
+                                   ℹ️
+                               </button>
+                           </div>
+                       </div>
+
+                       <button
+                           onClick={() => { setSessionInput(sessionId); setShowSessionModal(true); }}
+                           class="w-full mb-3 flex items-center justify-between bg-slate-100 hover:bg-slate-200 rounded-xl px-3 py-2.5 active:scale-[0.99] transition-all"
+                       >
+                           <span class="text-xs text-slate-500 font-semibold">공사 코드</span>
+                           <span class="text-sm font-black text-slate-800">{sessionId}</span>
+                       </button>
+                       {sheetTitle && (
+                           <p class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3 font-semibold truncate">{sheetTitle}</p>
+                       )}
+
+                       <div class="flex gap-2">
+                           <div class="relative group flex-1">
+                               <input 
+                                   type="file" 
+                                   id="excel-upload" 
+                                   accept=".xlsx, .xls, .csv" 
+                                   onChange={handleFileUpload} 
+                                   class="hidden" 
+                               />
+                               <label 
+                                   htmlFor="excel-upload" 
+                                   class="w-full flex items-center justify-center gap-2 bg-slate-900 text-white font-medium text-sm py-3 px-4 rounded-xl cursor-pointer active:scale-[0.98] transition-all shadow-sm"
+                               >
+                                   <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                       <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
+                                   </svg>
+                                   {items.length > 0 ? "파일 변경" : "엑셀/CSV 선택"}
+                               </label>
+                           </div>
+                           <button
+                               onClick={() => { setAddModalTab("extra"); setShowAddModal(true); }}
+                               class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-3 px-4 rounded-xl active:scale-[0.97] transition-all shadow-sm whitespace-nowrap"
+                           >
+                               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                   <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
+                               </svg>
+                               공사 추가
+                           </button>
+                       </div>
+                   </header>
+
+                   {/* 공장 가로 스크롤 탭 메뉴 */}
+                   {items.length > 0 && (
+                       <div class="bg-white border-b border-slate-100 sticky top-0 z-30 px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar shadow-xs">
+                           {activeFactories.map(factory => {
+                               const count = factory === "전체" ? items.length : items.filter(i => i.factory === factory).length;
+                               const pendingCount = factory === "전체" ? items.filter(i => i.status === "pending").length : items.filter(i => i.factory === factory && i.status === "pending").length;
+                               const isActive = activeTab === factory;
+                               
+                               return (
+                                   <button
+                                       key={factory}
+                                       onClick={() => setActiveTab(factory)}
+                                       class={`flex-shrink-0 min-w-[70px] px-3.5 py-2 rounded-xl text-base font-semibold tracking-tight transition-all active:scale-95 flex items-center gap-1.5 ${
+                                           isActive 
+                                           ? "bg-amber-500 text-white shadow-sm shadow-amber-200" 
+                                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                       }`}
+                                   >
+                                       <span>{factory}</span>
+                                       <span class={`px-1 py-0.2 rounded-md text-sm ${isActive ? "bg-amber-600 text-white" : "bg-slate-200 text-slate-700"}`}>
+                                           {pendingCount > 0 ? `${pendingCount}/${count}` : count}
+                                       </span>
+                                   </button>
+                               );
+                           })}
+                       </div>
+                   )}
+
+                   {/* 메인 대시보드 리스트 */}
+                   <main class="p-4 flex-1">
+                       {isLoading ? (
+                           <div class="flex flex-col items-center justify-center py-24 text-center">
+                               <div class="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4" />
+                               <p class="text-sm text-slate-500 font-semibold">데이터 불러오는 중…</p>
+                           </div>
+                       ) : items.length === 0 ? (
+                           <div class="flex flex-col items-center justify-center py-20 text-center px-6">
+                               <div class="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mb-4">
+                                   <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                       <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/>
+                                   </svg>
+                               </div>
+                               <h3 class="text-sm font-bold text-slate-800">로딩된 주말 공사 목록이 없습니다</h3>
+                               <p class="text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed">
+                                   상단의 검은색 버튼을 눌러 관리 PC에서 가져온 주말공사 엑셀 내역 파일을 선택해주세요.
+                               </p>
+                           </div>
+                       ) : (
+                           <div class="space-y-3.5">
+                               <div class="flex items-center justify-between px-1">
+                                   <span class="text-sm font-bold text-slate-400">공사 목록 ({filteredItems.length}건)</span>
+                                   <span class="text-sm bg-slate-200/70 text-slate-600 px-2 py-0.5 rounded-md font-medium">터치 시 기록/편집</span>
+                               </div>
+
+                               {filteredItems.map(item => {
+                                   const isPending = item.status === "pending";
+                                   return (
+                                       <div
+                                           key={item.id}
+                                           onClick={() => openBottomSheet(item)}
+                                           class={`bg-white rounded-2xl p-4 border transition-all duration-200 cursor-pointer active:scale-[0.99] shadow-xs relative overflow-hidden ${
+                                               isPending 
+                                               ? "border-amber-300 bg-linear-to-br from-amber-50/20 to-white" 
+                                               : "border-slate-200 opacity-80"
+                                           }`}
+                                       >
+                                           <div class="flex items-start justify-between gap-4 mb-2.5">
+                                               <div class="flex items-center gap-1.5 flex-wrap">
+                                                   <span class={`text-base px-2 py-0.5 rounded-md font-extrabold tracking-wide ${
+                                                       item.grade === "긴급" ? "bg-rose-600 text-white" :
+                                                       item.grade.startsWith("A") ? "bg-rose-100 text-rose-700" :
+                                                       item.grade.startsWith("P") ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-800"
+                                                   }`}>
+                                                       {item.grade === "긴급" ? "⚡ 긴급" : `${item.grade}급`}
+                                                   </span>
+                                                   <span class="text-base font-bold text-slate-400">NO.{item.no}</span>
+                                                   <span class="text-base bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold">{item.factory}</span>
+                                               </div>
+                                               
+                                               <div class="flex items-center gap-1.5">
+                                                   {(item.isUrgent || isTodayItem(item)) && (
+                                                       <span class="text-sm bg-sky-500 text-white px-2 py-0.5 rounded-md font-black tracking-wide">TODAY</span>
+                                                   )}
+                                                   <span class={`text-base px-2 py-0.5 rounded-full font-bold ${
+                                                       isPending ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
+                                                   }`}>
+                                                       {isPending ? "확인필요" : "공사중"}
+                                                   </span>
+                                               </div>
+                                           </div>
+
+                                           <h4 class="text-lg font-bold text-slate-900 leading-snug mb-1">{item.title}</h4>
+                                           <p class="text-base text-slate-500 mb-2 font-medium">
+                                               상세위치: <span class="text-slate-700 font-semibold">{item.location || "-"}</span>
+                                               <span class="mx-2 text-slate-300">|</span>
+                                               작업: <span class="text-slate-700 font-semibold">{item.workType || "일반"}</span>
+                                           </p>
+                                           
+                                           <div class="bg-slate-50 rounded-xl p-2.5 space-y-1.5 text-sm">
+                                               <div class="flex items-center justify-between border-t border-slate-200/50 pt-1.5">
+                                                   <span class="text-base text-slate-900 font-bold">🎯 공사위치</span>
+                                                   <span class={`font-black ${item.spotLocation ? "text-amber-600" : "text-rose-500 animate-pulse"}`}>
+                                                       {item.spotLocation || "미입력 상태"}
+                                                   </span>
+                                               </div>
+                                               <div class="flex items-center justify-between border-t border-slate-200/50 pt-1.5">
+                                                   <span class="text-base text-slate-900 font-bold">🟡 담당 감독자</span>
+                                                   <span class={`font-bold ${item.assignedSupervisor ? "text-slate-800" : "text-rose-500 font-black"}`}>
+                                                       {item.assignedSupervisor || "미배정"}
+                                                   </span>
+                                               </div>
+                                               {item.memo && (
+                                                   <div class="text-sm text-amber-700 bg-amber-50/50 p-1.5 rounded-lg mt-1 border border-amber-100/50">
+                                                       📝 {item.memo}
+                                                   </div>
+                                               )}
+                                               {/* 체감온도 - 해당 카드에서 계산한 결과만 표시 */}
+                                               {item.lastHeatStatus && (
+                                                   <div class={`flex items-center justify-between mt-2 px-3 py-2 rounded-xl ${
+                                                       item.lastHeatStatus.color === "red"    ? "bg-red-600" :
+                                                       item.lastHeatStatus.color === "orange" ? "bg-orange-400" :
+                                                       item.lastHeatStatus.color === "yellow" ? "bg-yellow-400" :
+                                                       item.lastHeatStatus.color === "sky"    ? "bg-sky-400" :
+                                                       "bg-slate-100"
+                                                   }`}>
+                                                       <span class={`text-xs font-semibold ${item.lastHeatStatus.color === "slate" ? "text-slate-500" : "text-white"}`}>🌡️ 체감온도</span>
+                                                       <span class={`text-sm font-black flex items-center gap-1 ${item.lastHeatStatus.color === "slate" ? "text-slate-700" : "text-white"}`}>
+                                                           {item.lastHeatStatus.color === "sky"    ? "○" :
+                                                            item.lastHeatStatus.color === "yellow" ? "■" :
+                                                            item.lastHeatStatus.color === "orange" ? "▲" :
+                                                            item.lastHeatStatus.color === "red"    ? "◆" : ""}
+                                                           {item.lastHeatStatus.value}℃ {item.lastHeatStatus.level}
+                                                       </span>
+                                                   </div>
+                                               )}
+                                           </div>
+
+                                           <button
+                                               type="button"
+                                               onClick={(e) => handleKakaoCopy(item, e)}
+                                               class="w-full mt-3 flex items-center justify-center gap-1.5 bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-sm py-2.5 rounded-xl active:scale-[0.98] transition-all"
+                                           >
+                                               💬 카톡 복사
+                                           </button>
+                                       </div>
+                                   );
+                               })}
+                           </div>
+                       )}
+                   </main>
+
+                   {/* 바텀 시트 모달 컴포넌트 */}
+                   <div class={`fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${selectedItem ? "opacity-100 visible" : "opacity-0 invisible"}`}>
+                       <div 
+                           onClick={() => setSelectedItem(null)} 
+                           class="absolute inset-0"
+                       />
+                       <div class={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[28px] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 transform max-h-[85vh] overflow-y-auto ${
+                           selectedItem ? "translate-y-0" : "translate-y-full"
+                       }`}>
+                           
+                           <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-5" />
+
+                           {selectedItem && (
+                               <div class="space-y-5">
+                                   <div>
+                                       <div class="flex items-center gap-2 mb-1">
+                                           {selectedItem.isUrgent ? (
+                                               <span class="text-sm bg-rose-600 text-white px-2 py-0.5 rounded font-bold">⚡ 긴급</span>
+                                           ) : (
+                                               <span class="text-sm bg-slate-900 text-white px-2 py-0.5 rounded font-bold">{selectedItem.factory}</span>
+                                           )}
+                                           <span class="text-sm text-slate-400 font-medium">
+                                               {selectedItem.isUrgent ? `${selectedItem.factory} · 긴급공사` : `NO.${selectedItem.no} 공사 정보 기록`}
+                                           </span>
+                                       </div>
+                                       <h3 class="text-lg font-bold text-slate-900 leading-snug">{selectedItem.title}</h3>
+                                       {!selectedItem.isUrgent && (
+                                           <p class="text-sm text-slate-400 mt-1">도면/원안 위치: {selectedItem.location || "없음"}</p>
+                                       )}
+                                       {selectedItem.isUrgent && (
+                                           <p class="text-xs text-rose-500 font-semibold mt-1 bg-rose-50 px-2 py-1 rounded-lg inline-block">
+                                               작업구분: {selectedItem.workType}
+                                           </p>
+                                       )}
+                                   </div>
+
+                                   {/* 🌡️ 체감온도 계산기 - 항상 펼침 */}
+                                   <div class="bg-sky-50 border border-sky-200 rounded-2xl p-4 space-y-3">
+                                       <p class="text-base font-black text-sky-800">🌡️ 체감온도 계산기 <span class="text-xs font-normal text-sky-500">(안전보건공단 KOSHA 공식)</span></p>
+                                       <div class="grid grid-cols-2 gap-2">
+                                           <div class="relative">
+                                               <input type="number" inputMode="decimal" placeholder="기온" value={heatTemp}
+                                                   onChange={(e) => setHeatTemp(e.target.value)}
+                                                   onKeyDown={(e) => e.key === "Enter" && calcHeatIndex()}
+                                                   class="w-full bg-white border border-sky-200 rounded-xl pl-3 pr-9 py-2.5 text-base focus:outline-none focus:border-sky-500 transition-all"/>
+                                               <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-sky-400 font-bold">℃</span>
+                                           </div>
+                                           <div class="relative">
+                                               <input type="number" inputMode="decimal" placeholder="습도" value={heatHumidity}
+                                                   onChange={(e) => setHeatHumidity(e.target.value)}
+                                                   onKeyDown={(e) => e.key === "Enter" && calcHeatIndex()}
+                                                   class="w-full bg-white border border-sky-200 rounded-xl pl-3 pr-9 py-2.5 text-base focus:outline-none focus:border-sky-500 transition-all"/>
+                                               <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-sky-400 font-bold">%</span>
+                                           </div>
+                                       </div>
+                                       <button type="button" onClick={calcHeatIndex}
+                                           class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl text-sm active:scale-[0.98] transition-all">
+                                           계산하기
+                                       </button>
+
+                                       {/* 누적 결과 */}
+                                       {heatResults.length > 0 && (
+                                           <div class="space-y-2 max-h-[220px] overflow-y-auto">
+                                               {heatResults.map((r, i) => (
+                                                   <div key={i} class={`rounded-xl px-3 py-2.5 border-2 ${
+                                                       r.color === "red"    ? "bg-red-600 border-red-700" :
+                                                       r.color === "orange" ? "bg-orange-400 border-orange-500" :
+                                                       r.color === "yellow" ? "bg-yellow-400 border-yellow-500" :
+                                                       r.color === "sky"    ? "bg-sky-400 border-sky-500" :
+                                                       "bg-slate-100 border-slate-200"
+                                                   }`}>
+                                                       <div class="flex items-center justify-between">
+                                                           <span class={`text-sm font-semibold ${r.color === "slate" ? "text-slate-600" : "text-white"}`}>
+                                                               {r.temp}℃ / {r.humidity}%
+                                                               <span class="text-xs opacity-80 ml-2">{r.time}</span>
+                                                           </span>
+                                                           <span class={`text-base font-black flex items-center gap-1 ${r.color === "slate" ? "text-slate-700" : "text-white"}`}>
+                                                               {r.color === "sky"    ? "○" :
+                                                                r.color === "yellow" ? "■" :
+                                                                r.color === "orange" ? "▲" :
+                                                                r.color === "red"    ? "◆" : ""}
+                                                               {r.value}℃ {r.level}
+                                                           </span>
+                                                       </div>
+                                                       <p class={`text-xs mt-1 ${r.color === "slate" ? "text-slate-500" : "text-white/90"}`}>{r.guide}</p>
+                                                   </div>
+                                               ))}
+                                           </div>
+                                       )}
+                                   </div>
+
+                                   {/* 공사위치 입력란 - 층수/기둥 탭 */}
+                                   <div class="space-y-1.5">
+                                       <label class="text-base font-bold text-slate-800 flex items-center gap-1">
+                                           <span>🎯 {selectedItem.isUrgent ? "공사위치 수정" : "공사위치"}</span>
+                                           <span class="text-rose-500">*</span>
+                                       </label>
+                                       <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                                           {/* 층수 탭 */}
+                                           {["B1","1층","2층","2.5층","3층","옥상","옥외"].map(f => (
+                                               <button key={f} type="button"
+                                                   onClick={() => setSpotLocation(prev => {
+                                                       const floors = ["B1","1층","2층","2.5층","3층","옥상","옥외"];
+                                                       const parts = prev.split(" ").filter(p => !floors.includes(p));
+                                                       return [f, ...parts].join(" ").trim();
+                                                   })}
+                                                   class={`px-3 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${spotLocation.includes(f) ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-600"}`}>
+                                                   {f}
+                                               </button>
+                                           ))}
+                                       </div>
+                                       <input
+                                           type="text"
+                                           placeholder="기둥번호·구역 직접 입력 (예: C-01, 샤시메인)"
+                                           value={spotLocation}
+                                           onChange={(e) => setSpotLocation(e.target.value)}
+                                           class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px]"
+                                       />
+                                   </div>
+
+                                   {/* 감독자 셀렉터 */}
+                                   <div class="space-y-2">
+                                       <label class="text-base font-bold text-slate-800 flex items-center gap-1">
+                                           <span>🟡 담당 감독자 지정</span>
+                                           <span class="text-rose-500">*</span>
+                                       </label>
+                                       <div class="flex flex-wrap gap-1.5 max-h-[110px] overflow-y-auto p-0.5">
+                                           {getSupervisorPool(selectedItem.factory).map(name => (
+                                               <button key={name} type="button" onClick={() => setAssignedSupervisor(name)}
+                                                   class={`px-3 py-2 text-sm font-semibold rounded-xl transition-all active:scale-95 min-h-[44px] ${
+                                                       assignedSupervisor === name ? "bg-amber-500 text-white shadow-xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>
+                                                   {name}
+                                               </button>
+                                           ))}
+                                           {getSupervisorPool(selectedItem.factory).length === 0 && (
+                                               <span class="text-xs text-slate-400 italic">등록된 추천 고정 감독자가 없습니다.</span>
+                                           )}
+                                       </div>
+                                       <input type="text" placeholder="명단에 없는 감독자 이름 직접 입력"
+                                           value={assignedSupervisor} onChange={(e) => setAssignedSupervisor(e.target.value)}
+                                           class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px] mt-1"/>
+                                   </div>
+
+                                   {/* 작업 인원 */}
+                                   <div class="space-y-1.5">
+                                       <label class="text-base font-bold text-slate-800">👷🏻‍♂️ 작업 인원</label>
+                                       <div class="grid grid-cols-2 gap-3">
+                                           <div class="relative">
+                                               <input type="number" inputMode="numeric" min="0" placeholder="0" value={directWorkers} onChange={(e) => setDirectWorkers(e.target.value)}
+                                                   class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px]"/>
+                                               <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold">직영</span>
+                                           </div>
+                                           <div class="relative">
+                                               <input type="number" inputMode="numeric" min="0" placeholder="0" value={dailyWorkers} onChange={(e) => setDailyWorkers(e.target.value)}
+                                                   class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px]"/>
+                                               <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold">일용</span>
+                                           </div>
+                                       </div>
+                                       <div class="grid grid-cols-2 gap-3 mt-1">
+                                           <input type="text" placeholder="협력사명" value={partnerName} onChange={(e) => setPartnerName(e.target.value)}
+                                               class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px]"/>
+                                           <div class="relative">
+                                               <input type="number" inputMode="numeric" min="0" placeholder="0" value={partnerWorkers} onChange={(e) => setPartnerWorkers(e.target.value)}
+                                                   class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px]"/>
+                                               <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold">명</span>
+                                           </div>
+                                       </div>
+                                   </div>
+
+                                   {/* 현장 메모 */}
+                                   <div class="space-y-1.5">
+                                       <label class="text-base font-bold text-slate-800">📝 특이사항 메모</label>
+                                       <textarea rows="2" placeholder="Memo here"
+                                           value={memo} onChange={(e) => setMemo(e.target.value)}
+                                           class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all resize-none"/>
+                                   </div>
+
+                                   {/* 저장/취소 */}
+                                   <div class="grid grid-cols-2 gap-3 pt-2">
+                                       <button type="button" onClick={() => setSelectedItem(null)}
+                                           class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]">
+                                           닫기
+                                       </button>
+                                       <button type="button" onClick={handleSaveDetails}
+                                           class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl text-base shadow-xs active:scale-95 transition-all min-h-[52px]">
+                                           입력 완료
+                                       </button>
+                                   </div>
+
+                                   {/* 안전보고문 섹션 */}
+                                   <div class="border-t border-slate-100 pt-4 space-y-3">
+                                       <p class="text-base font-bold text-slate-800">📋 안전보고문 복사</p>
+
+                                       {/* 공사 단계 - 한 줄 sky */}
+                                       <div class="space-y-1.5">
+                                           <label class="text-sm font-semibold text-slate-500">공사 단계</label>
+                                           <div class="flex gap-2">
+                                               {["전", "중", "후"].map(s => (
+                                                   <button key={s} type="button" onClick={() => setReportStage(s)}
+                                                       class={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${reportStage === s ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500"}`}>
+                                                       공사{s}
+                                                   </button>
+                                               ))}
+                                           </div>
+                                       </div>
+
+                                       {/* 65세 이상 - 한 줄: 있음 | 명 입력 | 없음 */}
+                                       {reportStage !== "후" && (
+                                           <div class="space-y-1.5">
+                                               <label class="text-sm font-semibold text-slate-500">65세 이상 고령자</label>
+                                               <div class="flex gap-2 items-center">
+                                                   <button type="button" onClick={() => setHasElderly(true)}
+                                                       class={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${hasElderly ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500"}`}>
+                                                       있음
+                                                   </button>
+                                                   {hasElderly && (
+                                                       <div class="relative w-24">
+                                                           <input type="number" inputMode="numeric" min="1" value={elderlyCount}
+                                                               onChange={(e) => setElderlyCount(e.target.value)}
+                                                               class="w-full text-center border-2 border-sky-300 rounded-xl py-2 text-base font-bold focus:outline-none focus:border-sky-500"/>
+                                                           <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">명</span>
+                                                       </div>
+                                                   )}
+                                                   <button type="button" onClick={() => setHasElderly(false)}
+                                                       class={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${!hasElderly ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500"}`}>
+                                                       없음
+                                                   </button>
+                                               </div>
+                                           </div>
+                                       )}
+
+                                       <button type="button"
+                                           onClick={() => {
+                                               const synthetic = { ...selectedItem, spotLocation, assignedSupervisor, reportStage, hasElderly, elderlyCount, companyName };
+                                               handleSafetyReportCopy(synthetic);
+                                           }}
+                                           class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-3 rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-1.5">
+                                           📋 안전보고문 복사
+                                       </button>
+                                   </div>
+                               </div>
+                           )}
+                       </div>
+                   </div>
+
+                   {/* 글로벌 토스트 */}
+                   {toast && (
+                       <div class="fixed top-6 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-xl z-50 transition-all animate-bounce max-w-[280px] text-center border border-slate-700">
+                           {toast}
+                       </div>
+                   )}
+
+                   {/* 공사 코드 변경 모달 */}
+                   <div class={`fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${showSessionModal ? "opacity-100 visible" : "opacity-0 invisible"}`}>
+                       <div onClick={() => setShowSessionModal(false)} class="absolute inset-0" />
+                       <div class={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[28px] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 transform ${showSessionModal ? "translate-y-0" : "translate-y-full"}`}>
+                           <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
+                           <h3 class="text-lg font-black text-slate-900 mb-1">공사 코드 설정</h3>
+                           <p class="text-xs text-slate-400 mb-4 leading-relaxed">같은 코드를 쓰면 팀원 모바일에서도 입력 내용이 동기화됩니다.<br/>예: <span class="font-bold text-slate-600">2025-06-4week</span></p>
+                           <input
+                               type="text"
+                               value={sessionInput}
+                               onChange={(e) => setSessionInput(e.target.value.replace(/\s/g, ""))}
+                               placeholder="공사 코드 입력"
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-amber-500 mb-4 min-h-[52px]"
+                           />
+                           <div class="grid grid-cols-2 gap-3">
+                               <button type="button" onClick={() => setShowSessionModal(false)} class="w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl min-h-[52px]">취소</button>
+                               <button type="button" onClick={handleChangeSession} class="w-full bg-amber-500 text-white font-bold py-3.5 rounded-xl min-h-[52px]">적용</button>
+                           </div>
+                       </div>
+                   </div>
+
+                   {/* ── 프로그램 정보 모달 ── */}
+                   {showInfo && (
+                       <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6">
+                           <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+                               <div class="text-center">
+                                   <div class="text-4xl mb-2">⚡</div>
+                                   <h2 class="text-xl font-black text-slate-900">{companyName} 포켓보드 PRO</h2>
+                                   <p class="text-base text-slate-500 mt-1">버전 1.0</p>
+                               </div>
+                               <div class="bg-slate-50 rounded-2xl p-4 space-y-2 text-base">
+                                   <div class="flex justify-between">
+                                       <span class="text-slate-500">만든이</span>
+                                       <span class="font-semibold text-slate-800">aibulapia@gmail.com</span>
+                                   </div>
+                               </div>
+                               <p class="text-xs text-slate-400 text-center leading-relaxed">
+                                   제작자의 동의 없이 상기 페이지의 내용 및<br/>무단 복제를 엄금합니다.
+                               </p>
+                               <button onClick={() => setShowInfo(false)} class="w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all">
+                                   확인
+                               </button>
+                           </div>
+                       </div>
+                   )}
+
+                   {/* ── 암호 입력 모달 (초기화 / 회사명 수정 공용) ── */}
+                   {showPwModal && (
+                       <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6">
+                           <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+                               <h2 class="text-lg font-black text-slate-900 text-center">
+                                   {pwTarget === "reset" ? "🔐 초기화 확인" : "🔐 회사명 수정"}
+                               </h2>
+                               <p class="text-base text-slate-500 text-center">암호를 입력해주세요.</p>
+                               <input
+                                   type="password"
+                                   inputMode="numeric"
+                                   maxLength="4"
+                                   value={pwInput}
+                                   onChange={(e) => { setPwInput(e.target.value); setPwError(false); }}
+                                   onKeyDown={(e) => e.key === "Enter" && confirmPw()}
+                                   placeholder="●●●●"
+                                   class={`w-full text-center text-2xl tracking-[0.5em] border-2 rounded-2xl py-3 focus:outline-none transition-all ${pwError ? "border-rose-400 bg-rose-50" : "border-slate-200 focus:border-amber-400"}`}
+                                   autoFocus
+                               />
+                               {pwError && <p class="text-sm text-rose-500 text-center font-semibold">암호가 틀렸습니다.</p>}
+                               <div class="grid grid-cols-2 gap-3">
+                                   <button onClick={() => setShowPwModal(false)} class="w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all">취소</button>
+                                   <button onClick={confirmPw} class="w-full bg-amber-500 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all">확인</button>
+                               </div>
+                           </div>
+                       </div>
+                   )}
+
+                   {/* ── 회사명 편집 모달 ── */}
+                   {showCompanyEdit && (
+                       <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6">
+                           <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+                               <h2 class="text-lg font-black text-slate-900 text-center">🏢 회사명 수정</h2>
+                               <input
+                                   type="text"
+                                   value={companyNameDraft}
+                                   onChange={(e) => setCompanyNameDraft(e.target.value)}
+                                   placeholder="예: MMEEC"
+                                   class="w-full text-center text-xl font-bold border-2 border-slate-200 focus:border-amber-400 rounded-2xl py-3 focus:outline-none transition-all"
+                                   autoFocus
+                               />
+                               <div class="grid grid-cols-2 gap-3">
+                                   <button onClick={() => setShowCompanyEdit(false)} class="w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all">취소</button>
+                                   <button onClick={saveCompanyName} class="w-full bg-amber-500 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all">저장</button>
+                               </div>
+                           </div>
+                       </div>
+                   )}
+
+                   {/* 내 공장 필터 설정 모달 */}
+                   <div class={`fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${showFactoryFilter ? "opacity-100 visible" : "opacity-0 invisible"}`}>
+                       <div onClick={() => setShowFactoryFilter(false)} class="absolute inset-0" />
+                       <div class={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[28px] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 transform ${showFactoryFilter ? "translate-y-0" : "translate-y-full"}`}>
+                           <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
+                           <h3 class="text-lg font-black text-slate-900 mb-1">🏭 내 담당 공장 설정</h3>
+                           <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+                               선택한 공장 탭만 내 화면에 표시됩니다.<br/>
+                               다른 사람 화면에는 영향 없이 <span class="font-bold text-slate-600">이 기기에만</span> 저장됩니다.
+                           </p>
+                           <div class="grid grid-cols-3 gap-2 mb-6">
+                               {SUPPORTED_FACTORIES.map(f => {
+                                   const selected = filterDraft.includes(f);
+                                   return (
+                                       <button
+                                           key={f}
+                                           type="button"
+                                           onClick={() => toggleFilterFactory(f)}
+                                           class={`py-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${selected ? "bg-amber-500 text-white shadow-sm" : "bg-slate-100 text-slate-500"}`}
+                                       >
+                                           {f}
+                                       </button>
+                                   );
+                               })}
+                           </div>
+                           <p class="text-xs text-slate-400 text-center mb-3">
+                               {filterDraft.length === 0 ? "⚠️ 최소 1개 이상 선택해주세요" : `${filterDraft.length}개 공장 선택됨`}
+                           </p>
+                           <div class="grid grid-cols-2 gap-3">
+                               <button type="button" onClick={() => setShowFactoryFilter(false)} class="w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl min-h-[52px]">취소</button>
+                               <button
+                                   type="button"
+                                   onClick={saveFactoryFilter}
+                                   disabled={filterDraft.length === 0}
+                                   class={`w-full font-bold py-3.5 rounded-xl min-h-[52px] transition-all ${filterDraft.length === 0 ? "bg-slate-200 text-slate-400" : "bg-amber-500 text-white"}`}
+                               >
+                                   저장
+                               </button>
+                           </div>
+                       </div>
+                   </div>
+
+                   {/* 공사 추가 모달 */}
+                   <div class={`fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${showAddModal ? "opacity-100 visible" : "opacity-0 invisible"}`}>
+                       <div onClick={() => setShowAddModal(false)} class="absolute inset-0" />
+                       <div class={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[28px] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 transform max-h-[92vh] overflow-y-auto ${showAddModal ? "translate-y-0" : "translate-y-full"}`}>
+                           <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
+
+                           {/* 탭 선택 */}
+                           <div class="flex gap-2 mb-4">
+                               <button type="button" onClick={() => setAddModalTab("extra")}
+                                   class={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${addModalTab === "extra" ? "bg-slate-900 text-amber-400" : "bg-slate-100 text-slate-500"}`}>
+                                   📋 당일 공사 추가
+                               </button>
+                               <button type="button" onClick={() => setAddModalTab("urgent")}
+                                   class={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${addModalTab === "urgent" ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                                   ⚡ 긴급공사 등록
+                               </button>
+                           </div>
+
+                           {/* 당일 공사 추가 탭 */}
+                           {addModalTab === "extra" && (
+                               <div class="space-y-3">
+                                   <p class="text-sm text-slate-400">오늘 날짜에 미포함된 공사를 선택해 추가합니다.</p>
+                                   {extraItems.length === 0 ? (
+                                       <div class="text-center py-10 text-slate-400 text-sm">
+                                           모든 공사가 오늘 목록에 포함되어 있습니다.
+                                       </div>
+                                   ) : (
+                                       <>
+                                           <div class="space-y-2 max-h-[50vh] overflow-y-auto">
+                                               {extraItems.map(item => (
+                                                   <div key={item.id}
+                                                       onClick={() => toggleExtraSelect(item.id)}
+                                                       class={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedExtras.includes(item.id) ? "border-amber-400 bg-amber-50" : "border-slate-100 bg-white"}`}>
+                                                       <div class={`w-5 h-5 rounded-md border-2 flex-shrink-0 mt-0.5 flex items-center justify-center ${selectedExtras.includes(item.id) ? "bg-amber-500 border-amber-500" : "border-slate-300"}`}>
+                                                           {selectedExtras.includes(item.id) && <span class="text-white text-xs font-black">✓</span>}
+                                                       </div>
+                                                       <div>
+                                                           <p class="text-sm font-bold text-slate-800">{item.title}</p>
+                                                           <p class="text-xs text-slate-400">{item.factory} · {item.location}</p>
+                                                       </div>
+                                                   </div>
+                                               ))}
+                                           </div>
+                                           <button type="button" onClick={addExtraItems}
+                                               disabled={selectedExtras.length === 0}
+                                               class={`w-full font-bold py-3.5 rounded-2xl text-base transition-all ${selectedExtras.length > 0 ? "bg-amber-500 text-white active:scale-95" : "bg-slate-100 text-slate-400"}`}>
+                                               {selectedExtras.length > 0 ? `${selectedExtras.length}건 당일 목록에 추가` : "항목을 선택해주세요"}
+                                           </button>
+                                       </>
+                                   )}
+                               </div>
+                           )}
+
+                           {/* 긴급공사 등록 탭 */}
+                           {addModalTab === "urgent" && (
+                           <div class="space-y-4">
+                           <div class="flex items-center gap-2 mb-2">
+                               <div class="w-8 h-8 bg-rose-600 rounded-xl flex items-center justify-center">
+                                   <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                       <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round"/>
+                                   </svg>
+                               </div>
+                               <div>
+                                   <h3 class="text-base font-black text-slate-900">긴급공사 등록 마법사</h3>
+                                   <p class="text-xs text-slate-400">선택한 정보로 공사명이 자동 생성됩니다.</p>
+                               </div>
+                           </div>
+
+                           <div class="space-y-6">
+                               {/* Step 1. 공장 및 하위공장 선택 */}
+                               <div class="space-y-2">
+                                   <label class="text-sm font-black text-slate-800 flex items-center gap-1">
+                                       Step 1. 공장 선택 <span class="text-rose-500">*</span>
+                                   </label>
+                                   <div class="flex flex-wrap gap-1.5">
+                                       {SUPPORTED_FACTORIES.map(f => (
+                                           <button
+                                               key={f}
+                                               type="button"
+                                               onClick={() => {
+                                                   setUrgentFactory(f);
+                                                   setUrgentSubFactory(""); // 하위 공장 초기화
+                                               }}
+                                               class={`px-3 py-2 text-sm font-semibold rounded-xl transition-all active:scale-95 min-h-[40px] ${
+                                                   urgentFactory === f
+                                                   ? "bg-slate-900 text-white"
+                                                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                               }`}
+                                           >{f}</button>
+                                       ))}
+                                   </div>
+
+                                   {/* 하위 공장(부서) 동적 렌더링 */}
+                                   {SUB_FACTORIES[urgentFactory] && SUB_FACTORIES[urgentFactory].length > 0 && (
+                                       <div class="flex flex-wrap gap-1.5 mt-2 bg-rose-50/50 p-2 rounded-xl border border-rose-100">
+                                           {SUB_FACTORIES[urgentFactory].map(sub => (
+                                               <button
+                                                   key={sub}
+                                                   type="button"
+                                                   onClick={() => setUrgentSubFactory(sub)}
+                                                   class={`px-3 py-1.5 text-sm font-bold rounded-lg transition-all active:scale-95 ${
+                                                       urgentSubFactory === sub
+                                                       ? "bg-rose-500 text-white shadow-sm"
+                                                       : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                                                   }`}
+                                               >{sub}</button>
+                                           ))}
+                                       </div>
+                                   )}
+                               </div>
+
+                               {/* Step 2. 작업 위치 입력 */}
+                               <div class="space-y-1.5">
+                                   <label class="text-sm font-black text-slate-800 flex items-center gap-1">
+                                       Step 2. 작업 위치 <span class="text-rose-500">*</span>
+                                   </label>
+                                   <input
+                                       type="text"
+                                       placeholder="예: DL1, 상도1, 샤시메인 등"
+                                       value={urgentWorkLocation}
+                                       onChange={(e) => setUrgentWorkLocation(e.target.value)}
+                                       class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-rose-500 focus:bg-white transition-all"
+                                   />
+                               </div>
+
+                               {/* Step 3. 작업 내용 입력 */}
+                               <div class="space-y-1.5">
+                                   <label class="text-sm font-black text-slate-800 flex items-center gap-1">
+                                       Step 3. 작업 내용 <span class="text-rose-500">*</span>
+                                   </label>
+                                   <input
+                                       type="text"
+                                       placeholder="예: 발판 개선 작업, 누수 보수 등"
+                                       value={urgentWorkContent}
+                                       onChange={(e) => setUrgentWorkContent(e.target.value)}
+                                       class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-rose-500 focus:bg-white transition-all"
+                                   />
+                               </div>
+
+                               {/* 자동 생성 결과 실시간 미리보기 */}
+                               <div class="bg-amber-50 border border-amber-200 rounded-xl p-3.5 shadow-inner">
+                                   <p class="text-xs text-amber-700 font-bold mb-1 flex items-center gap-1">
+                                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                       공사명 자동 생성 결과
+                                   </p>
+                                   <p class="text-base font-black text-slate-900 break-keep">
+                                       {`${urgentFactory} ${urgentSubFactory} ${urgentWorkLocation} ${urgentWorkContent}`.replace(/\s+/g, ' ').trim() || "상단 항목을 선택 및 입력해주세요."}
+                                   </p>
+                               </div>
+
+                               {/* Step 4. 작업 구분 */}
+                               <div class="space-y-1.5 pt-2 border-t border-slate-100">
+                                   <label class="text-sm font-black text-slate-800">Step 4. 작업 구분 <span class="text-slate-400 font-normal text-xs">(복수 선택 가능)</span></label>
+                                   <div class="flex flex-wrap gap-2">
+                                       {WORK_TYPE_OPTIONS.map(type => (
+                                           <button
+                                               key={type}
+                                               type="button"
+                                               onClick={() => toggleUrgentWorkType(type)}
+                                               class={`px-3 py-2 text-sm font-bold rounded-xl transition-all active:scale-95 min-h-[44px] ${
+                                                   urgentWorkTypes.includes(type)
+                                                   ? "bg-amber-500 text-white shadow-sm"
+                                                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                               }`}
+                                           >{type}</button>
+                                       ))}
+                                   </div>
+                               </div>
+
+                               {/* Step 5. 담당 감독자 */}
+                               <div class="space-y-2">
+                                   <label class="text-sm font-black text-slate-800 flex items-center gap-1">
+                                       Step 5. 담당 감독자 <span class="text-rose-500">*</span>
+                                   </label>
+                                   <div class="flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto p-0.5">
+                                       {getSupervisorPool(urgentFactory).map(name => (
+                                           <button
+                                               key={name}
+                                               type="button"
+                                               onClick={() => setUrgentSupervisor(name)}
+                                               class={`px-3 py-2 text-sm font-semibold rounded-xl transition-all active:scale-95 min-h-[40px] ${
+                                                   urgentSupervisor === name
+                                                   ? "bg-rose-600 text-white"
+                                                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                               }`}
+                                           >{name}</button>
+                                       ))}
+                                   </div>
+                                   <input
+                                       type="text"
+                                       placeholder="명단에 없는 감독자 직접 입력"
+                                       value={urgentSupervisor}
+                                       onChange={(e) => setUrgentSupervisor(e.target.value)}
+                                       class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-rose-500 focus:bg-white transition-all"
+                                   />
+                               </div>
+
+                               {/* 등록 버튼 */}
+                               <div class="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
+                                   <button type="button" onClick={() => setShowAddModal(false)}
+                                       class="w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]"
+                                   >취소</button>
+                                   <button type="button" onClick={handleAddUrgent}
+                                       class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3.5 rounded-xl text-base shadow-sm active:scale-95 transition-all min-h-[52px]"
+                                   >⚡ 등록 완료</button>
+                               </div>
+                           </div>
+                           </div>
+                           )}
+
+                       </div>
+                   </div>
+
+               </div>
+           );
+       }
+
+       const container = document.getElementById('root');
+       const root = ReactDOM.createRoot(container);
+       root.render(<App />);
+   </script>
+</body>
+</html>

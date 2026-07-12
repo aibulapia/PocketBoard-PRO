@@ -1,0 +1,19 @@
+{
+  "name": "MMEEC 포켓보드 PRO",
+  "short_name": "포켓보드",
+  "description": "주말공사 현장 점검 · 긴급공사 등록",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#f59e0b",
+  "orientation": "portrait",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%230f172a'/%3E%3Ctext x='96' y='118' font-size='72' text-anchor='middle' fill='%23f59e0b'%3E⚡%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
