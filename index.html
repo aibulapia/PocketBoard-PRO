@@ -220,12 +220,15 @@
                    level, color, guide,
                    time: new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
                };
-               setHeatResults(prev => [entry, ...prev]);
+               const newResults = [entry, ...heatResults];
+               setHeatResults(newResults);
                setCurrentHeatStatus(entry);
-               // 해당 카드에만 체감온도 기록 저장
+               // 해당 카드에만 체감온도 기록 저장 (결과 배열 + 최신 상태)
                if (selectedItem) {
                    const updatedItems = items.map(it =>
-                       it.id === selectedItem.id ? { ...it, lastHeatStatus: entry } : it
+                       it.id === selectedItem.id
+                           ? { ...it, lastHeatStatus: entry, heatResults: newResults }
+                           : it
                    );
                    persistItems(updatedItems);
                    sendHeatToSheet(selectedItem, entry);
@@ -548,10 +551,9 @@
                setReportStage(item.reportStage || "전");
                setHasElderly(item.hasElderly || false);
                setElderlyCount(item.elderlyCount || 1);
-               setShowHeatCalc && setShowHeatCalc(false);
                setHeatTemp("");
                setHeatHumidity("");
-               setHeatResults([]);
+               setHeatResults(item.heatResults || []); // 해당 카드의 기록만 불러오기
            };
 
            const handleSaveDetails = () => {
@@ -1095,6 +1097,13 @@
                                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-sky-400 font-bold">%</span>
                                            </div>
                                        </div>
+
+                                       {/* 📋 측정주기 안내 */}
+                                       <div class="bg-white/70 border border-sky-200 rounded-xl px-3 py-2 text-xs text-sky-700 leading-relaxed">
+                                           <p class="font-bold">📋 측정주기 <span class="font-normal text-sky-500">※ 기온 급등 시 수시 측정</span></p>
+                                           <p>기본 일2회 &nbsp;/&nbsp; 주의(33℃↑) 매2시간 &nbsp;/&nbsp; 경고(35℃↑) 매1시간·수시</p>
+                                       </div>
+
                                        <button type="button" onClick={calcHeatIndex}
                                            class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl text-sm active:scale-[0.98] transition-all">
                                            계산하기
