@@ -1,0 +1,24 @@
+# Cloudflare Pages 보안/캐시 헤더
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+/index.html
+  Cache-Control: max-age=3600, must-revalidate
+
+/*.js
+  Cache-Control: max-age=31536000, immutable
+
+/*.css
+  Cache-Control: max-age=31536000, immutable
+
+/icon-*.png
+  Cache-Control: max-age=31536000, immutable
+
+/manifest.json
+  Cache-Control: max-age=86400
+  Content-Type: application/json; charset=utf-8
