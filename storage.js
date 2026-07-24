@@ -131,29 +131,35 @@ async function clear(sessionId) {
 
   if (!isCloudEnabled()) return;
 
-  const cfg = getConfig();
-  await fetch(
-    `${cfg.supabaseUrl}/rest/v1/pocket_sessions?session_id=eq.${encodeURIComponent(sessionId)}`,
-    {
-      method: "DELETE",
-      headers: {
-        apikey: cfg.supabaseKey,
-        Authorization: `Bearer ${cfg.supabaseKey}`,
-      },
-    }
-  );
+  // RLS 강화(v2.1)로 DELETE가 차단되므로 빈 배열로 덮어쓰기 방식 사용
+  await saveCloud(sessionId, [], { sheetTitle: null });
 }
 
 function itemKey(item) {
   return `${item.no}|${item.factory}|${item.title}`;
 }
 
+// 보조 키: 공사명 오탈자 수정 등으로 title이 바뀌어도
+// NO+공장이 같으면 기존 입력(위치/감독자/메모)을 유지
+function looseKey(item) {
+  return `${item.no}|${item.factory}`;
+}
+
 function mergeItems(existing, parsed, urgentOnly) {
-  const map = new Map();
-  existing.forEach((item) => map.set(itemKey(item), item));
+  const exactMap = new Map();
+  const looseMap = new Map();
+  existing.forEach((item) => {
+    exactMap.set(itemKey(item), item);
+    // 긴급공사는 NO가 "긴급"으로 동일하므로 보조 키 매칭에서 제외
+    if (!item.isUrgent) {
+      const lk = looseKey(item);
+      // 동일 보조 키가 여러 개면 신뢰할 수 없으므로 무효 처리
+      looseMap.set(lk, looseMap.has(lk) ? null : item);
+    }
+  });
 
   const merged = parsed.map((p) => {
-    const old = map.get(itemKey(p));
+    const old = exactMap.get(itemKey(p)) || looseMap.get(looseKey(p)) || null;
     if (!old) return p;
     return {
       ...p,
@@ -162,6 +168,21 @@ function mergeItems(existing, parsed, urgentOnly) {
       assignedSupervisor: old.assignedSupervisor || p.assignedSupervisor,
       memo: old.memo || "",
       status: old.status || "pending",
+      directWorkers: old.directWorkers || "",
+      dailyWorkers: old.dailyWorkers || "",
+      partnerName: old.partnerName || "",
+      partnerWorkers: old.partnerWorkers || "",
+      heatResults: old.heatResults || [],
+      lastHeatStatus: old.lastHeatStatus || null,
+      // v2.5 일일 사이클 필드 보존
+      pastWorkDays: old.pastWorkDays || 0,
+      activeMark: old.activeMark || null,
+      todayOff: old.todayOff || null,
+      extendHour: (old.extendHour ?? null),
+      dayKey: old.dayKey || null,
+      reportStage: old.reportStage || "전",
+      hasElderly: old.hasElderly || false,
+      elderlyCount: old.elderlyCount || "1",
     };
   });
 
