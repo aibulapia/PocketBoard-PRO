@@ -9,7 +9,7 @@
    <meta name="apple-mobile-web-app-status-bar-style" content="default">
    <meta name="theme-color" content="#f59e0b">
    <link rel="manifest" href="manifest.json">
-   <title>MMEEC 현장 점검 포켓보드 PRO 2.5</title>
+   <title>MMEEC 현장 점검 포켓보드 PRO 2.6</title>
    <link rel="apple-touch-icon" href="icon-192.png">
    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -74,7 +74,7 @@
        const { useState, useEffect, useMemo } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.5.3";
+       const APP_VERSION = "2.6";
        const ADMIN_PASSWORD = "1895";
 
        // ── 외부 데이터 (data.js) ─────────────────────────
@@ -164,15 +164,13 @@
            const [firstRun] = useState(() => !localStorage.getItem("MMEEC_MY_FACTORIES"));
 
            // 개인별 공장 필터 (localStorage 기반, 기기마다 독립)
+           //  (12번) 기본값 자동 지정 제거 — 최초엔 null, 강제 설정 유도
            const [myFactories, setMyFactories] = useState(() => {
                try {
                    const saved = localStorage.getItem("MMEEC_MY_FACTORIES");
-                   if (saved) return JSON.parse(saved);
-                   // 기본값: 4공장, 5공장
-                   const defaults = ["4공장", "5공장"];
-                   localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(defaults));
-                   return defaults;
-               } catch { return ["4공장", "5공장"]; }
+                   if (saved) { const v = JSON.parse(saved); return (Array.isArray(v) && v.length) ? v : null; }
+                   return null;
+               } catch { return null; }
            });
            const [showFactoryFilter, setShowFactoryFilter] = useState(false);
            const [filterDraft, setFilterDraft] = useState([]);
@@ -880,17 +878,24 @@
            };
 
            const openFactoryFilter = () => {
-               setFilterDraft(myFactories ? [...myFactories] : [...SUPPORTED_FACTORIES]);
+               setFilterDraft(myFactories ? [...myFactories] : []);
                setShowFactoryFilter(true);
            };
 
-           // 최초 실행 시 자동 팝업
+           // (12번) 최초/미설정 시 내 공장 설정 강제 팝업
            useEffect(() => {
-               if (firstRun) {
-                   setFilterDraft(["4공장", "5공장"]);
+               if (!myFactories || myFactories.length === 0) {
+                   setFilterDraft([]);
                    setShowFactoryFilter(true);
                }
            }, []);
+
+           // 초기 활성 탭 = 첫 번째 내 공장 (없으면 전체)
+           useEffect(() => {
+               if (myFactories && myFactories.length > 0) {
+                   setActiveTab(myFactories[0]);
+               }
+           }, [isLoading]);
 
            // 암호 확인 후 실행
            const openPwModal = (target) => {
@@ -922,11 +927,15 @@
 
            const saveFactoryFilter = () => {
                const sorted = SUPPORTED_FACTORIES.filter(f => filterDraft.includes(f));
-               const value = sorted.length === SUPPORTED_FACTORIES.length ? null : sorted;
-               setMyFactories(value);
-               localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(value));
+               // (12번) 최소 1개 강제 — 빈 선택이면 저장/닫기 차단
+               if (sorted.length === 0) {
+                   showToast("내 공장을 1개 이상 선택해주세요.");
+                   return;
+               }
+               setMyFactories(sorted);
+               localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(sorted));
                setShowFactoryFilter(false);
-               setActiveTab("전체");
+               setActiveTab(sorted[0]); // 첫 번째 내 공장으로 이동
                showToast("내 공장 설정이 저장됐습니다.");
            };
 
@@ -1258,13 +1267,13 @@
                                </label>
                            </div>
                            <button
-                               onClick={() => { setAddModalTab("extra"); setShowAddModal(true); }}
+                               onClick={() => { setAddModalTab("urgent"); setShowAddModal(true); }}
                                class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-3 px-4 rounded-xl active:scale-[0.97] transition-all shadow-sm whitespace-nowrap"
                            >
                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                    <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
                                </svg>
-                               공사 추가
+                               긴급공사
                            </button>
                        </div>
                    </header>
@@ -1814,7 +1823,7 @@
 
                    {/* 내 공장 필터 설정 모달 */}
                    <div class={`fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${showFactoryFilter ? "opacity-100 visible" : "opacity-0 invisible"}`}>
-                       <div onClick={() => setShowFactoryFilter(false)} class="absolute inset-0" />
+                       <div onClick={() => { if (myFactories && myFactories.length) setShowFactoryFilter(false); else showToast("내 공장을 1개 이상 선택해주세요."); }} class="absolute inset-0" />
                        <div class={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[28px] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 transform ${showFactoryFilter ? "translate-y-0" : "translate-y-full"}`}>
                            <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
                            <h3 class="text-lg font-black text-slate-900 mb-1">🏭 내 담당 공장 설정</h3>
@@ -1841,7 +1850,7 @@
                                {filterDraft.length === 0 ? "⚠️ 최소 1개 이상 선택해주세요" : `${filterDraft.length}개 공장 선택됨`}
                            </p>
                            <div class="grid grid-cols-2 gap-3">
-                               <button type="button" onClick={() => setShowFactoryFilter(false)} class="w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl min-h-[52px]">취소</button>
+                               <button type="button" onClick={() => { if (myFactories && myFactories.length) setShowFactoryFilter(false); else showToast("내 공장을 1개 이상 선택해주세요."); }} class="w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl min-h-[52px]">취소</button>
                                <button
                                    type="button"
                                    onClick={saveFactoryFilter}
@@ -1860,55 +1869,10 @@
                        <div class={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[28px] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 transform max-h-[92vh] overflow-y-auto ${showAddModal ? "translate-y-0" : "translate-y-full"}`}>
                            <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
 
-                           {/* 탭 선택 */}
-                           <div class="flex gap-2 mb-4">
-                               <button type="button" onClick={() => setAddModalTab("extra")}
-                                   class={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${addModalTab === "extra" ? "bg-slate-900 text-amber-400" : "bg-slate-100 text-slate-500"}`}>
-                                   📋 당일 공사 추가
-                               </button>
-                               <button type="button" onClick={() => setAddModalTab("urgent")}
-                                   class={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${addModalTab === "urgent" ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-500"}`}>
-                                   ⚡ 긴급공사 등록
-                               </button>
-                           </div>
+                           {/* (11번) '당일 공사 추가' 탭 삭제 — 긴급공사 등록만 유지 */}
 
-                           {/* 당일 공사 추가 탭 */}
-                           {addModalTab === "extra" && (
-                               <div class="space-y-3">
-                                   <p class="text-sm text-slate-400">오늘 날짜에 미포함된 공사를 선택해 추가합니다.</p>
-                                   {extraItems.length === 0 ? (
-                                       <div class="text-center py-10 text-slate-400 text-sm">
-                                           모든 공사가 오늘 목록에 포함되어 있습니다.
-                                       </div>
-                                   ) : (
-                                       <>
-                                           <div class="space-y-2 max-h-[50vh] overflow-y-auto">
-                                               {extraItems.map(item => (
-                                                   <div key={item.id}
-                                                       onClick={() => toggleExtraSelect(item.id)}
-                                                       class={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedExtras.includes(item.id) ? "border-amber-400 bg-amber-50" : "border-slate-100 bg-white"}`}>
-                                                       <div class={`w-5 h-5 rounded-md border-2 flex-shrink-0 mt-0.5 flex items-center justify-center ${selectedExtras.includes(item.id) ? "bg-amber-500 border-amber-500" : "border-slate-300"}`}>
-                                                           {selectedExtras.includes(item.id) && <span class="text-white text-xs font-black">✓</span>}
-                                                       </div>
-                                                       <div>
-                                                           <p class="text-sm font-bold text-slate-800">{item.title}</p>
-                                                           <p class="text-xs text-slate-400">{item.factory} · {item.location}</p>
-                                                       </div>
-                                                   </div>
-                                               ))}
-                                           </div>
-                                           <button type="button" onClick={addExtraItems}
-                                               disabled={selectedExtras.length === 0}
-                                               class={`w-full font-bold py-3.5 rounded-2xl text-base transition-all ${selectedExtras.length > 0 ? "bg-amber-500 text-white active:scale-95" : "bg-slate-100 text-slate-400"}`}>
-                                               {selectedExtras.length > 0 ? `${selectedExtras.length}건 당일 목록에 추가` : "항목을 선택해주세요"}
-                                           </button>
-                                       </>
-                                   )}
-                               </div>
-                           )}
-
-                           {/* 긴급공사 등록 탭 */}
-                           {addModalTab === "urgent" && (
+                           {/* 긴급공사 등록 */}
+                           {true && (
                            <div class="space-y-4">
                            <div class="flex items-center gap-2 mb-2">
                                <div class="w-8 h-8 bg-rose-600 rounded-xl flex items-center justify-center">
