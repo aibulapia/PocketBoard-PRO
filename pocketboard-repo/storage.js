@@ -174,6 +174,15 @@ function mergeItems(existing, parsed, urgentOnly) {
       partnerWorkers: old.partnerWorkers || "",
       heatResults: old.heatResults || [],
       lastHeatStatus: old.lastHeatStatus || null,
+      // v2.5 일일 사이클 필드 보존
+      pastWorkDays: old.pastWorkDays || 0,
+      activeMark: old.activeMark || null,
+      todayOff: old.todayOff || null,
+      extendHour: (old.extendHour ?? null),
+      dayKey: old.dayKey || null,
+      reportStage: old.reportStage || "전",
+      hasElderly: old.hasElderly || false,
+      elderlyCount: old.elderlyCount || "1",
     };
   });
 
