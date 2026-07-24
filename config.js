@@ -13,4 +13,6 @@ window.APP_CONFIG = {
   kmaNy: 84,
   // 기상특보 관할 지점 (159 = 부산지방기상청: 부산·울산·경남)
   kmaWrnStnId: 159,
+  // 특보 텍스트에서 우리 지역만 걸러낼 키워드 (양정동=울산서부 L1082900)
+  kmaAreaKeyword: "울산",
 };
