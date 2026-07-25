@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.14</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.16</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -74,7 +74,7 @@
        const { useState, useEffect, useMemo } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.14";
+       const APP_VERSION = "2.16";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -91,6 +91,11 @@
        const FIXED_SUPERVISORS = D.FIXED_SUPERVISORS || {};
        const FLOOR_TABS = D.FLOOR_TABS || ["B1","1층","2층","2.5층","3층","옥상","옥외"];
        const WORK_TYPE_SAFETY = D.WORK_TYPE_SAFETY || {};
+       // 긴급공사 라벨 → 안전대책 코드. data.js가 구버전(캐시)이어도 동작하도록 폴백 유지
+       const WORK_TYPE_LABEL_CODE = D.WORK_TYPE_LABEL_CODE || {
+           "고소": "고", "중량물": "중", "화기": "화", "밀폐": "밀", "건설기계": "건",
+           "전기": "전", "자동화": "자", "청소": "청", "운반": "운", "도색": "도"
+       };
        const COMMON_MEASURES = D.COMMON_MEASURES || [];
 
        // ── 06시 일일 체계 유틸 (하루 = 06:00 ~ 익일 05:59) ──
@@ -201,7 +206,7 @@
            const [spotLocation, setSpotLocation] = useState("");
            const [assignedSupervisor, setAssignedSupervisor] = useState("");
            const [memo, setMemo] = useState("");
-           const [showMemoResetConfirm, setShowMemoResetConfirm] = useState(false); // (v2.14) 메모 초기화 확인 팝업
+           const [showCardResetConfirm, setShowCardResetConfirm] = useState(false); // (v2.14) 카드 입력 초기화 확인 팝업
            const [directWorkers, setDirectWorkers] = useState("");
            const [dailyWorkers, setDailyWorkers] = useState("");
            const [partnerName, setPartnerName] = useState("");
@@ -306,7 +311,7 @@
            const [urgentWorkTypes, setUrgentWorkTypes] = useState([]);
            const [urgentSupervisor, setUrgentSupervisor] = useState("");
 
-           const WORK_TYPE_OPTIONS = D.WORK_TYPE_OPTIONS || ["고소", "중량물", "화기", "밀폐", "건설기계", "전기"];
+           const WORK_TYPE_OPTIONS = D.WORK_TYPE_OPTIONS || ["고소", "중량물", "화기", "밀폐", "건설기계", "전기", "자동화", "청소", "운반", "도색"];
 
            // ── 분 단위 틱: 06시 넘김/17시 전환 자동 감지용 리렌더 ──
            const [nowTick, setNowTick] = useState(() => new Date());
@@ -790,6 +795,35 @@
                showToast("점검 기록이 저장되었습니다.");
            };
 
+           // (v2.14) 카드 입력 초기화 — 공사위치/감독자/인원/메모/고령자/연장 전부 초기화 + "공사전"으로 복귀.
+           //  체감온도 기록(heatResults, lastHeatStatus)은 보존한다.
+           const handleCardReset = () => {
+               if (!selectedItem) return;
+               const updatedItems = items.map(item => {
+                   if (item.id !== selectedItem.id) return item;
+                   return {
+                       ...item,
+                       spotLocation: "",
+                       assignedSupervisor: "",
+                       ...(item.isUrgent ? { location: "" } : {}),
+                       memo: "",
+                       directWorkers: "",
+                       dailyWorkers: "",
+                       partnerName: "",
+                       partnerWorkers: "",
+                       hasElderly: false,
+                       elderlyCount: "1",
+                       extendHour: null,
+                       status: "pending",
+                       // heatResults / lastHeatStatus 는 건드리지 않음 — 보존
+                   };
+               });
+               persistItems(updatedItems);
+               setShowCardResetConfirm(false);
+               setSelectedItem(null);
+               showToast("입력 내용이 초기화되어 공사전 상태로 되돌아갔습니다.");
+           };
+
            // 작업유형 안전대책/공통수칙은 data.js(APP_DATA)에서 로드됨
 
            // (1번) 단계별 폭염 기준 기록 찾기 — 06시 체계
@@ -811,9 +845,21 @@
                const grade = (item.grade || "").trim();
                const workCode = (item.workType || "").trim();
 
-               // 한 글자씩 분리 — 유효한 코드만
+               // 코드 추출
+               //  · 긴급공사: "자동화+청소" 형태(라벨 + 구분자) → 매핑표로 변환
+               //    ※ 라벨을 글자 단위로 쪼개면 "자동화"의 '화'가 화기작업으로 오인식되므로 반드시 매핑표 사용
+               //  · 엑셀 공사: "고중" 형태(코드 나열) → 글자 단위 분리
                const validKeys = Object.keys(WORK_TYPE_SAFETY);
-               const codes = workCode.split("").filter(c => validKeys.includes(c));
+               let codes;
+               if (workCode.includes("+") || WORK_TYPE_LABEL_CODE[workCode]) {
+                   codes = workCode.split("+")
+                       .map(label => WORK_TYPE_LABEL_CODE[label.trim()])
+                       .filter(c => c && validKeys.includes(c));
+               } else {
+                   codes = workCode.split("").filter(c => validKeys.includes(c));
+               }
+               // 중복 제거 (같은 대책 반복 방지)
+               codes = Array.from(new Set(codes));
 
                // 유형별 대표 안전대책 1개씩만
                const specificMeasures = [];
@@ -1045,7 +1091,12 @@
                const TTL = 60 * 60 * 1000; // 1시간
                if (!force && weather && Date.now() - weather.ts < TTL) return;
                setWeatherLoading(true);
-               const result = { ts: Date.now(), temp: null, humidity: null, warnings: [], bulletin: "", error: null };
+               const result = { ts: Date.now(), temp: null, humidity: null, warnings: [], bulletin: "", error: null,
+                                wrnOk: false, wrnCheckedAt: null, wrnStale: false };
+               // 직전 특보 상태 (조회 실패 시 그대로 유지하기 위한 보관용)
+               const prev = weather || (() => {
+                   try { return JSON.parse(localStorage.getItem("MMEEC_WEATHER") || "null"); } catch { return null; }
+               })();
 
                // 직접 호출 실패(CORS 등) 시 Apps Script 프록시 폴백
                const getJson = async (url) => {
@@ -1100,7 +1151,22 @@
                    result.warnings = Array.from(new Set(found.map(s => s.replace(/\s+/g, ""))));
                    // 전문(탭 펼침용): 우리 지역 라인 우선, 없으면 t6 전체
                    result.bulletin = (regionLines.length ? regionLines.join("\n") : t6).trim().slice(0, 800);
-               } catch (e) { console.warn("기상특보 조회 실패:", e); if (!result.error) result.error = "특보"; }
+                   // 조회 성공 → 현재 목록이 곧 유효 특보. 우리 지역이 목록에 없으면 "해제"로 보고 즉시 삭제됨.
+                   result.wrnOk = true;
+                   result.wrnCheckedAt = Date.now();
+                   result.wrnStale = false;
+               } catch (e) {
+                   console.warn("기상특보 조회 실패:", e);
+                   if (!result.error) result.error = "특보";
+                   // 조회 실패 = "해제 확인"이 아님 → 직전에 확인된 특보 상태를 그대로 유지 (임의 삭제 금지)
+                   result.wrnOk = false;
+                   if (prev) {
+                       result.warnings = prev.warnings || [];
+                       result.bulletin = prev.bulletin || "";
+                       result.wrnCheckedAt = prev.wrnCheckedAt || prev.ts || null;
+                   }
+                   result.wrnStale = (result.warnings || []).length > 0;
+               }
                setWeather(result);
                try { localStorage.setItem("MMEEC_WEATHER", JSON.stringify(result)); } catch {}
                setWeatherLoading(false);
@@ -1413,8 +1479,8 @@
  
                    {/* 상단 헤더 영역 */}
                    <header class="bg-white border-b border-slate-200 px-4 py-4 shadow-xs">
+                       {/* 줄1: 로고 + 제목(터치불가) + ❓ 정보버튼 */}
                        <div class="flex items-center justify-between mb-3">
-                           {/* 회사명 버튼 + 앱 제목 */}
                            <div class="flex items-center gap-2 min-w-0 overflow-hidden">
                                <button
                                    onClick={() => openPwModal("company")}
@@ -1427,35 +1493,31 @@
                                        <span class="text-slate-900 font-black text-sm px-1 whitespace-nowrap">{companyName}</span>
                                    )}
                                </button>
-                               <button onClick={() => setShowInfo(true)} class="active:scale-95 transition-all text-left min-w-0 flex-shrink">
-                                   <h1 class="text-xl font-bold text-slate-900 tracking-tight whitespace-nowrap">포켓보드 <span class="text-amber-500 font-black">PRO</span></h1>
-                               </button>
+                               <h1 class="text-xl font-bold text-slate-900 tracking-tight truncate min-w-0">포켓보드 <span class="text-amber-500 font-black">PRO</span></h1>
                            </div>
-                           {/* 우측 버튼 그룹 (v2.13: 날씨는 TODAY 줄로 이동. 내공장·초기화만) */}
-                           <div class="flex items-center gap-1.5">
-                               <button onClick={openFactoryFilter} class={`text-xs px-2.5 py-1.5 rounded-lg font-medium active:scale-95 transition-all ${myFactories ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                                   🏭 내 공장
-                               </button>
-                               {items.length > 0 && (
-                                   <button onClick={() => openPwModal("reset")} class="text-xs text-rose-500 bg-rose-50 px-2.5 py-1.5 rounded-lg font-medium active:scale-95 transition-all">
-                                       초기화
-                                   </button>
-                               )}
-                           </div>
+                           <button onClick={() => setShowInfo(true)} class="flex-shrink-0 text-xs bg-slate-100 text-slate-600 w-7 h-7 rounded-lg font-bold active:scale-95 transition-all ml-2">
+                               ❓
+                           </button>
                        </div>
 
-                       <button
-                           onClick={() => { setSessionInput(sessionId); setShowSessionModal(true); }}
-                           class="w-full mb-3 flex items-center justify-between bg-slate-100 hover:bg-slate-200 rounded-xl px-3 py-2.5 active:scale-[0.99] transition-all"
-                       >
-                           <span class="text-xs text-slate-500 font-semibold">공사 코드</span>
-                           <span class="text-sm font-black text-slate-800">{sessionId}</span>
-                       </button>
-                       {sheetTitle && (
-                           <p class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3 font-semibold truncate">{sheetTitle}</p>
-                       )}
+                       {/* 줄2: 공사 코드 + 초기화 */}
+                       <div class="flex items-center gap-2 mb-3">
+                           <button
+                               onClick={() => { setSessionInput(sessionId); setShowSessionModal(true); }}
+                               class="flex-1 min-w-0 flex items-center justify-between bg-slate-100 hover:bg-slate-200 rounded-xl px-3 py-2.5 active:scale-[0.99] transition-all"
+                           >
+                               <span class="text-xs text-slate-500 font-semibold">공사 코드</span>
+                               <span class="text-sm font-black text-slate-800 truncate ml-2">{sessionId}</span>
+                           </button>
+                           {items.length > 0 && (
+                               <button onClick={() => openPwModal("reset")} class="flex-shrink-0 text-xs text-rose-500 bg-rose-50 px-3 py-2.5 rounded-xl font-medium active:scale-95 transition-all">
+                                   초기화
+                               </button>
+                           )}
+                       </div>
 
-                       <div class="flex gap-2">
+                       {/* 줄3: 파일 변경 / 긴급공사 (배너 줄보다 먼저) */}
+                       <div class="flex gap-2 mb-3">
                            <div class="relative group flex-1">
                                <input 
                                    type="file" 
@@ -1482,6 +1544,18 @@
                                    <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
                                </svg>
                                긴급공사
+                           </button>
+                       </div>
+
+                       {/* 줄4: 공사기간 배너 + 내 공장 */}
+                       <div class="flex items-center gap-2">
+                           {sheetTitle ? (
+                               <p class="flex-1 min-w-0 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 font-semibold truncate">{sheetTitle}</p>
+                           ) : (
+                               <div class="flex-1" />
+                           )}
+                           <button onClick={openFactoryFilter} class={`flex-shrink-0 text-xs px-2.5 py-2 rounded-lg font-medium active:scale-95 transition-all whitespace-nowrap ${myFactories ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                               🏭 내 공장
                            </button>
                        </div>
                    </header>
@@ -1527,14 +1601,14 @@
                                <button onClick={() => { setShowWeather(true); fetchWeather(false); }} class="text-xs bg-sky-50 text-sky-600 px-2.5 py-1 rounded-md font-medium active:scale-95 transition-all">
                                    🌤️ 날씨
                                </button>
-                               {/* (v2.14) 임의 날짜 공사 목록 조회: ◀ 날짜 ▶. 오늘=파랑+볼드(TODAY 표기), 다른 날=회색 */}
+                               {/* (v2.14) 임의 날짜 공사 목록 조회: ◀ 날짜 ▶. 오늘=파랑, 다른 날=회색 ("TODAY" 문구는 표시 안 함) */}
                                <div class={`flex items-center gap-0.5 rounded-md pl-0.5 pr-1 py-0.5 ${dateOffset === 0 ? "bg-sky-500" : "bg-slate-400"}`}>
                                    <button onClick={() => setDateOffset(o => o - 1)} aria-label="이전 날짜"
                                        class="text-white font-black w-5 h-5 flex items-center justify-center active:scale-90 transition-all">
                                        ◀
                                    </button>
                                    <span class="text-sm text-white px-1 font-black tracking-wide whitespace-nowrap">
-                                       {dateOffset === 0 ? `TODAY ${selectedDateLabel}` : selectedDateLabel}
+                                       {selectedDateLabel}
                                    </span>
                                    <button onClick={() => setDateOffset(o => o + 1)} aria-label="다음 날짜"
                                        class="text-white font-black w-5 h-5 flex items-center justify-center active:scale-90 transition-all">
@@ -1897,7 +1971,7 @@
 
                                    {/* 저장/초기화 (v2.14: 닫기 → 초기화. 바텀시트 닫기는 배경 탭/핸들바로 가능) */}
                                    <div class="grid grid-cols-2 gap-3 pt-2">
-                                       <button type="button" onClick={() => setShowMemoResetConfirm(true)}
+                                       <button type="button" onClick={() => setShowCardResetConfirm(true)}
                                            class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]">
                                            초기화
                                        </button>
@@ -1997,20 +2071,21 @@
                        </div>
                    </div>
 
-                   {/* ── (v2.14) 메모 초기화 확인 팝업 ── */}
-                   {showMemoResetConfirm && (
+                   {/* ── (v2.14) 카드 입력 초기화 확인 팝업 ── */}
+                   {showCardResetConfirm && (
                        <div class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6">
                            <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4">
                                <div class="text-center">
                                    <div class="text-4xl mb-2">🗑️</div>
-                                   <p class="text-base font-bold text-slate-800 leading-relaxed">입력된 내용이 삭제됩니다.<br/>계속하시겠습니까?</p>
+                                   <p class="text-base font-bold text-slate-800 leading-relaxed">입력된 내용이 삭제되고<br/>공사전 상태로 돌아갑니다.<br/>계속하시겠습니까?</p>
+                                   <p class="text-xs text-slate-400 mt-2">체감온도 측정 기록은 삭제되지 않습니다.</p>
                                </div>
                                <div class="grid grid-cols-2 gap-3">
-                                   <button type="button" onClick={() => setShowMemoResetConfirm(false)}
+                                   <button type="button" onClick={() => setShowCardResetConfirm(false)}
                                        class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]">
                                        취소
                                    </button>
-                                   <button type="button" onClick={() => { setMemo(""); setShowMemoResetConfirm(false); }}
+                                   <button type="button" onClick={handleCardReset}
                                        class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]">
                                        삭제
                                    </button>
@@ -2349,6 +2424,11 @@
                                                </div>
                                            ) : (
                                                <p class="text-sm font-bold text-emerald-600">특보 없음</p>
+                                           )}
+                                           {weather.wrnStale && (
+                                               <p class="text-xs text-amber-600 font-bold mt-2 leading-relaxed">
+                                                   ⚠️ 최신 특보 확인 실패 — 아래는 {weather.wrnCheckedAt ? `${new Date(weather.wrnCheckedAt).getMonth()+1}/${new Date(weather.wrnCheckedAt).getDate()} ${String(new Date(weather.wrnCheckedAt).getHours()).padStart(2,"0")}:${String(new Date(weather.wrnCheckedAt).getMinutes()).padStart(2,"0")}` : "이전"} 기준 정보입니다.
+                                               </p>
                                            )}
                                        </div>
                                        {weather.bulletin && (
