@@ -1,6 +1,0 @@
-# Cloudflare Pages 배포 설정
-name = "mmeec-pocketboard-pro"
-type = "javascript"
-
-[env.production]
-route = "weekends-c.pages.dev"  # 또는 커스텀 도메인
