@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.18</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.19a</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -74,7 +74,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.18";
+       const APP_VERSION = "2.19a";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -109,11 +109,48 @@
        // (19번+26번) dateWorkers의 작업일(day 숫자)들을 각각 실제 날짜로 환산 후 가장 늦은 날짜를 종료일로.
        //  월 걸침 연속공사(예: 7/31~8/9) 대응: day가 업로드일보다 15일 이상 작으면 익월로 간주.
        //  (구버전 '최대 숫자=종료일'은 7월31 > 8월9 를 오판 → 조기삭제 버그. 실제 날짜 비교로 수정.)
+       // (v2.19) 날짜별 인원 조회 공통 헬퍼
+       //  · dateWorkers 키는 원래 요일(0~6)이었으나, 9일 이상 기간에서는 같은 요일이 두 번 나와
+       //    나중 컬럼이 앞 컬럼을 덮어쓰는 문제가 있었다(예: 8/1(토)이 8/8(토)에 밀려 소실).
+       //    v2.19부터 키가 차 있으면 +7씩 밀어 저장하므로 한 칸에 하나의 날짜만 들어간다.
+       //  · 조회는 키가 아니라 저장된 month/day 값을 대조한다.
+       //    month는 v2.19부터 기록되며, 없는 구버전 데이터는 day+요일로 폴백한다.
+       const findDayWorkers = (dateWorkers, targetDate) => {
+           if (!dateWorkers || !targetDate) return null;
+           const tDay = targetDate.getDate();
+           const tMonth = targetDate.getMonth() + 1;
+           const tDow = targetDate.getDay();
+           for (const key of Object.keys(dateWorkers)) {
+               const dw = dateWorkers[key];
+               if (!dw || Number(dw.day) !== tDay) continue;
+               // 월 정보가 있으면 월까지 일치해야 함 (v2.19~)
+               if (dw.month != null) {
+                   if (Number(dw.month) === tMonth) return dw;
+                   continue;
+               }
+               // 구버전(월 정보 없음): 요일까지 맞아야 채택.
+               //  day만 맞다고 채택하면 다른 달의 같은 날짜가 잘못 잡힌다.
+               if (Number(key) % 7 === tDow) return dw;
+           }
+           return null;
+       };
+       const workersOn = (dateWorkers, targetDate) => Number(findDayWorkers(dateWorkers, targetDate)?.workers) || 0;
+
        const computeEndDate = (dateWorkers, base = new Date()) => {
-           const days = Object.values(dateWorkers || {}).map(dw => Number(dw.day)).filter(n => n > 0);
-           if (!days.length) return null;
+           const entries = Object.values(dateWorkers || {}).filter(dw => Number(dw?.day) > 0);
+           if (!entries.length) return null;
            const y = base.getFullYear(), m = base.getMonth(), today = base.getDate();
-           const dates = days.map(d => (d < today - 15) ? new Date(y, m + 1, d) : new Date(y, m, d));
+           const dates = entries.map(dw => {
+               const d = Number(dw.day);
+               // (v2.19) 월 정보가 있으면 그대로 사용 — 월 추정으로 인한 오판 방지
+               if (dw.month != null) {
+                   const mm = Number(dw.month) - 1;
+                   // 연말(12월 표를 1월에 조회 등) 대비: 기준월보다 6개월 이상 앞서면 전년도로 간주
+                   const yy = (mm - m > 6) ? y - 1 : (m - mm > 6) ? y + 1 : y;
+                   return new Date(yy, mm, d);
+               }
+               return (d < today - 15) ? new Date(y, m + 1, d) : new Date(y, m, d);
+           });
            const latest = new Date(Math.max(...dates.map(dt => dt.getTime())));
            return `${latest.getFullYear()}-${String(latest.getMonth() + 1).padStart(2, "0")}-${String(latest.getDate()).padStart(2, "0")}`;
        };
@@ -367,8 +404,12 @@
            // (v2.17) 카드 펼침 기준 = 탭 카운트 기준과 동일 (TODAY 활성 ∪ 공사중)
            //  → 탭 숫자에 잡히는 공사 = 목록에서 펼쳐진 공사
            const isCardOpen = (i) => isTodayActive(i) || isOngoingItem(i);
-           // (25번) 오늘(현재 workday 요일) 인원이 배정된 공사만 TODAY 배지 노출
-           const hasWorkToday = (item) => Number(item.dateWorkers?.[todayDow]?.workers) > 0;
+           // (25번) 오늘 인원이 배정된 공사만 TODAY 배지 노출
+           // (v2.19 버그수정) 기존엔 요일(dow)만 봐서, 7월에 8월 공사표의 같은 요일 인원이
+           //  잡히며 오늘 작업이 없는데도 배지가 뜨는 문제가 있었다. 실제 날짜로 대조한다.
+           const hasWorkToday = (item) => workersOn(item.dateWorkers, getWorkdayDate()) > 0;
+           // 선택한 날짜 기준 배정 여부 (날짜 네비게이터로 다른 날을 볼 때 사용)
+           const hasWorkOn = (item, d) => workersOn(item.dateWorkers, d) > 0;
            // n일째(8번): 과거 확정 작업일 + 오늘 활성이면 +1
            const workDayCount = (item) => (item.pastWorkDays || 0) + (isTodayActive(item) ? 1 : 0);
 
@@ -608,17 +649,31 @@
                    const supervisorIdx = headers.indexOf("감독");
 
                    // 날짜 컬럼 파싱: 헤더 행 또는 바로 다음 행에 "17(금),18(토),19(일)" 존재
-                   const dateColMap = {}; // { colIdx: { day, dow } }  dow: 0=일,6=토
+                   const dateColMap = {}; // { colIdx: { day, dow, month } }  dow: 0=일,6=토
                    const dowMap = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6 };
+                   // (v2.19) 제목행에서 공사 기간의 월을 추출 (예: "26하계공사8/1~8/9)" → 8)
+                   let sheetMonth = null;
+                   for (let r = 0; r < Math.min(rows.length, headerRowIndex + 1); r++) {
+                       const line = (rows[r] || []).map(c => (c == null ? "" : String(c))).join(" ");
+                       const mm = line.match(/(\d{1,2})\s*[\/월]\s*\d{1,2}/);
+                       if (mm) { const v = Number(mm[1]); if (v >= 1 && v <= 12) { sheetMonth = v; break; } }
+                   }
                    const scanDateRow = (rowArr) => {
                        if (!rowArr) return;
+                       // 같은 행에서 날짜가 감소하면 달이 넘어간 것으로 본다 (예: 30,31,1,2 → 뒤쪽은 다음 달)
+                       let curMonth = sheetMonth, prevDay = 0;
                        rowArr.forEach((h, i) => {
                            if (h == null) return;
                            const s = String(h).trim();
                            const dowChar = (s.match(/[월화수목금토일]/) || [])[0];
                            const dayNum = (s.match(/(\d{1,2})/) || [])[1];
                            if (dowChar && dowMap[dowChar] !== undefined && dateColMap[i] === undefined) {
-                               dateColMap[i] = { day: dayNum ? Number(dayNum) : 0, dow: dowMap[dowChar] };
+                               const d = dayNum ? Number(dayNum) : 0;
+                               if (curMonth != null && d > 0 && prevDay > 0 && d < prevDay) {
+                                   curMonth = curMonth === 12 ? 1 : curMonth + 1;
+                               }
+                               if (d > 0) prevDay = d;
+                               dateColMap[i] = { day: d, dow: dowMap[dowChar], month: curMonth };
                            }
                        });
                    };
@@ -643,10 +698,13 @@
                        const rawSupervisor = row[supervisorIdx] || "";
 
                        // 날짜별 투입 인원 수집
+                       // (v2.19) 같은 요일이 두 번 이상 나오면(9일 이상 기간) 키를 +7씩 밀어 덮어쓰기를 막는다.
                        const dateWorkers = {};
                        Object.entries(dateColMap).forEach(([ci, info]) => {
                            const val = Number(row[ci] || 0);
-                           dateWorkers[info.dow] = { day: info.day, workers: val };
+                           let slot = info.dow;
+                           while (dateWorkers[slot] !== undefined) slot += 7;
+                           dateWorkers[slot] = { day: info.day, workers: val, month: info.month ?? null };
                        });
 
                        // (8번) 소급 초기값: 오늘(06시 체계) 이전 날짜에 인원>0이면 이미 진행된 작업일로 카운트
@@ -697,14 +755,10 @@
 
            // (구 todayDow / isTodayItem 로직은 상단 06시 체계 유틸로 대체됨)
 
-           // 당일 미포함 공사 (공사 추가 탭용) - 06시 체계 요일 기준
+           // 당일 미포함 공사 (공사 추가 탭용) - 오늘(06시 체계) 실제 날짜 기준
            const extraItems = useMemo(() => {
-               return items.filter(item => {
-                   if (item.isUrgent) return false;
-                   const dw = item.dateWorkers?.[todayDow];
-                   return !dw || dw.workers === 0;
-               });
-           }, [items, todayDow]);
+               return items.filter(item => !item.isUrgent && !hasWorkToday(item));
+           }, [items, nowTick]);
 
            const toggleExtraSelect = (id) => {
                setSelectedExtras(prev =>
@@ -712,10 +766,23 @@
                );
            };
 
+           // (v2.19) 오늘 인원 1명 배정을 dateWorkers에 기록.
+           //  구버전은 {day:0} 으로 넣어 날짜 대조가 불가능했으므로 실제 날짜·월을 함께 저장한다.
+           const withTodayAssigned = (item) => {
+               const d = getWorkdayDate();
+               const dw = { ...(item.dateWorkers || {}) };
+               const existing = findDayWorkers(dw, d);
+               if (existing) { existing.workers = Math.max(1, Number(existing.workers) || 0); return dw; }
+               let slot = d.getDay();
+               while (dw[slot] !== undefined) slot += 7;
+               dw[slot] = { day: d.getDate(), month: d.getMonth() + 1, workers: 1 };
+               return dw;
+           };
+
            const addExtraItems = () => {
                const toAdd = items.map(item =>
                    selectedExtras.includes(item.id)
-                       ? { ...item, dateWorkers: { ...item.dateWorkers, [todayDow]: { day: 0, workers: 1 } } }
+                       ? { ...item, dateWorkers: withTodayAssigned(item) }
                        : item
                );
                persistItems(toAdd);
@@ -758,19 +825,16 @@
            };
 
            const filteredItems = useMemo(() => {
-               // 날짜로 목록을 숨기지 않고 전체를 표시 (TODAY 배지로만 구분)
                let list = activeTab === "전체" ? items : items.filter(item => item.factory === activeTab);
-               // (v2.14) 오늘이 아닌 날짜를 선택한 경우: 해당 요일+일자에 인원 배정된 공사만 표시
-               if (dateOffset !== 0) {
-                   const targetDow = selectedDate.getDay();
-                   const targetDay = selectedDate.getDate();
-                   list = list.filter(item => {
-                       const dw = item.dateWorkers?.[targetDow];
-                       return dw && Number(dw.day) === targetDay && Number(dw.workers) > 0;
-                   });
-               }
+               // (v2.19) 선택한 날짜(오늘 포함)에 인원이 배정된 공사만 표시.
+               //  단 진행 중인 작업이 화면에서 사라지면 안 되므로, 오늘을 보는 중이고
+               //  '공사중'인 카드는 인원 배정이 없어도 목록에 남긴다.
+               const viewingToday = dateOffset === 0;
+               list = list.filter(item =>
+                   hasWorkOn(item, selectedDate) || (viewingToday && isOngoingItem(item))
+               );
                return list;
-           }, [items, activeTab, dateOffset, selectedDate]);
+           }, [items, activeTab, dateOffset, selectedDate, after17]);
 
            const getSupervisorPool = (factoryName) => {
                const fixed = FIXED_SUPERVISORS[factoryName] || [];
@@ -860,9 +924,7 @@
                            //  오늘 인원 배정이 없던 공사는 '당일 공사 추가'와 동일하게 1명으로 잡아준다.
                            todayOn: workday,
                            activeMark: workday,
-                           dateWorkers: hasWorkToday(item)
-                               ? item.dateWorkers
-                               : { ...(item.dateWorkers || {}), [todayDow]: { day: 0, workers: 1 } }
+                           dateWorkers: hasWorkToday(item) ? item.dateWorkers : withTodayAssigned(item)
                        };
                    }
                    return item;
@@ -1731,8 +1793,7 @@
                    <main class="p-4 flex-1">
                        {/* v2.14: 날씨·날짜네비게이터 줄 — 목록 유무와 무관하게 항상 표시 */}
                        <div class="flex items-center justify-between px-1 mb-3.5">
-                           <span class="text-sm bg-slate-200/70 text-slate-600 px-2 py-0.5 rounded-md font-medium">터치 시 기록/편집</span>
-                           <div class="flex items-center gap-1.5">
+                           <div class="flex items-center gap-1.5 ml-auto">
                                <button onClick={() => { setShowWeather(true); fetchWeather(false); }} class="text-xs bg-sky-50 text-sky-600 px-2.5 py-1 rounded-md font-medium active:scale-95 transition-all">
                                    🌤️ 날씨
                                </button>
@@ -1752,12 +1813,16 @@
                                </div>
                            </div>
                        </div>
-                       {dateOffset !== 0 && (
-                           <div class="flex items-center justify-between px-1 -mt-2.5 mb-3.5">
-                               <span class="text-xs text-slate-400">{selectedDateLabel} 예정 공사 {filteredItems.length}건 표시 중</span>
-                               <button onClick={() => setDateOffset(0)} class="text-xs text-sky-600 font-bold active:scale-95 transition-all">오늘로</button>
-                           </div>
-                       )}
+                       <div class="flex items-center justify-between px-1 -mt-2.5 mb-3.5">
+                           <span class="text-sm text-slate-500 font-semibold">
+                               {dateOffset === 0
+                                   ? `오늘 공사 ${filteredItems.length}건 표시 중`
+                                   : `${selectedDateLabel} 예정 공사 ${filteredItems.length}건 표시 중`}
+                           </span>
+                           {dateOffset !== 0 && (
+                               <button onClick={() => setDateOffset(0)} class="text-sm text-sky-600 font-bold active:scale-95 transition-all flex-shrink-0 ml-2">오늘로</button>
+                           )}
+                       </div>
                        {isLoading ? (
                            <div class="flex flex-col items-center justify-center py-24 text-center">
                                <div class="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4" />
@@ -1796,9 +1861,9 @@
                                                : "border-slate-200 opacity-80"
                                            }`}
                                        >
-                                           <div class="flex items-start justify-between gap-4 mb-2.5">
-                                               <div class="flex items-center gap-1.5 flex-wrap">
-                                                   <span class={`text-base px-2 py-0.5 rounded-md font-extrabold tracking-wide ${
+                                           <div class="flex items-start justify-between gap-2 mb-2.5">
+                                               <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+                                                   <span class={`text-base px-2 py-0.5 rounded-md font-extrabold tracking-wide whitespace-nowrap ${
                                                        item.grade === "긴급" ? "bg-rose-600 text-white" :
                                                        (item.grade || "B").startsWith("A") ? "bg-rose-100 text-rose-700" :
                                                        (item.grade || "B").startsWith("P") ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-800"
@@ -1812,22 +1877,27 @@
                                                    )}
                                                </div>
  
-                                               <div class="flex items-center gap-1.5">
-                                                   {/* (25번) 오늘 인원 배정된 공사만 TODAY 배지 표시. 기본 회색 → 터치 시 파랑 */}
-                                                   {hasWorkToday(item) && (
+                                               <div class="flex items-center gap-1.5 flex-shrink-0">
+                                                   {/* (25번) 배정된 공사만 TODAY 배지 표시. 기본 회색 → 터치 시 파랑
+                                                        (v2.19) 다른 날짜를 조회 중이면 그 날짜 기준으로 표시하고 토글은 막는다 */}
+                                                   {hasWorkOn(item, selectedDate) && (
                                                    <span
-                                                       onClick={(e) => toggleTodayOff(item, e)}
-                                                       class={`text-sm px-2 py-0.5 rounded-md font-black tracking-wide cursor-pointer select-none active:scale-95 transition-all ${
-                                                           isTodayActive(item)
-                                                               ? "bg-sky-500 text-white"
-                                                               : "bg-slate-200 text-slate-400 italic"
+                                                       onClick={(e) => { if (dateOffset === 0) toggleTodayOff(item, e); else e.stopPropagation(); }}
+                                                       class={`text-sm px-2 py-0.5 rounded-md font-black tracking-wide select-none transition-all flex-shrink-0 whitespace-nowrap ${
+                                                           dateOffset !== 0
+                                                               ? "bg-sky-100 text-sky-600"
+                                                               : isTodayActive(item)
+                                                                   ? "bg-sky-500 text-white cursor-pointer active:scale-95"
+                                                                   : "bg-slate-200 text-slate-400 italic cursor-pointer active:scale-95"
                                                        }`}
                                                    >
-                                                       TODAY{isTodayActive(item) && workDayCount(item) >= 2 ? ` ${workDayCount(item)}일째` : ""}
+                                                       {dateOffset !== 0
+                                                           ? `${selectedDate.getMonth() + 1}/${selectedDate.getDate()}`
+                                                           : `TODAY${isTodayActive(item) && workDayCount(item) >= 2 ? ` ${workDayCount(item)}일째` : ""}`}
                                                    </span>
                                                    )}
                                                    {/* (6번) 17시 이후: 공사중 배지 → 종료/OO시연장 */}
-                                                   <span class={`text-base px-2 py-0.5 rounded-full font-bold ${
+                                                   <span class={`text-base px-2 py-0.5 rounded-full font-bold flex-shrink-0 whitespace-nowrap ${
                                                        isPending ? "bg-amber-500 text-white" :
                                                        !after17 ? "bg-emerald-500 text-white" :
                                                        item.extendHour != null ? "bg-indigo-500 text-white" : "bg-slate-400 text-white"

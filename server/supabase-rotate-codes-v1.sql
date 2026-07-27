@@ -19,17 +19,17 @@
 -- ============================================================
 
 -- ── 여기만 수정 ──────────────────────────────────────────────
---   0909 : 일반 관리자 (공지 입력, 연락처 조회·추가·전화)
---   2046  : 최고 관리자 (위 + 연락처 삭제, 세션 등록소, 전체엑셀, 접속현황)
---   mmeecsafe1895 : Apps Script 자동백업 전용 (사람이 입력하지 않음)
+--   NEW_ADMIN_LV1  : 일반 관리자 (공지 입력, 연락처 조회·추가·전화)
+--   NEW_ADMIN_LV2  : 최고 관리자 (위 + 연락처 삭제, 세션 등록소, 전체엑셀, 접속현황)
+--   NEW_BACKUP_TOKEN : Apps Script 자동백업 전용 (사람이 입력하지 않음)
 -- ─────────────────────────────────────────────────────────────
 
 -- ── 1. 코드 검증 (레벨 0/1/2) ────────────────────────────────
 create or replace function public.master_level(p_code text)
 returns int language sql immutable as $$
   select case
-    when p_code = '2046' then 2
-    when p_code = '0909' then 1
+    when p_code = 'NEW_ADMIN_LV2' then 2
+    when p_code = 'NEW_ADMIN_LV1' then 1
     else 0
   end
 $$;
@@ -61,7 +61,7 @@ create or replace function public.backup_export(p_token text)
 returns table (session_id text, site_name text, items jsonb, updated_at timestamptz)
 language plpgsql security definer set search_path = public as $$
 begin
-  if p_token <> 'mmeecsafe1895' then
+  if p_token <> 'NEW_BACKUP_TOKEN' then
     raise exception 'unauthorized';
   end if;
   return query
