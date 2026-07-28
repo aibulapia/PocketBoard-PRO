@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.19a</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.20</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -27,6 +27,68 @@
        /* 가로 스크롤바 숨김 처리 */
        .no-scrollbar::-webkit-scrollbar { display: none; }
        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+       /* ══════════════════════════════════════════════════════════
+          (v2.20) 다크모드 — .dark 조상 선택자로 색상만 덮어씀.
+          JSX의 클래스 문자열(약 375곳)은 전혀 건드리지 않고,
+          이미 화면에 쓰이는 클래스 이름을 그대로 셀렉터로 재사용한다.
+          장점: 동적으로 조립되는 클래스(삼항연산자 결과 등)까지
+          예외 없이 전부 적용된다.
+          ══════════════════════════════════════════════════════════ */
+       .dark { color-scheme: dark; }
+       /* 참고: dark 클래스는 앱 최상위 wrapper(#root 내부)에 붙으므로 <body> 배경은
+          이 규칙으로 못 바꾼다. 실사용 시 wrapper가 화면을 꽉 채워 body는 안 보인다. */
+
+       /* 기본 표면 */
+       .dark .bg-white          { background-color: #1e293b; }
+       .dark .bg-white\/70      { background-color: rgba(30,41,59,.85); }
+       .dark .bg-slate-50       { background-color: #0f172a; }
+       .dark .bg-slate-100      { background-color: #1e293b; }
+       .dark .bg-slate-200      { background-color: #334155; }
+       .dark .bg-slate-800      { background-color: #0f172a; }
+       .dark .bg-slate-900      { background-color: #020617; }
+       .dark .bg-slate-900\/95  { background-color: rgba(2,6,23,.95); }
+       .dark .bg-black\/50      { background-color: rgba(0,0,0,.6); }
+       .dark .bg-black\/60      { background-color: rgba(0,0,0,.7); }
+
+       /* 본문 텍스트 (밝은 배경 위 어두운 글자 → 어두운 배경 위 밝은 글자) */
+       .dark .text-slate-900    { color: #f1f5f9; }
+       .dark .text-slate-800    { color: #e2e8f0; }
+       .dark .text-slate-700    { color: #cbd5e1; }
+       .dark .text-slate-600    { color: #94a3b8; }
+       .dark .text-slate-500    { color: #94a3b8; }
+       .dark .text-slate-400    { color: #64748b; }
+       .dark .text-slate-300    { color: #64748b; }
+
+       /* 테두리 */
+       .dark .border-slate-100  { border-color: #334155; }
+       .dark .border-slate-200  { border-color: #334155; }
+       .dark .border-slate-200\/50 { border-color: rgba(51,65,85,.5); }
+       .dark .border-slate-300  { border-color: #475569; }
+       .dark .border-slate-700  { border-color: #334155; }
+
+       /* 상태 뱃지 배경(공사전/공사중/TODAY 등) — 색상 의미는 유지하되
+          어두운 배경에서도 눈이 편하도록 채도를 살짝 낮춤 */
+       .dark .bg-amber-50, .dark .bg-amber-50\/50 { background-color: rgba(180,131,25,.18); }
+       .dark .bg-amber-100       { background-color: rgba(180,131,25,.28); }
+       .dark .bg-rose-50, .dark .bg-rose-50\/50   { background-color: rgba(190,45,70,.18); }
+       .dark .bg-sky-50          { background-color: rgba(14,116,166,.22); }
+       .dark .border-amber-100, .dark .border-amber-100\/50, .dark .border-amber-200 { border-color: rgba(180,131,25,.35); }
+       .dark .border-rose-100    { border-color: rgba(190,45,70,.35); }
+       .dark .border-sky-200, .dark .border-sky-300 { border-color: rgba(14,116,166,.4); }
+
+       /* 뱃지 안 텍스트 대비 보정 */
+       .dark .text-amber-700     { color: #fbbf24; }
+       .dark .text-amber-600     { color: #fbbf24; }
+       .dark .text-sky-700       { color: #7dd3fc; }
+       .dark .text-sky-800       { color: #7dd3fc; }
+       .dark .text-rose-700      { color: #fda4af; }
+       .dark .text-emerald-600   { color: #34d399; }
+       .dark .text-blue-600      { color: #60a5fa; }
+
+       /* 스크롤/선택 등 그 외 */
+       .dark ::selection { background-color: rgba(245,158,11,.35); }
+       .dark input, .dark textarea { color-scheme: dark; }
  </style>
 </head>
 <body class="bg-slate-50 text-slate-900 antialiased selection:bg-amber-100">
@@ -74,7 +136,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.19a";
+       const APP_VERSION = "2.20";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -616,8 +678,6 @@
                    const worksheet = workbook.Sheets[firstSheetName];
  
                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                   const titleRow = rows.find(r => r && r[0] && String(r[0]).includes("주차"));
-                   const detectedTitle = titleRow ? String(titleRow[0]).trim() : firstSheetName;
  
                    // 헤더 셀 공백/병합셀 잔여 문자 제거 후 비교
                    const normCell = (c) => String(c ?? "").replace(/\s/g, "");
@@ -687,6 +747,35 @@
                        });
                    const dataStartIndex = dateRowIsNext ? headerRowIndex + 2 : headerRowIndex + 1;
                    console.log("[엑셀] 헤더행:", headerRowIndex, "| 날짜컬럼:", dateColMap, "| 데이터시작:", dataStartIndex);
+
+                   // (v2.19b) 배너 제목 감지 — 우선순위: ①"월"+"주" 둘 다 포함된 줄 ②날짜패턴만 있는 줄 ③시트 이름.
+                   //  내용은 다듬지 않고 원본 그대로 사용한다. ①인데 날짜가 없으면 실제 날짜 컬럼에서 계산해 뒤에 붙인다.
+                   const dateRangePattern = /\d{1,2}\s*\/\s*\d{1,2}\s*[~\-]\s*\d{1,2}\s*\/\s*\d{1,2}/;
+                   const monthWeekRow = rows.find(r => r && r[0] && String(r[0]).includes("월") && String(r[0]).includes("주"));
+                   const dateOnlyRow = rows.find(r => r && r[0] && dateRangePattern.test(String(r[0])));
+                   let detectedTitle;
+                   if (monthWeekRow) {
+                       const raw = String(monthWeekRow[0]).trim();
+                       if (dateRangePattern.test(raw)) {
+                           detectedTitle = raw;   // 이미 날짜가 있으면 원본 그대로
+                       } else {
+                           // 날짜가 없으면 실제 작업인원 셀(dateColMap)에서 시작~종료일을 계산해 뒤에 붙인다
+                           const entries = Object.values(dateColMap);
+                           if (entries.length) {
+                               const base = entries[0].month;
+                               const val = (e) => e.day + ((e.month - base + (e.month < base ? 12 : 0)) * 31);
+                               const first = entries.reduce((a, b) => val(a) <= val(b) ? a : b);
+                               const last = entries.reduce((a, b) => val(a) >= val(b) ? a : b);
+                               detectedTitle = `${raw} ${first.month}/${first.day}~${last.month}/${last.day}`;
+                           } else {
+                               detectedTitle = raw;
+                           }
+                       }
+                   } else if (dateOnlyRow) {
+                       detectedTitle = String(dateOnlyRow[0]).trim();
+                   } else {
+                       detectedTitle = firstSheetName;
+                   }
 
                    const parsedList = [];
                    for (let i = dataStartIndex; i < rows.length; i++) {
@@ -1352,6 +1441,15 @@
            // ═══════════════════════════════════════════════════
            const [showMaster, setShowMaster] = useState(false);
            // (v2.18) 접속 현황 히든 메뉴 (정보팝업 ⚡ 터치 → 레벨2 암호)
+           // (v2.20) 다크모드 — 기기별 저장, 시스템 설정과 무관하게 사용자가 직접 켜고 끔
+           const [darkMode, setDarkMode] = useState(() => localStorage.getItem("MMEEC_DARK") === "1");
+           const toggleDarkMode = () => {
+               setDarkMode(prev => {
+                   const next = !prev;
+                   localStorage.setItem("MMEEC_DARK", next ? "1" : "0");
+                   return next;
+               });
+           };
            const [showAccess, setShowAccess] = useState(false);
            const [accessCode, setAccessCode] = useState("");
            const [accessStats, setAccessStats] = useState(null);   // [{day, factory, devices}]
@@ -1669,7 +1767,7 @@
            };
 
            return (
-               <div class="max-w-md mx-auto bg-slate-50 min-h-screen pb-32 flex flex-col relative shadow-xl">
+               <div class={`max-w-md mx-auto bg-slate-50 min-h-screen pb-32 flex flex-col relative shadow-xl${darkMode ? " dark" : ""}`}>
  
                    {/* 상단 헤더 영역 */}
                    <header class="bg-white border-b border-slate-200 px-4 py-4 shadow-xs">
@@ -1689,6 +1787,13 @@
                                </button>
                                <h1 class="text-xl font-bold text-slate-900 tracking-tight truncate min-w-0">포켓보드 <span class="text-amber-500 font-black">PRO</span></h1>
                            </div>
+                           <button onClick={toggleDarkMode} aria-label="다크모드 전환"
+                               class="flex-shrink-0 text-xs bg-slate-100 text-slate-600 w-7 h-7 rounded-lg font-bold active:scale-95 transition-all ml-2 flex items-center justify-center">
+                               <svg width="15" height="15" viewBox="0 0 20 20">
+                                   <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                                   <path d="M10 2 a8 8 0 0 1 0 16 z" fill="currentColor"/>
+                               </svg>
+                           </button>
                            <button onClick={() => setShowInfo(true)} class="flex-shrink-0 text-xs bg-slate-100 text-slate-600 w-7 h-7 rounded-lg font-bold active:scale-95 transition-all ml-2">
                                ❓
                            </button>
@@ -1740,6 +1845,11 @@
                                공사추가
                            </button>
                        </div>
+                       {items.length > 0 && (
+                           <p class="text-xs text-slate-400 -mt-2 mb-3 px-1">
+                               ℹ️ 새 파일을 올리면 기존 입력 내용에 자동으로 병합됩니다 (덮어쓰지 않음)
+                           </p>
+                       )}
 
                        {/* 줄4: 공사기간 배너 + 내 공장 */}
                        <div class="flex items-center gap-2">
