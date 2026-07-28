@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.20</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.20a</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -89,6 +89,13 @@
        /* 스크롤/선택 등 그 외 */
        .dark ::selection { background-color: rgba(245,158,11,.35); }
        .dark input, .dark textarea { color-scheme: dark; }
+
+       /* (v2.20a) 카드(공사전) 배경 그라디언트 — 다크모드에서 얼룩덜룩하게 남아
+          글자가 묻히던 문제. 그라디언트를 없애고 단색 다크그레이로 대체 */
+       .dark .bg-linear-to-br.from-amber-50\/20.to-white {
+           background-image: none;
+           background-color: #1e293b;
+       }
  </style>
 </head>
 <body class="bg-slate-50 text-slate-900 antialiased selection:bg-amber-100">
@@ -136,7 +143,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.20";
+       const APP_VERSION = "2.20a";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
