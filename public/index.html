@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.22a</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.22b</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -27,6 +27,15 @@
        /* 가로 스크롤바 숨김 처리 */
        .no-scrollbar::-webkit-scrollbar { display: none; }
        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+       /* (v2.22b) 공장 좌우 스와이프 시 넘긴 방향으로 미끄러지는 피드백 */
+       @keyframes slideFromRight { from { transform: translateX(28px); opacity: .35; } to { transform: translateX(0); opacity: 1; } }
+       @keyframes slideFromLeft  { from { transform: translateX(-28px); opacity: .35; } to { transform: translateX(0); opacity: 1; } }
+       .slide-left  { animation: slideFromRight .24s ease-out; }
+       .slide-right { animation: slideFromLeft .24s ease-out; }
+       @media (prefers-reduced-motion: reduce) {
+           .slide-left, .slide-right { animation: none; }
+       }
 
        /* ══════════════════════════════════════════════════════════
           (v2.20) 다크모드 — .dark 조상 선택자로 색상만 덮어씀.
@@ -90,6 +99,28 @@
        .dark ::selection { background-color: rgba(245,158,11,.35); }
        .dark input, .dark textarea { color-scheme: dark; }
 
+       /* (v2.22b) 입력창 글자·placeholder — 색 지정이 없어 다크모드에서 묻히던 문제 */
+       .dark input, .dark textarea, .dark select { color: #f1f5f9; }
+       .dark input::placeholder, .dark textarea::placeholder { color: #64748b; }
+
+       /* (v2.22b) 다크모드 매핑이 빠져 어둡게 남아있던 글자색 보정 — 같은 계열의 밝은 톤으로 */
+       .dark .text-amber-800     { color: #fcd34d; }
+       .dark .text-amber-500     { color: #fbbf24; }
+       .dark .text-amber-400     { color: #fcd34d; }
+       .dark .text-purple-700    { color: #c4b5fd; }
+       .dark .text-rose-500      { color: #fda4af; }
+       .dark .text-rose-400      { color: #fda4af; }
+       .dark .text-sky-600       { color: #7dd3fc; }
+       .dark .text-sky-500       { color: #7dd3fc; }
+       .dark .text-sky-400       { color: #7dd3fc; }
+
+       /* (v2.22b) keep-light — 등급 뱃지·카톡복사처럼 라이트 배경을 그대로 유지할 요소.
+          배경이 밝게 남으므로 글자도 원래의 어두운 색을 유지해야 대비가 맞다. */
+       .dark .keep-light.bg-amber-100  { background-color: #fef3c7; }
+       .dark .keep-light.bg-purple-100 { background-color: #f3e8ff; }
+       .dark .keep-light.text-amber-800  { color: #92400e; }
+       .dark .keep-light.text-purple-700 { color: #6b21a8; }
+
        /* (v2.20a) 카드(공사전) 배경 그라디언트 — 다크모드에서 얼룩덜룩하게 남아
           글자가 묻히던 문제. 그라디언트를 없애고 단색 다크그레이로 대체 */
        .dark .bg-linear-to-br.from-amber-50\/20.to-white {
@@ -143,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.22a";
+       const APP_VERSION = "2.22b";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -160,6 +191,10 @@
        const FIXED_SUPERVISORS = D.FIXED_SUPERVISORS || {};
        const FLOOR_TABS = D.FLOOR_TABS || ["B1","1층","2층","2.5층","3층","옥상","옥외"];
        const WORK_TYPE_SAFETY = D.WORK_TYPE_SAFETY || {};
+       // (v2.22b) 카드 목록에서 '안전보고문 복사 + 공사단계'를 노출할 공장.
+       //  시범 운영이라 우선 5공장만. 확대할 때 이 배열에 공장명을 추가하면 됨.
+       //  (바텀시트 안의 안전보고문 기능은 공장 제한 없이 전 공장 사용 가능)
+       const REPORT_CARD_FACTORIES = ["5공장"];
        // 긴급공사 라벨 → 안전대책 코드. data.js가 구버전(캐시)이어도 동작하도록 폴백 유지
        const WORK_TYPE_LABEL_CODE = D.WORK_TYPE_LABEL_CODE || {
            "고소": "고", "중량물": "중", "화기": "화", "밀폐": "밀", "건설기계": "건",
@@ -921,7 +956,25 @@
                const len = activeFactories.length;
                const next = dx < 0 ? (idx + 1) % len : (idx - 1 + len) % len;
                setActiveTab(activeFactories[next]);
+               // (v2.22b) 넘긴 방향으로 목록이 미끄러지는 느낌을 준다
+               setSlideDir(dx < 0 ? "left" : "right");
            };
+
+           // (v2.22b) 카드 목록 좌우 스와이프 시 넘긴 방향으로 미끄러지는 애니메이션
+           const [slideDir, setSlideDir] = useState(null);
+           useEffect(() => {
+               if (!slideDir) return;
+               const t = setTimeout(() => setSlideDir(null), 260);
+               return () => clearTimeout(t);
+           }, [slideDir, activeTab]);
+           // (v2.22b) 선택된 공장 탭이 항상 화면 안에 보이도록 자동 스크롤
+           const tabRefs = useRef({});
+           useEffect(() => {
+               const el = tabRefs.current[activeTab];
+               if (el && el.scrollIntoView) {
+                   try { el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }); } catch {}
+               }
+           }, [activeTab]);
 
            const filteredItems = useMemo(() => {
                let list = activeTab === "전체" ? items : items.filter(item => item.factory === activeTab);
@@ -1904,6 +1957,7 @@
                                return (
                                    <button
                                        key={factory}
+                                       ref={(el) => { tabRefs.current[factory] = el; }}
                                        onClick={() => setActiveTab(factory)}
                                        class={`flex-shrink-0 min-w-[70px] px-3.5 py-2 rounded-xl text-base font-semibold tracking-tight transition-all active:scale-95 flex items-center gap-1.5 ${
                                            isActive 
@@ -1980,7 +2034,7 @@
                                </p>
                            </div>
                        ) : (
-                           <div class="space-y-3.5" onTouchStart={onListTouchStart} onTouchEnd={onListTouchEnd}>
+                           <div class={`space-y-3.5 ${slideDir ? `slide-${slideDir}` : ""}`} onTouchStart={onListTouchStart} onTouchEnd={onListTouchEnd}>
                                {filteredItems.map(item => {
                                    const isPending = item.status === "pending";
                                    // (v2.17) TODAY 활성도 공사중도 아닌 카드는 제목까지만 접어서 표시.
@@ -2005,7 +2059,7 @@
                                                    <span class={`text-base px-2 py-0.5 rounded-md font-extrabold tracking-wide whitespace-nowrap ${
                                                        item.grade === "긴급" ? "bg-rose-600 text-white" :
                                                        (item.grade || "B").startsWith("A") ? "bg-rose-100 text-rose-700" :
-                                                       (item.grade || "B").startsWith("P") ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-800"
+                                                       (item.grade || "B").startsWith("P") ? "keep-light bg-purple-100 text-purple-700" : "keep-light bg-amber-100 text-amber-800"
                                                    }`}>
                                                        {item.grade === "긴급" ? "⚡ 긴급" : `${item.grade || "B"}급`}
                                                    </span>
@@ -2157,6 +2211,7 @@
                                                        🌡️ 체감온도 계산
                                                    </button>
                                                    {/* 보고문 단계 선택 — 카드 실제 상태와 별개, 문구용 */}
+                                                   {REPORT_CARD_FACTORIES.includes(item.factory) && (
                                                    <div class="flex items-center gap-0.5 rounded-xl bg-slate-200 px-1 py-0.5 flex-shrink-0">
                                                        <button type="button" onClick={() => moveStage(item, -1)} aria-label="이전 단계"
                                                            class="text-slate-600 font-black w-5 h-6 flex items-center justify-center active:scale-90 transition-all">◀</button>
@@ -2164,8 +2219,10 @@
                                                        <button type="button" onClick={() => moveStage(item, 1)} aria-label="다음 단계"
                                                            class="text-slate-600 font-black w-5 h-6 flex items-center justify-center active:scale-90 transition-all">▶</button>
                                                    </div>
+                                                   )}
                                                </div>
 
+                                               {REPORT_CARD_FACTORIES.includes(item.factory) && (
                                                <button type="button"
                                                    onClick={(e) => {
                                                        // 최신 items에서 조회 (방금 측정한 체감온도 반영) + 선택한 단계 적용
@@ -2175,6 +2232,7 @@
                                                    class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-2.5 rounded-xl active:scale-[0.98] transition-all">
                                                    📋 안전보고문 복사
                                                </button>
+                                               )}
                                            </div>
                                            </React.Fragment>
                                            )}
@@ -2399,7 +2457,7 @@
                                            </button>
                                        )}
                                        <button type="button" onClick={(e) => handleKakaoCopy(selectedItem, e)}
-                                           class="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]">
+                                           class="keep-light w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]">
                                            💬 카톡복사
                                        </button>
                                        <button type="button" onClick={toggleBookmark}
