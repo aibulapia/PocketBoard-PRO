@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.22b</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.22c</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.22b";
+       const APP_VERSION = "2.22c";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -540,6 +540,21 @@
                        if (it.status === "checked") it.status = "pending"; // 공사중 → 재확인
                        if (it.extendHour != null) it.extendHour = null;    // 연장 초기화
                        if (it.todayOn && it.todayOn !== wd) it.todayOn = null; // TODAY 자동 리셋(06시)
+                   }
+                   // (v2.22c) 체감온도 기록 1일 단위 리셋 — 06시 넘어가면 전날 기록 삭제.
+                   //  누적 시 서버 저장 한도(items 1MB)를 넘겨 그날 점검 기록 자체가
+                   //  저장되지 않는 문제가 있어, 당일치만 남긴다.
+                   //  (원본 보존이 필요하면 05시 구글시트 자동백업을 사용)
+                   const heats = it.heatResults;
+                   if (Array.isArray(heats) && heats.length) {
+                       // workday 없는 구버전 기록은 화면 표시 로직과 동일하게 당일 것으로 간주해 보존
+                       const todayOnly = heats.filter(r => r && (!r.workday || r.workday === wd));
+                       if (todayOnly.length !== heats.length) {
+                           mut();
+                           it.heatResults = todayOnly;
+                           // 마지막 측정값도 당일 것이 아니면 함께 정리
+                           if (it.lastHeatStatus && it.lastHeatStatus.workday && it.lastHeatStatus.workday !== wd) it.lastHeatStatus = null;
+                       }
                    }
                    // (8번) 오늘 활성(수동 ON) 상태를 마크에 반영
                    const active = it.todayOn === wd;

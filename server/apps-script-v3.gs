@@ -2,7 +2,7 @@
  * MMEEC 포켓보드 PRO 2.5 — Apps Script 통합본 (v3)
  * ─────────────────────────────────────────────────
  *  기능 A) 체감온도 실시간 기록 (doPost, v2와 동일 + 토큰 검증)
- *  기능 B) 매일 06:00 전체 진행기록 자동백업 (dailyBackup)
+ *  기능 B) 매일 05:00 전체 진행기록 자동백업 (dailyBackup)
  *
  * 적용 방법:
  *  1. 구글 시트 → 확장 프로그램 → Apps Script → 기존 코드 전체를 이 파일로 교체
@@ -11,7 +11,9 @@
  *     - SUPABASE_URL / SUPABASE_KEY : config.js 값 그대로
  *     - BACKUP_TOKEN  : supabase-master-v3.sql 에서 정한 백업 토큰과 동일하게
  *  3. 상단 함수 선택에서 `createDailyTrigger` 선택 → 실행 (1회만)
- *     → 매일 06시 자동백업 트리거가 등록됩니다 (권한 승인 팝업 허용)
+ *     → 매일 05시 자동백업 트리거가 등록됩니다 (권한 승인 팝업 허용)
+ *       ※ 앱은 06시에 전날 체감온도 기록을 삭제하므로, 백업은 그보다
+ *         이른 05시에 돌아야 전날 기록이 온전히 남습니다.
  *  4. 배포 → 새 배포 → 웹 앱 → 재배포 (URL 바뀌면 config.js 갱신)
  */
 
@@ -116,21 +118,23 @@ function recordHeatToSheet(data) {
   }
 }
 
-// ══ 기능 B: 매일 06:00 전체 자동백업 ═══════════════
+// ══ 기능 B: 매일 05:00 전체 자동백업 ═══════════════
+//   (v2.22c) 06시 → 05시로 변경. 앱의 06시 일일리셋 때 전날 체감온도
+//   기록이 삭제되므로, 그 전에 백업이 끝나야 한다.
 
-/** 1회 실행: 매일 06시 트리거 등록 */
+/** 1회 실행: 매일 05시 트리거 등록 */
 function createDailyTrigger() {
   // 중복 방지: 기존 dailyBackup 트리거 제거
   ScriptApp.getProjectTriggers().forEach(t => {
     if (t.getHandlerFunction() === "dailyBackup") ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger("dailyBackup")
-    .timeBased().everyDays(1).atHour(6)   // 06:00 ~ 07:00 사이 실행
+    .timeBased().everyDays(1).atHour(5)   // 05:00 ~ 06:00 사이 실행
     .create();
-  Logger.log("매일 06시 자동백업 트리거 등록 완료");
+  Logger.log("매일 05시 자동백업 트리거 등록 완료");
 }
 
-/** 매일 06시 실행: 등록소의 전체 세션 진행기록을 시트에 백업 */
+/** 매일 05시 실행: 등록소의 전체 세션 진행기록을 시트에 백업 */
 function dailyBackup() {
   // Supabase RPC 호출 (backup_export)
   const res = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/rpc/backup_export", {
