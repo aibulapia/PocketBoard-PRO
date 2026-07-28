@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.20a</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.22a</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -143,7 +143,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.20a";
+       const APP_VERSION = "2.22a";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -358,25 +358,23 @@
 
            // 안전보건공단/기상청 공식 체감온도 (2022.6.2 개정 산출식)
            // Tw: 습구온도 (Stull 추정식), Ta: 기온, RH: 상대습도
-           const calcHeatIndex = () => {
-               const Ta = parseFloat(heatTemp);
-               const RH = parseFloat(heatHumidity);
+           // (v2.22) 대상 카드를 지정해 계산 — 바텀시트(selectedItem)와 카드 목록 양쪽에서 재사용
+           const calcHeatFor = (targetItem, tempStr, humStr, onDone) => {
+               const Ta = parseFloat(tempStr);
+               const RH = parseFloat(humStr);
                if (isNaN(Ta) || isNaN(RH)) {
                    showToast("기온과 습도를 입력해주세요.");
                    return;
                }
-
                // Stull(2011) 습구온도 추정식
                const Tw = Ta * Math.atan(0.151977 * Math.pow(RH + 8.313659, 0.5))
                    + Math.atan(Ta + RH)
                    - Math.atan(RH - 1.67633)
                    + 0.00391838 * Math.pow(RH, 1.5) * Math.atan(0.023101 * RH)
                    - 4.686035;
-
                // 기상청 2022 개정 체감온도 공식
                const HIc = -0.2442 + 0.55399 * Tw + 0.45535 * Ta
                    - 0.0022 * Tw * Tw + 0.00278 * Tw * Ta + 3.0;
-
                // KOSHA 포털 색상 기준
                let level, color, guide;
                if (HIc >= 38)      { level = "위험";  color = "red";    guide = "작업 중지 권고, 즉시 대피"; }
@@ -393,19 +391,24 @@
                    hm: nowHm(),                          // 24시간제 HH:MM
                    time: new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
                };
-               const newDisplay = [entry, ...heatResults];
-               setHeatResults(newDisplay);
-               setCurrentHeatStatus(entry);
-               // 해당 카드에 저장: 화면은 오늘 것만, 데이터는 전체 이력 보존
-               if (selectedItem) {
+               if (targetItem) {
                    const updatedItems = items.map(it =>
-                       it.id === selectedItem.id
+                       it.id === targetItem.id
                            ? { ...it, lastHeatStatus: entry, heatResults: [entry, ...(it.heatResults || [])] }
                            : it
                    );
                    persistItems(updatedItems);
-                   sendHeatToSheet(selectedItem, entry);
+                   sendHeatToSheet(targetItem, entry);
                }
+               if (onDone) onDone(entry);
+               return entry;
+           };
+
+           const calcHeatIndex = () => {
+               calcHeatFor(selectedItem, heatTemp, heatHumidity, (entry) => {
+                   setHeatResults(prev => [entry, ...prev]);
+                   setCurrentHeatStatus(entry);
+               });
            };
 
            // 긴급공사 직접 입력 모달 상태 관리 (5단계 프로세스용)
@@ -958,6 +961,27 @@
                    localStorage.removeItem("MMEEC_BOOKMARK");
                    showToast("내 공사 저장을 해제했습니다.");
                }
+           };
+
+           // (v2.22) 카드 목록에서 바로 쓰는 체감온도 입력 / 안전보고문 단계 선택
+           //  · 바텀시트를 열지 않고 카드를 펼친 자리에서 처리하기 위한 카드별 임시 상태
+           //  · cardStage 는 보고문 문구용 선택일 뿐, 카드 실제 status 는 바꾸지 않는다
+           const [cardHeatOpen, setCardHeatOpen] = useState(null);   // 체감온도 입력창 열린 카드 id
+           const [cardTemp, setCardTemp] = useState("");
+           const [cardHum, setCardHum] = useState("");
+           const [cardStage, setCardStage] = useState({});           // { [itemId]: "전" | "중" | "후" }
+           const STAGE_SEQ = ["전", "중", "후"];
+           const stageLabel = (s) => (s === "후" ? "종료" : `공사${s}`);
+           // 카드 실제 상태로부터 기본 단계 산출 (사용자가 화살표로 바꾸기 전까지의 초기값)
+           const defaultStageOf = (item) => {
+               if (item.status !== "checked") return "전";
+               return (after17 && item.extendHour == null) ? "후" : "중";
+           };
+           const stageOf = (item) => cardStage[item.id] || defaultStageOf(item);
+           const moveStage = (item, dir) => {
+               const cur = STAGE_SEQ.indexOf(stageOf(item));
+               const next = (cur + dir + STAGE_SEQ.length) % STAGE_SEQ.length;
+               setCardStage(prev => ({ ...prev, [item.id]: STAGE_SEQ[next] }));
            };
 
            const openBottomSheet = (item) => {
@@ -1806,7 +1830,7 @@
                            </button>
                        </div>
 
-                       {/* 줄2: 공사 코드 + 초기화 */}
+                       {/* 줄2: 공사 코드 + (최고관리자 전용) 초기화·파일변경 */}
                        <div class="flex items-center gap-2 mb-3">
                            <button
                                onClick={() => { setSessionInput(sessionId); setShowSessionModal(true); }}
@@ -1815,48 +1839,33 @@
                                <span class="text-xs text-slate-500 font-semibold">공사 코드</span>
                                <span class="text-sm font-black text-slate-800 truncate ml-2">{sessionId}</span>
                            </button>
-                           {items.length > 0 && (
+                           {/* (v2.21) 초기화·파일변경은 최고 관리자(레벨2)만 노출 */}
+                           {masterLevel >= 2 && items.length > 0 && (
                                <button onClick={() => openPwModal("reset")} class="flex-shrink-0 text-xs text-rose-500 bg-rose-50 px-3 py-2.5 rounded-xl font-medium active:scale-95 transition-all">
                                    초기화
                                </button>
                            )}
+                           {masterLevel >= 2 && (
+                               <React.Fragment>
+                                   <input
+                                       type="file"
+                                       id="excel-upload"
+                                       accept=".xlsx, .xls, .csv"
+                                       onChange={handleFileUpload}
+                                       class="hidden"
+                                   />
+                                   <label
+                                       htmlFor="excel-upload"
+                                       class="flex-shrink-0 flex items-center gap-1.5 bg-slate-900 text-white font-medium text-xs py-2.5 px-3 rounded-xl cursor-pointer active:scale-[0.98] transition-all shadow-sm whitespace-nowrap"
+                                   >
+                                       <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                           <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
+                                       </svg>
+                                       {items.length > 0 ? "파일변경" : "엑셀선택"}
+                                   </label>
+                               </React.Fragment>
+                           )}
                        </div>
-
-                       {/* 줄3: 파일 변경 / 긴급공사 (배너 줄보다 먼저) */}
-                       <div class="flex gap-2 mb-3">
-                           <div class="relative group flex-1">
-                               <input 
-                                   type="file" 
-                                   id="excel-upload" 
-                                   accept=".xlsx, .xls, .csv" 
-                                   onChange={handleFileUpload} 
-                                   class="hidden" 
-                               />
-                               <label 
-                                   htmlFor="excel-upload" 
-                                   class="w-full flex items-center justify-center gap-2 bg-slate-900 text-white font-medium text-sm py-3 px-4 rounded-xl cursor-pointer active:scale-[0.98] transition-all shadow-sm"
-                               >
-                                   <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                       <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
-                                   </svg>
-                                   {items.length > 0 ? "파일 변경" : "엑셀/CSV 선택"}
-                               </label>
-                           </div>
-                           <button
-                               onClick={() => { setAddModalTab("extra"); setShowAddModal(true); }}
-                               class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-3 px-4 rounded-xl active:scale-[0.97] transition-all shadow-sm whitespace-nowrap"
-                           >
-                               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                   <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
-                               </svg>
-                               공사추가
-                           </button>
-                       </div>
-                       {items.length > 0 && (
-                           <p class="text-xs text-slate-400 -mt-2 mb-3 px-1">
-                               ℹ️ 새 파일을 올리면 기존 입력 내용에 자동으로 병합됩니다 (덮어쓰지 않음)
-                           </p>
-                       )}
 
                        {/* 줄4: 공사기간 배너 + 내 공장 */}
                        <div class="flex items-center gap-2">
@@ -1873,7 +1882,18 @@
 
                    {/* 공장 가로 스크롤 탭 메뉴 */}
                    {items.length > 0 && (
-                       <div class="bg-white border-b border-slate-100 sticky top-0 z-30 px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar shadow-xs">
+                       <div class="bg-white border-b border-slate-100 sticky top-0 z-30 px-4 py-2 flex items-center gap-2 shadow-xs">
+                           {/* (v2.21) 공사추가 버튼 — 탭 목록과 별도로 맨 앞에 고정, 스크롤 안 됨 */}
+                           <button
+                               onClick={() => { setAddModalTab("extra"); setShowAddModal(true); }}
+                               class="flex-shrink-0 flex items-center gap-1 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-2 px-2.5 rounded-xl active:scale-[0.97] transition-all shadow-sm whitespace-nowrap"
+                           >
+                               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                   <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
+                               </svg>
+                               공사추가
+                           </button>
+                           <div class="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0">
                            {activeFactories.map(factory => {
                                const scope = factory === "전체" ? items : items.filter(i => i.factory === factory);
                                const count = scope.length;
@@ -1903,41 +1923,41 @@
                                    </button>
                                );
                            })}
+                           </div>
                        </div>
                    )}
 
                    {/* 메인 대시보드 리스트 */}
                    <main class="p-4 flex-1">
-                       {/* v2.14: 날씨·날짜네비게이터 줄 — 목록 유무와 무관하게 항상 표시 */}
-                       <div class="flex items-center justify-between px-1 mb-3.5">
-                           <div class="flex items-center gap-1.5 ml-auto">
-                               <button onClick={() => { setShowWeather(true); fetchWeather(false); }} class="text-xs bg-sky-50 text-sky-600 px-2.5 py-1 rounded-md font-medium active:scale-95 transition-all">
-                                   🌤️ 날씨
+                       {/* (v2.22a) 날씨아이콘 · 날짜네비 · 안내문 · 오늘로 를 한 줄에 왼쪽부터 배치
+                            폴드4 전면(약 344px)에서도 넘치지 않도록 날씨는 아이콘만 사용 */}
+                       <div class="flex items-center gap-2 px-1 mb-3.5">
+                           <button onClick={() => { setShowWeather(true); fetchWeather(false); }} aria-label="기상 정보"
+                               class="text-xl bg-sky-50 px-2 py-1 rounded-md leading-none flex items-center flex-shrink-0 active:scale-95 transition-all">
+                               🌤️
+                           </button>
+                           {/* (v2.14) 임의 날짜 공사 목록 조회: ◀ 날짜 ▶. 오늘=파랑, 다른 날=회색 */}
+                           <div class={`flex items-center gap-0.5 rounded-md pl-0.5 pr-1 py-0.5 flex-shrink-0 ${dateOffset === 0 ? "bg-sky-500" : "bg-slate-400"}`}>
+                               <button onClick={() => setDateOffset(o => o - 1)} aria-label="이전 날짜"
+                                   class="text-white font-black w-5 h-5 flex items-center justify-center active:scale-90 transition-all">
+                                   ◀
                                </button>
-                               {/* (v2.14) 임의 날짜 공사 목록 조회: ◀ 날짜 ▶. 오늘=파랑, 다른 날=회색 ("TODAY" 문구는 표시 안 함) */}
-                               <div class={`flex items-center gap-0.5 rounded-md pl-0.5 pr-1 py-0.5 ${dateOffset === 0 ? "bg-sky-500" : "bg-slate-400"}`}>
-                                   <button onClick={() => setDateOffset(o => o - 1)} aria-label="이전 날짜"
-                                       class="text-white font-black w-5 h-5 flex items-center justify-center active:scale-90 transition-all">
-                                       ◀
-                                   </button>
-                                   <span class="text-sm text-white px-1 font-black tracking-wide whitespace-nowrap">
-                                       {selectedDateLabel}
-                                   </span>
-                                   <button onClick={() => setDateOffset(o => o + 1)} aria-label="다음 날짜"
-                                       class="text-white font-black w-5 h-5 flex items-center justify-center active:scale-90 transition-all">
-                                       ▶
-                                   </button>
-                               </div>
+                               <span class="text-sm text-white px-1 font-black tracking-wide whitespace-nowrap">
+                                   {selectedDateLabel}
+                               </span>
+                               <button onClick={() => setDateOffset(o => o + 1)} aria-label="다음 날짜"
+                                   class="text-white font-black w-5 h-5 flex items-center justify-center active:scale-90 transition-all">
+                                   ▶
+                               </button>
                            </div>
-                       </div>
-                       <div class="flex items-center justify-between px-1 -mt-2.5 mb-3.5">
-                           <span class="text-sm text-slate-500 font-semibold">
-                               {dateOffset === 0
-                                   ? `오늘 공사 ${filteredItems.length}건 표시 중`
-                                   : `${selectedDateLabel} 예정 공사 ${filteredItems.length}건 표시 중`}
+                           <span class="text-sm text-slate-500 font-semibold whitespace-nowrap">
+                               예정 공사 {filteredItems.length}건
                            </span>
                            {dateOffset !== 0 && (
-                               <button onClick={() => setDateOffset(0)} class="text-sm text-sky-600 font-bold active:scale-95 transition-all flex-shrink-0 ml-2">오늘로</button>
+                               <button onClick={() => setDateOffset(0)}
+                                   class="text-xs bg-sky-100 text-sky-700 font-bold px-2 py-1 rounded-md flex-shrink-0 whitespace-nowrap active:scale-95 transition-all">
+                                   오늘로
+                               </button>
                            )}
                        </div>
                        {isLoading ? (
@@ -1954,7 +1974,9 @@
                                </div>
                                <h3 class="text-sm font-bold text-slate-800">로딩된 주말 공사 목록이 없습니다</h3>
                                <p class="text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed">
-                                   상단의 검은색 버튼을 눌러 관리 PC에서 가져온 주말공사 엑셀 내역 파일을 선택해주세요.
+                                   {masterLevel >= 2
+                                       ? "상단의 검은색 버튼을 눌러 관리 PC에서 가져온 주말공사 엑셀 내역 파일을 선택해주세요."
+                                       : "관리자가 아직 엑셀 파일을 올리지 않았습니다. 관리자에게 문의해주세요."}
                                </p>
                            </div>
                        ) : (
@@ -2095,13 +2117,65 @@
                                                )}
                                            </div>
 
-                                           <button
-                                               type="button"
-                                               onClick={(e) => handleKakaoCopy(item, e)}
-                                               class="w-full mt-3 flex items-center justify-center gap-1.5 bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-sm py-2.5 rounded-xl active:scale-[0.98] transition-all"
-                                           >
-                                               💬 카톡 복사
-                                           </button>
+                                           {/* (v2.22) 카드에서 바로 처리: 체감온도 계산 / 안전보고문 복사
+                                                카톡복사는 바텀시트로 이동함 */}
+                                           <div class="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+                                               {cardHeatOpen === item.id && (
+                                                   <div class="bg-sky-50 border border-sky-200 rounded-xl p-3 space-y-2">
+                                                       <div class="grid grid-cols-2 gap-2">
+                                                           <div class="relative">
+                                                               <input type="number" inputMode="decimal" placeholder="기온" value={cardTemp}
+                                                                   onChange={(e) => setCardTemp(e.target.value)}
+                                                                   class="w-full bg-white border border-sky-200 rounded-lg pl-2.5 pr-8 py-2 text-sm focus:outline-none focus:border-sky-500"/>
+                                                               <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-sky-400 font-bold">℃</span>
+                                                           </div>
+                                                           <div class="relative">
+                                                               <input type="number" inputMode="decimal" placeholder="습도" value={cardHum}
+                                                                   onChange={(e) => setCardHum(e.target.value)}
+                                                                   class="w-full bg-white border border-sky-200 rounded-lg pl-2.5 pr-8 py-2 text-sm focus:outline-none focus:border-sky-500"/>
+                                                               <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-sky-400 font-bold">%</span>
+                                                           </div>
+                                                       </div>
+                                                       <button type="button"
+                                                           onClick={() => calcHeatFor(item, cardTemp, cardHum, () => {
+                                                               setCardTemp(""); setCardHum(""); setCardHeatOpen(null);
+                                                               showToast("체감온도가 기록되었습니다.");
+                                                           })}
+                                                           class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 rounded-lg text-sm active:scale-[0.98] transition-all">
+                                                           계산하기
+                                                       </button>
+                                                   </div>
+                                               )}
+
+                                               <div class="flex items-center gap-2">
+                                                   <button type="button"
+                                                       onClick={() => {
+                                                           setCardHeatOpen(prev => prev === item.id ? null : item.id);
+                                                           setCardTemp(""); setCardHum("");
+                                                       }}
+                                                       class="flex-1 flex items-center justify-center gap-1 bg-sky-100 hover:bg-sky-200 text-sky-700 font-bold text-sm py-2.5 rounded-xl active:scale-[0.98] transition-all">
+                                                       🌡️ 체감온도 계산
+                                                   </button>
+                                                   {/* 보고문 단계 선택 — 카드 실제 상태와 별개, 문구용 */}
+                                                   <div class="flex items-center gap-0.5 rounded-xl bg-slate-200 px-1 py-0.5 flex-shrink-0">
+                                                       <button type="button" onClick={() => moveStage(item, -1)} aria-label="이전 단계"
+                                                           class="text-slate-600 font-black w-5 h-6 flex items-center justify-center active:scale-90 transition-all">◀</button>
+                                                       <span class="text-xs font-black text-slate-700 w-11 text-center whitespace-nowrap">{stageLabel(stageOf(item))}</span>
+                                                       <button type="button" onClick={() => moveStage(item, 1)} aria-label="다음 단계"
+                                                           class="text-slate-600 font-black w-5 h-6 flex items-center justify-center active:scale-90 transition-all">▶</button>
+                                                   </div>
+                                               </div>
+
+                                               <button type="button"
+                                                   onClick={(e) => {
+                                                       // 최신 items에서 조회 (방금 측정한 체감온도 반영) + 선택한 단계 적용
+                                                       const live = items.find(it => it.id === item.id) || item;
+                                                       handleSafetyReportCopy({ ...live, reportStage: stageOf(item), companyName }, e);
+                                                   }}
+                                                   class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-2.5 rounded-xl active:scale-[0.98] transition-all">
+                                                   📋 안전보고문 복사
+                                               </button>
+                                           </div>
                                            </React.Fragment>
                                            )}
                                        </div>
@@ -2314,14 +2388,22 @@
                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all resize-none"/>
                                    </div>
 
-                                   {/* 저장/초기화/북마크 (v2.18: 3버튼. 바텀시트 닫기는 배경 탭/핸들바로 가능) */}
-                                   <div class="grid grid-cols-3 gap-2 pt-2">
-                                       <button type="button" onClick={() => setShowCardResetConfirm(true)}
-                                           class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-sm active:scale-95 transition-all min-h-[52px]">
-                                           초기화
+                                   {/* (v2.22) 하단 버튼 — 최고관리자 4버튼 / 일반 3버튼.
+                                        초기화는 관리자 전용, 카톡복사를 카드 목록에서 여기로 이동.
+                                        바텀시트 닫기는 배경 탭/핸들바로 가능 */}
+                                   <div class={`grid gap-2 pt-2 ${masterLevel >= 2 ? "grid-cols-4" : "grid-cols-3"}`}>
+                                       {masterLevel >= 2 && (
+                                           <button type="button" onClick={() => setShowCardResetConfirm(true)}
+                                               class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]">
+                                               초기화
+                                           </button>
+                                       )}
+                                       <button type="button" onClick={(e) => handleKakaoCopy(selectedItem, e)}
+                                           class="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]">
+                                           💬 카톡복사
                                        </button>
                                        <button type="button" onClick={toggleBookmark}
-                                           class={`w-full font-bold py-3.5 rounded-xl text-sm active:scale-95 transition-all min-h-[52px] ${
+                                           class={`w-full font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px] ${
                                                bookmarkId === selectedItem.id
                                                    ? "bg-amber-100 text-amber-700 border-2 border-amber-400"
                                                    : "bg-slate-100 text-slate-600"
@@ -2329,7 +2411,7 @@
                                            ★ 내공사
                                        </button>
                                        <button type="button" onClick={handleSaveDetails}
-                                           class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl text-sm shadow-xs active:scale-95 transition-all min-h-[52px]">
+                                           class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl text-xs shadow-xs active:scale-95 transition-all min-h-[52px]">
                                            입력 완료
                                        </button>
                                    </div>
@@ -2345,7 +2427,8 @@
                                                {["전", "중", "후"].map(s => (
                                                    <button key={s} type="button" onClick={() => setReportStage(s)}
                                                        class={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${reportStage === s ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500"}`}>
-                                                       공사{s}
+                                                       {/* (v2.22) 표시명만 '공사후'→'종료'. 저장값("후")은 기존 데이터 호환 위해 유지 */}
+                                                       {s === "후" ? "종료" : `공사${s}`}
                                                    </button>
                                                ))}
                                            </div>
