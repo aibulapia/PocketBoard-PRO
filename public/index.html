@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.22c</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.22d</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.22c";
+       const APP_VERSION = "2.22d";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -991,17 +991,22 @@
                }
            }, [activeTab]);
 
+           // (v2.22d) 카드 목록은 탭(공장) 필터만 적용해 전체를 표시하고,
+           //  날짜 배정 여부는 카드의 TODAY/날짜 배지로만 구분한다.
+           //  (v2.19 방식대로 '오늘 아니면 숨김'으로 걸러버리면 전체 목록을 볼 수 없었음)
            const filteredItems = useMemo(() => {
-               let list = activeTab === "전체" ? items : items.filter(item => item.factory === activeTab);
-               // (v2.19) 선택한 날짜(오늘 포함)에 인원이 배정된 공사만 표시.
-               //  단 진행 중인 작업이 화면에서 사라지면 안 되므로, 오늘을 보는 중이고
-               //  '공사중'인 카드는 인원 배정이 없어도 목록에 남긴다.
+               return activeTab === "전체" ? items : items.filter(item => item.factory === activeTab);
+           }, [items, activeTab]);
+
+           // 날짜 옆 "예정 공사 N건" 문구 전용 — 선택한 날짜에 실제 배정된 건수
+           //  (목록 표시와는 별개. 진행 중인 공사는 배정이 없어도 카운트에 포함해
+           //   '오늘 할 일이 몇 건인지'가 실제 현장 상황과 맞도록 한다)
+           const scheduledCount = useMemo(() => {
                const viewingToday = dateOffset === 0;
-               list = list.filter(item =>
+               return filteredItems.filter(item =>
                    hasWorkOn(item, selectedDate) || (viewingToday && isOngoingItem(item))
-               );
-               return list;
-           }, [items, activeTab, dateOffset, selectedDate, after17]);
+               ).length;
+           }, [filteredItems, dateOffset, selectedDate, after17]);
 
            const getSupervisorPool = (factoryName) => {
                const fixed = FIXED_SUPERVISORS[factoryName] || [];
@@ -2020,7 +2025,7 @@
                                </button>
                            </div>
                            <span class="text-sm text-slate-500 font-semibold whitespace-nowrap">
-                               예정 공사 {filteredItems.length}건
+                               예정 공사 {scheduledCount}건
                            </span>
                            {dateOffset !== 0 && (
                                <button onClick={() => setDateOffset(0)}
