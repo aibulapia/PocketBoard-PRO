@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.22d";
+       const APP_VERSION = "2.23";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -2003,8 +2003,9 @@
 
                    {/* 메인 대시보드 리스트 */}
                    <main class="p-4 flex-1">
-                       {/* (v2.22a) 날씨아이콘 · 날짜네비 · 안내문 · 오늘로 를 한 줄에 왼쪽부터 배치
-                            폴드4 전면(약 344px)에서도 넘치지 않도록 날씨는 아이콘만 사용 */}
+                       {/* (v2.23) 날씨아이콘 · 날짜네비 · 안내문 을 한 줄에 왼쪽부터 배치
+                            폴드4 전면(약 344px)에서도 넘치지 않도록 날씨는 아이콘만 사용
+                            "오늘로" 버튼 삭제, 날짜 표시(밑줄) 터치로 오늘 이동 대체 */}
                        <div class="flex items-center gap-2 px-1 mb-3.5">
                            <button onClick={() => { setShowWeather(true); fetchWeather(false); }} aria-label="기상 정보"
                                class="text-xl bg-sky-50 px-2 py-1 rounded-md leading-none flex items-center flex-shrink-0 active:scale-95 transition-all">
@@ -2016,7 +2017,8 @@
                                    class="text-white font-black w-5 h-5 flex items-center justify-center active:scale-90 transition-all">
                                    ◀
                                </button>
-                               <span class="text-sm text-white px-1 font-black tracking-wide whitespace-nowrap">
+                               <span onClick={() => setDateOffset(0)} aria-label="오늘로 이동"
+                                   class="text-sm text-white px-1 font-black tracking-wide whitespace-nowrap underline decoration-white/50 underline-offset-2 cursor-pointer active:scale-95 transition-all">
                                    {selectedDateLabel}
                                </span>
                                <button onClick={() => setDateOffset(o => o + 1)} aria-label="다음 날짜"
@@ -2024,15 +2026,9 @@
                                    ▶
                                </button>
                            </div>
-                           <span class="text-sm text-slate-500 font-semibold whitespace-nowrap">
+                           <span class="text-base text-slate-500 font-semibold whitespace-nowrap">
                                예정 공사 {scheduledCount}건
                            </span>
-                           {dateOffset !== 0 && (
-                               <button onClick={() => setDateOffset(0)}
-                                   class="text-xs bg-sky-100 text-sky-700 font-bold px-2 py-1 rounded-md flex-shrink-0 whitespace-nowrap active:scale-95 transition-all">
-                                   오늘로
-                               </button>
-                           )}
                        </div>
                        {isLoading ? (
                            <div class="flex flex-col items-center justify-center py-24 text-center">
