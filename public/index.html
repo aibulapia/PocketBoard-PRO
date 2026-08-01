@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.22g";
+       const APP_VERSION = "2.22H";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -201,6 +201,26 @@
            "전기": "전", "자동화": "자", "청소": "청", "운반": "운", "도색": "도"
        };
        const COMMON_MEASURES = D.COMMON_MEASURES || [];
+
+       // (v2.22H) 도움말 — 화면 흐름 순서(공사 리스트 → 공사 세부)로 정리한 FAQ
+       const HELP_ITEMS = [
+           { id: "h1", group: "📋 공사 리스트 화면", q: "공사 코드가 뭔가요?",
+             a: "같은 코드를 쓰는 사람끼리 데이터가 공유됩니다. 팀별로 자유롭게 설정하세요." },
+           { id: "h2", group: "📋 공사 리스트 화면", q: "내 공장 설정은 왜 필요한가요?",
+             a: "담당 공장을 정하면 그 공장만 걸러보고, 앱을 열 때 첫 화면으로 자동 표시됩니다." },
+           { id: "h3", group: "📋 공사 리스트 화면", q: "TODAY 배지가 뭔가요?",
+             a: "오늘 배정된 공사에 파란 배지가 붙습니다. 터치하면 회색(취소)↔파랑 전환되고, 2일째부터 \"N일째\"도 표시됩니다." },
+           { id: "h4", group: "📋 공사 리스트 화면", q: "날짜 이동은 어떻게 하나요?",
+             a: "◀▶ 화살표로 넘기고, 가운데 날짜를 터치하면 오늘로 바로 이동합니다." },
+           { id: "h5", group: "📝 공사 세부 화면", q: "즐겨찾기는 뭔가요?",
+             a: "오늘 볼 공사 하나를 찜하면, 앱을 열자마자 바로 뜹니다 (매일 06시 자동 해제)." },
+           { id: "h6", group: "📝 공사 세부 화면", q: "\"안전보고문\"은 뭔가요?",
+             a: "5공장 전용 기능. 공사전/중/종료 단계별로 작업·체감온도·폭염대책을 자동으로 정리해 복사해줍니다. (체감온도 기록 없으면 먼저 측정 필요) 상세화면은 전 공장 사용 가능합니다." },
+           { id: "h7", group: "📝 공사 세부 화면", q: "공사 연장은 어떻게 하나요?",
+             a: "17시 이후 계속되면 \"⏰ 작업연장\"에서 종료 시각을 선택하세요. 카드·카톡복사·보고문에 자동 반영됩니다." },
+           { id: "h8", group: "📝 공사 세부 화면", q: "카톡 복사는 어떻게 하나요?",
+             a: "\"💬 카톡복사\" 누르면 공사명·위치·감독자·인원이 정리돼 클립보드에 복사됩니다. 카톡방에 붙여넣기만 하면 됩니다." },
+       ];
 
        // ── 06시 일일 체계 유틸 (하루 = 06:00 ~ 익일 05:59) ──
        const WORKDAY_SHIFT_MS = 6 * 60 * 60 * 1000;
@@ -333,6 +353,9 @@
 
            // 프로그램 정보 모달
            const [showInfo, setShowInfo] = useState(false);
+           // (v2.22H) 도움말 — 화면별 자주 묻는 질문, 펼침식(아코디언, 하나만 펼침)
+           const [showHelp, setShowHelp] = useState(false);
+           const [openHelpId, setOpenHelpId] = useState(null);
            // (20번) 공지사항
            const [notice, setNotice] = useState(null);      // {body, updated_at}
            const [showNotice, setShowNotice] = useState(false);
@@ -873,10 +896,18 @@
                        });
 
                        // (8번) 소급 초기값: 오늘(06시 체계) 이전 날짜에 인원>0이면 이미 진행된 작업일로 카운트
-                       const curDay = getWorkdayDate().getDate();
+                       // (v2.25) 월경계 버그 수정 — 기존엔 day(일자)만 비교해서 예를 들어 "오늘 8/3, 과거기록 7/28"
+                       //  같은 경우 28 < 3 이 거짓이 되어 놓쳤음. month까지 포함해 실제 날짜 차이를 계산하도록 변경.
+                       const wdDateForInit = getWorkdayDate();
+                       const curDay = wdDateForInit.getDate();
+                       const curMonth = wdDateForInit.getMonth() + 1;
                        let initialPast = 0;
                        Object.values(dateWorkers).forEach(dw => {
-                           if (dw.workers > 0 && dw.day < curDay && curDay - dw.day <= 7) initialPast++;
+                           if (dw.workers <= 0) return;
+                           const dwMonth = dw.month ?? curMonth;
+                           // 월차이*31(안전마진) + 일차이로 절대적인 "며칠 전"을 계산 (연도 넘어가는 12월→1월도 처리)
+                           const diffDays = (curMonth - dwMonth + (curMonth < dwMonth ? 12 : 0)) * 31 + (curDay - dw.day);
+                           if (diffDays > 0 && diffDays <= 7) initialPast++;
                        });
 
                        parsedList.push({
@@ -1045,10 +1076,10 @@
                setBookmarkId(next);
                if (next) {
                    localStorage.setItem("MMEEC_BOOKMARK", JSON.stringify({ id: next, workday: getWorkdayKey() }));
-                   showToast("내 공사로 저장했습니다. 앱을 다시 열면 바로 표시됩니다.");
+                   showToast("즐겨찾기로 저장했습니다. 앱을 다시 열면 바로 표시됩니다.");
                } else {
                    localStorage.removeItem("MMEEC_BOOKMARK");
-                   showToast("내 공사 저장을 해제했습니다.");
+                   showToast("즐겨찾기 저장을 해제했습니다.");
                }
            };
 
@@ -1919,6 +1950,10 @@
                                    <path d="M10 2 a8 8 0 0 1 0 16 z" fill="currentColor"/>
                                </svg>
                            </button>
+                           <button onClick={() => { setOpenHelpId(null); setShowHelp(true); }} aria-label="도움말"
+                               class="flex-shrink-0 text-xs bg-slate-100 text-slate-600 w-7 h-7 rounded-lg font-bold active:scale-95 transition-all ml-2">
+                               📖
+                           </button>
                            <button onClick={() => setShowInfo(true)} class="flex-shrink-0 text-xs bg-slate-100 text-slate-600 w-7 h-7 rounded-lg font-bold active:scale-95 transition-all ml-2">
                                ❓
                            </button>
@@ -2503,7 +2538,7 @@
                                                    ? "bg-amber-100 text-amber-700 border-2 border-amber-400"
                                                    : "bg-slate-100 text-slate-600"
                                            }`}>
-                                           ★ 내공사
+                                           ★ 즐겨찾기
                                        </button>
                                        <button type="button" onClick={handleSaveDetails}
                                            class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl text-xs shadow-xs active:scale-95 transition-all min-h-[52px]">
@@ -2722,6 +2757,41 @@
                                    <p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{notice.body}</p>
                                </div>
                                <button onClick={dismissNotice} class="w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all">확인</button>
+                           </div>
+                       </div>
+                   )}
+
+                   {/* ── (v2.22H) 도움말 모달 — 화면별 FAQ, 하나만 펼침 ── */}
+                   {showHelp && (
+                       <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6">
+                           <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl max-h-[80vh] flex flex-col">
+                               <h2 class="text-lg font-black text-slate-900 text-center mb-4 flex-shrink-0">📖 사용 도움말</h2>
+                               <div class="overflow-y-auto space-y-4 pr-1">
+                                   {["📋 공사 리스트 화면", "📝 공사 세부 화면"].map(group => (
+                                       <div key={group}>
+                                           <p class="text-sm font-black text-slate-500 mb-2">{group}</p>
+                                           <div class="space-y-2">
+                                               {HELP_ITEMS.filter(h => h.group === group).map(h => (
+                                                   <div key={h.id} class="border border-slate-200 rounded-xl overflow-hidden">
+                                                       <button type="button"
+                                                           onClick={() => setOpenHelpId(openHelpId === h.id ? null : h.id)}
+                                                           class="w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left active:bg-slate-50 transition-all">
+                                                           <span class="text-sm font-bold text-slate-800">{h.q}</span>
+                                                           <span class="text-slate-400 flex-shrink-0">{openHelpId === h.id ? "▼" : "▶"}</span>
+                                                       </button>
+                                                       {openHelpId === h.id && (
+                                                           <p class="px-3.5 pb-3.5 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{h.a}</p>
+                                                       )}
+                                                   </div>
+                                               ))}
+                                           </div>
+                                       </div>
+                                   ))}
+                               </div>
+                               <button onClick={() => setShowHelp(false)}
+                                   class="w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all mt-4 flex-shrink-0">
+                                   확인
+                               </button>
                            </div>
                        </div>
                    )}
