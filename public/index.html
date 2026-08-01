@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.23";
+       const APP_VERSION = "2.22g";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -296,6 +296,22 @@
            if (name.includes("광명")) return "12.광명";
            return "9.기타";
        };
+
+       // (v2.24) 기상특보 심각도: 중대경보 > 경보 > 주의보 순으로 정렬 + 배지 색 구분
+       const warningSeverity = (w) => {
+           if (w.endsWith("중대경보")) return 3;
+           if (w.endsWith("경보")) return 2;
+           if (w.endsWith("주의보")) return 1;
+           return 0;
+       };
+       const sortWarnings = (list) => [...list].sort((a, b) => warningSeverity(b) - warningSeverity(a));
+       const warningBadgeClass = (w) => {
+           const sev = warningSeverity(w);
+           if (sev === 3) return "bg-red-700 text-white ring-2 ring-red-300 animate-pulse"; // 중대경보: 가장 위급
+           if (sev === 2) return "bg-rose-500 text-white"; // 경보
+           return "bg-amber-500 text-white"; // 주의보
+       };
+
 
        function App() {
            const [items, setItems] = useState([]);
@@ -1479,8 +1495,10 @@
                    const t6 = items.map(m => m.t6 || "").join("\n");
                    const regionLines = t6.split("\n").filter(l => l.includes(areaKw));
                    const scope = regionLines.length ? regionLines.join(" ") : "";
-                   // 특보 종류(열대야 포함) + 경보/주의보 추출
-                   const found = scope.match(/(폭염|열대야|호우|대설|강풍|풍랑|태풍|한파|건조|안개|황사|폭풍해일)\s*(경보|주의보)/g) || [];
+                   // 특보 종류 + 등급(중대경보/경보/주의보) 추출
+                   // (v2.24) 재해명을 하드코딩된 목록으로 제한하지 않고 "OO중대경보/경보/주의보" 패턴 전체를 인식
+                   //         → 기상청이 새 특보명을 추가해도 코드 수정 없이 자동으로 잡힘
+                   const found = scope.match(/[가-힣]{2,4}(?:중대경보|경보|주의보)/g) || [];
                    result.warnings = Array.from(new Set(found.map(s => s.replace(/\s+/g, ""))));
                    // 전문(탭 펼침용): 우리 지역 라인 우선, 없으면 t6 전체
                    result.bulletin = (regionLines.length ? regionLines.join("\n") : t6).trim().slice(0, 800);
@@ -1672,10 +1690,13 @@
                };
            }, []);
 
-           // (v2.18) 접속 기록 — 앱 실행 시 1회. 기기ID는 브라우저가 만든 난수(개인 식별 아님)
+           // (v2.25) 접속 기록 — 앱 실행 시 1회. 기기ID는 브라우저가 만든 난수(개인 식별 아님)
+           //         카톡 iOS 인앱 브라우저는 "Safari로 열어주세요" 안내만 보여주는 화면이라
+           //         실제 앱 진입이 아님 → 이 상태에서는 접속 기록을 건너뛰어 중복 집계 방지
            useEffect(() => {
                (async () => {
                    try {
+                       if (window.__KAKAO_IOS__) return; // 카톡 iOS 안내 화면 — 실제 앱 진입 아님
                        const cfg = window.APP_CONFIG || {};
                        if (!cfg.supabaseUrl) return;
                        let dev = localStorage.getItem("MMEEC_DEVICE_ID");
@@ -3072,8 +3093,8 @@
                                            <p class="text-xs text-slate-500 font-bold mb-2">기상특보</p>
                                            {weather.warnings && weather.warnings.length > 0 ? (
                                                <div class="flex flex-wrap gap-1.5">
-                                                   {weather.warnings.map((w, i) => (
-                                                       <span key={i} class="bg-rose-500 text-white text-sm font-black px-2.5 py-1 rounded-lg">{w}</span>
+                                                   {sortWarnings(weather.warnings).map((w, i) => (
+                                                       <span key={i} class={`${warningBadgeClass(w)} text-sm font-black px-2.5 py-1 rounded-lg`}>{w}</span>
                                                    ))}
                                                </div>
                                            ) : (
