@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.22d</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.23</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.22H";
+       const APP_VERSION = "2.23";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -213,7 +213,7 @@
            { id: "h4", group: "📋 공사 리스트 화면", q: "날짜 이동은 어떻게 하나요?",
              a: "◀▶ 화살표로 넘기고, 가운데 날짜를 터치하면 오늘로 바로 이동합니다." },
            { id: "h5", group: "📝 공사 세부 화면", q: "즐겨찾기는 뭔가요?",
-             a: "오늘 볼 공사 하나를 찜하면, 앱을 열자마자 바로 뜹니다 (매일 06시 자동 해제)." },
+             a: "관심 있는 공사를 여러 개 찜해두면 목록 맨 위에 모아 보여줍니다. ★를 다시 누르면 해제되고, 공사기간이 끝나거나 전체 초기화하면 자동으로 정리됩니다." },
            { id: "h6", group: "📝 공사 세부 화면", q: "\"안전보고문\"은 뭔가요?",
              a: "5공장 전용 기능. 공사전/중/종료 단계별로 작업·체감온도·폭염대책을 자동으로 정리해 복사해줍니다. (체감온도 기록 없으면 먼저 측정 필요) 상세화면은 전 공장 사용 가능합니다." },
            { id: "h7", group: "📝 공사 세부 화면", q: "공사 연장은 어떻게 하나요?",
@@ -317,7 +317,7 @@
            return "9.기타";
        };
 
-       // (v2.24) 기상특보 심각도: 중대경보 > 경보 > 주의보 순으로 정렬 + 배지 색 구분
+       // (v2.22g) 기상특보 심각도: 중대경보 > 경보 > 주의보 순으로 정렬 + 배지 색 구분
        const warningSeverity = (w) => {
            if (w.endsWith("중대경보")) return 3;
            if (w.endsWith("경보")) return 2;
@@ -508,16 +508,6 @@
            const todayDow = getWorkdayDow(nowTick);
            // (v2.17) 06시 넘겨 workday가 바뀌면 수동 펼침 상태 초기화
            useEffect(() => { setExpandedIds([]); }, [workday]);
-           // (v2.18) 06시 리셋 시 '내 공사' 북마크도 자동 해제
-           useEffect(() => {
-               try {
-                   const raw = JSON.parse(localStorage.getItem("MMEEC_BOOKMARK") || "null");
-                   if (raw && raw.workday !== workday) {
-                       localStorage.removeItem("MMEEC_BOOKMARK");
-                       setBookmarkId(null);
-                   }
-               } catch {}
-           }, [workday]);
            const after17 = isAfter17(nowTick);
            // (27번) 오늘 실제 날짜 라벨 "M/D(요일)" — 06시 workday 아닌 실제 달력 기준
            const todayLabel = (() => {
@@ -896,7 +886,7 @@
                        });
 
                        // (8번) 소급 초기값: 오늘(06시 체계) 이전 날짜에 인원>0이면 이미 진행된 작업일로 카운트
-                       // (v2.25) 월경계 버그 수정 — 기존엔 day(일자)만 비교해서 예를 들어 "오늘 8/3, 과거기록 7/28"
+                       // (v2.22h) 월경계 버그 수정 — 기존엔 day(일자)만 비교해서 예를 들어 "오늘 8/3, 과거기록 7/28"
                        //  같은 경우 28 < 3 이 거짓이 되어 놓쳤음. month까지 포함해 실제 날짜 차이를 계산하도록 변경.
                        const wdDateForInit = getWorkdayDate();
                        const curDay = wdDateForInit.getDate();
@@ -1041,9 +1031,48 @@
            // (v2.22d) 카드 목록은 탭(공장) 필터만 적용해 전체를 표시하고,
            //  날짜 배정 여부는 카드의 TODAY/날짜 배지로만 구분한다.
            //  (v2.19 방식대로 '오늘 아니면 숨김'으로 걸러버리면 전체 목록을 볼 수 없었음)
+           // (v2.23) 즐겨찾기 — 여러 개 허용, ★ 재클릭으로만 해제(자동 해제 없음), 기기 로컬 저장
+           //   구버전(v2.18, 1개짜리 {id, workday} 형식) 저장값은 자동으로 배열 형식으로 변환
+           const [bookmarkIds, setBookmarkIds] = useState(() => {
+               try {
+                   const raw = JSON.parse(localStorage.getItem("MMEEC_BOOKMARK") || "null");
+                   if (!raw) return [];
+                   if (Array.isArray(raw)) return raw.filter(Boolean);
+                   if (raw.id) return [raw.id]; // 구버전 단일 저장 형식 호환
+                   return [];
+               } catch { return []; }
+           });
+           const saveBookmarkIds = (next) => {
+               setBookmarkIds(next);
+               localStorage.setItem("MMEEC_BOOKMARK", JSON.stringify(next));
+           };
+           const toggleBookmark = () => {
+               if (!selectedItem) return;
+               const has = bookmarkIds.includes(selectedItem.id);
+               const next = has ? bookmarkIds.filter(id => id !== selectedItem.id) : [...bookmarkIds, selectedItem.id];
+               saveBookmarkIds(next);
+               showToast(has ? "즐겨찾기 저장을 해제했습니다." : "즐겨찾기로 저장했습니다.");
+           };
+           // (v2.23) items가 바뀌면(공사기간 종료로 자동 삭제·레벨2 초기화 등) 더 이상
+           //  존재하지 않는 항목의 즐겨찾기는 자동으로 함께 정리
+           useEffect(() => {
+               if (bookmarkIds.length === 0) return;
+               const validIds = new Set(items.map(i => i.id));
+               const pruned = bookmarkIds.filter(id => validIds.has(id));
+               if (pruned.length !== bookmarkIds.length) saveBookmarkIds(pruned);
+           }, [items]);
+
            const filteredItems = useMemo(() => {
                return activeTab === "전체" ? items : items.filter(item => item.factory === activeTab);
            }, [items, activeTab]);
+
+           // (v2.23) 즐겨찾기 항목만 맨 위로 끌어올리고, 그 외에는 원래 순서(공장·시간순) 그대로 유지
+           const displayItems = useMemo(() => {
+               if (bookmarkIds.length === 0) return filteredItems;
+               const bm = filteredItems.filter(i => bookmarkIds.includes(i.id));
+               const rest = filteredItems.filter(i => !bookmarkIds.includes(i.id));
+               return [...bm, ...rest];
+           }, [filteredItems, bookmarkIds]);
 
            // 날짜 옆 "예정 공사 N건" 문구 전용 — 선택한 날짜에 실제 배정된 건수
            //  (목록 표시와는 별개. 진행 중인 공사는 배정이 없어도 카운트에 포함해
@@ -1061,26 +1090,6 @@
                    .filter(item => item.factory === factoryName && item.assignedSupervisor)
                    .map(item => item.assignedSupervisor.trim());
                return Array.from(new Set([...fixed, ...dynamicallyAssigned])).filter(Boolean);
-           };
-
-           // (v2.18) '내 공사' 북마크 — 1개만, 06시 리셋 시 자동 해제, 기기 로컬 저장
-           const [bookmarkId, setBookmarkId] = useState(() => {
-               try {
-                   const raw = JSON.parse(localStorage.getItem("MMEEC_BOOKMARK") || "null");
-                   return raw && raw.workday === getWorkdayKey() ? raw.id : null;
-               } catch { return null; }
-           });
-           const toggleBookmark = () => {
-               if (!selectedItem) return;
-               const next = bookmarkId === selectedItem.id ? null : selectedItem.id;
-               setBookmarkId(next);
-               if (next) {
-                   localStorage.setItem("MMEEC_BOOKMARK", JSON.stringify({ id: next, workday: getWorkdayKey() }));
-                   showToast("즐겨찾기로 저장했습니다. 앱을 다시 열면 바로 표시됩니다.");
-               } else {
-                   localStorage.removeItem("MMEEC_BOOKMARK");
-                   showToast("즐겨찾기 저장을 해제했습니다.");
-               }
            };
 
            // (v2.22) 카드 목록에서 바로 쓰는 체감온도 입력 / 안전보고문 단계 선택
@@ -1123,15 +1132,6 @@
                setHeatResults((item.heatResults || []).filter(r => !r.workday || r.workday === wd));
                setExtendHour(item.extendHour ?? null);
            };
-
-           // (v2.18) 앱 시작(로딩 완료) 시 북마크한 공사의 입력 시트를 자동으로 연다. 세션당 1회만.
-           const bookmarkOpened = useRef(false);
-           useEffect(() => {
-               if (isLoading || bookmarkOpened.current || !bookmarkId) return;
-               const target = items.find(i => i.id === bookmarkId);
-               bookmarkOpened.current = true;
-               if (target) openBottomSheet(target);   // 없으면(만료·삭제) 조용히 무시
-           }, [isLoading, items, bookmarkId]);
 
            // 인원수 입력값 정제: 숫자만 추출, 비숫자면 빈 문자열
            const cleanCount = (v) => {
@@ -1369,6 +1369,23 @@
                });
            };
 
+           // (v2.23) 마스터 전용 — 오늘 연장 선택된 공사 전체를 모아 일괄 복사
+           //  (extendHour는 06시 넘어가면 자동 초기화되므로 별도 날짜 필터 불필요)
+           const handleExtensionReport = () => {
+               const targets = items.filter(it => it.extendHour != null);
+               if (targets.length === 0) {
+                   showToast("연장 없음");
+                   return;
+               }
+               const lines = targets.map(it => `${it.title} ${String(it.extendHour).padStart(2, "0")}시`);
+               lines.push("연장입니다");
+               navigator.clipboard.writeText(lines.join("\n")).then(() => {
+                   showToast("⏰ 연장 보고 문구가 복사되었습니다.");
+               }).catch(() => {
+                   showToast("클립보드 복사에 실패했습니다.");
+               });
+           };
+
            const openFactoryFilter = () => {
                setFilterDraft(myFactories ? [...myFactories] : []);
                setShowFactoryFilter(true);
@@ -1527,7 +1544,7 @@
                    const regionLines = t6.split("\n").filter(l => l.includes(areaKw));
                    const scope = regionLines.length ? regionLines.join(" ") : "";
                    // 특보 종류 + 등급(중대경보/경보/주의보) 추출
-                   // (v2.24) 재해명을 하드코딩된 목록으로 제한하지 않고 "OO중대경보/경보/주의보" 패턴 전체를 인식
+                   // (v2.22g) 재해명을 하드코딩된 목록으로 제한하지 않고 "OO중대경보/경보/주의보" 패턴 전체를 인식
                    //         → 기상청이 새 특보명을 추가해도 코드 수정 없이 자동으로 잡힘
                    const found = scope.match(/[가-힣]{2,4}(?:중대경보|경보|주의보)/g) || [];
                    result.warnings = Array.from(new Set(found.map(s => s.replace(/\s+/g, ""))));
@@ -1721,7 +1738,7 @@
                };
            }, []);
 
-           // (v2.25) 접속 기록 — 앱 실행 시 1회. 기기ID는 브라우저가 만든 난수(개인 식별 아님)
+           // (v2.18) 접속 기록 — 앱 실행 시 1회. 기기ID는 브라우저가 만든 난수(개인 식별 아님)
            //         카톡 iOS 인앱 브라우저는 "Safari로 열어주세요" 안내만 보여주는 화면이라
            //         실제 앱 진입이 아님 → 이 상태에서는 접속 기록을 건너뛰어 중복 집계 방지
            useEffect(() => {
@@ -1931,9 +1948,9 @@
                        <div class="flex items-center justify-between mb-3">
                            <div class="flex items-center gap-2 min-w-0 overflow-hidden">
                                <button
-                                   onClick={() => openPwModal("company")}
+                                   onClick={() => { if (masterLevel >= 2) openPwModal("company"); }}
                                    class="bg-white px-1.5 py-1 rounded-lg active:scale-95 transition-all flex-shrink-0"
-                                   aria-label={`${companyName} (회사명 수정)`}
+                                   aria-label={`${companyName}${masterLevel >= 2 ? " (회사명 수정)" : ""}`}
                                >
                                    {companyName === "MMEEC" ? (
                                        <span class="text-blue-600 font-black text-lg tracking-tight px-1 whitespace-nowrap" aria-label="M MEEC 로고">M MEEC</span>
@@ -2003,6 +2020,12 @@
                            ) : (
                                <div class="flex-1" />
                            )}
+                           {/* (v2.23) 연장 보고 일괄 복사 — 최고 관리자(레벨2) 전용 */}
+                           {masterLevel >= 2 && items.length > 0 && (
+                               <button onClick={handleExtensionReport} class="flex-shrink-0 text-xs px-2.5 py-2 rounded-lg font-medium active:scale-95 transition-all whitespace-nowrap bg-indigo-100 text-indigo-700">
+                                   ⏰ 연장 보고
+                               </button>
+                           )}
                            <button onClick={openFactoryFilter} class={`flex-shrink-0 text-xs px-2.5 py-2 rounded-lg font-medium active:scale-95 transition-all whitespace-nowrap ${myFactories ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
                                🏭 내 공장
                            </button>
@@ -2059,7 +2082,7 @@
 
                    {/* 메인 대시보드 리스트 */}
                    <main class="p-4 flex-1">
-                       {/* (v2.23) 날씨아이콘 · 날짜네비 · 안내문 을 한 줄에 왼쪽부터 배치
+                       {/* (v2.22a) 날씨아이콘 · 날짜네비 · 안내문 을 한 줄에 왼쪽부터 배치
                             폴드4 전면(약 344px)에서도 넘치지 않도록 날씨는 아이콘만 사용
                             "오늘로" 버튼 삭제, 날짜 표시(밑줄) 터치로 오늘 이동 대체 */}
                        <div class="flex items-center gap-2 px-1 mb-3.5">
@@ -2107,7 +2130,7 @@
                            </div>
                        ) : (
                            <div class={`space-y-3.5 ${slideDir ? `slide-${slideDir}` : ""}`} onTouchStart={onListTouchStart} onTouchEnd={onListTouchEnd}>
-                               {filteredItems.map(item => {
+                               {displayItems.map(item => {
                                    const isPending = item.status === "pending";
                                    // (v2.17) TODAY 활성도 공사중도 아닌 카드는 제목까지만 접어서 표시.
                                    //  터치하면 그 자리에서 펼쳐지고, 펼친 뒤 터치하면 기존처럼 입력 바텀시트가 열린다.
@@ -2128,6 +2151,9 @@
                                        >
                                            <div class="flex items-start justify-between gap-2 mb-2.5">
                                                <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+                                                   {bookmarkIds.includes(item.id) && (
+                                                       <span class="text-base text-amber-500 flex-shrink-0" title="즐겨찾기">★</span>
+                                                   )}
                                                    <span class={`text-base px-2 py-0.5 rounded-md font-extrabold tracking-wide whitespace-nowrap ${
                                                        item.grade === "긴급" ? "bg-rose-600 text-white" :
                                                        (item.grade || "B").startsWith("A") ? "bg-rose-100 text-rose-700" :
@@ -2161,14 +2187,15 @@
                                                            : `TODAY${isTodayActive(item) && workDayCount(item) >= 2 ? ` ${workDayCount(item)}일째` : ""}`}
                                                    </span>
                                                    )}
-                                                   {/* (6번) 17시 이후: 공사중 배지 → 종료/OO시연장 */}
+                                                   {/* (6번) 17시 이후: 공사중 배지 → 종료/OO시연장
+                                                        (v2.23) 17시 이전이라도 연장 시각을 이미 선택했으면 "연장중"으로 구분 표시 */}
                                                    <span class={`text-base px-2 py-0.5 rounded-full font-bold flex-shrink-0 whitespace-nowrap ${
                                                        isPending ? "bg-amber-500 text-white" :
-                                                       !after17 ? "bg-emerald-500 text-white" :
+                                                       !after17 ? (item.extendHour != null ? "bg-indigo-500 text-white" : "bg-emerald-500 text-white") :
                                                        item.extendHour != null ? "bg-indigo-500 text-white" : "bg-slate-400 text-white"
                                                    }`}>
                                                        {isPending ? "공사전" :
-                                                        !after17 ? "공사중" :
+                                                        !after17 ? (item.extendHour != null ? "연장중" : "공사중") :
                                                         item.extendHour != null ? fmtExtend(item.extendHour) : "종료"}
                                                    </span>
                                                </div>
@@ -2534,7 +2561,7 @@
                                        </button>
                                        <button type="button" onClick={toggleBookmark}
                                            class={`w-full font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px] ${
-                                               bookmarkId === selectedItem.id
+                                               bookmarkIds.includes(selectedItem.id)
                                                    ? "bg-amber-100 text-amber-700 border-2 border-amber-400"
                                                    : "bg-slate-100 text-slate-600"
                                            }`}>
