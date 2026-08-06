@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.24</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.24b</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.24";
+       const APP_VERSION = "2.24b";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -1067,14 +1067,23 @@
                saveBookmarkIds(next);
                showToast(has ? "즐겨찾기 저장을 해제했습니다." : "즐겨찾기로 저장했습니다.");
            };
-           // (v2.23) items가 바뀌면(공사기간 종료로 자동 삭제·레벨2 초기화 등) 더 이상
-           //  존재하지 않는 항목의 즐겨찾기는 자동으로 함께 정리
+           // (v2.23) items가 바뀌면(공사기간 종료로 자동 삭제 등) 더 이상 존재하지 않는
+           //  항목의 즐겨찾기는 자동으로 함께 정리
+           // (v2.24a) 즐겨찾기가 멋대로 풀리던 버그 수정 — 가드 2개 추가:
+           //   ① 로딩 중엔 실행 금지: items가 []로 시작하므로, 서버 목록 도착 전에 이 로직이
+           //      돌면 모든 즐겨찾기를 "없는 항목"으로 오판해 지워버린다.
+           //   ② 목록이 비었으면 실행 금지: 네트워크 실패로 목록을 못 받아온 경우에도
+           //      items가 []이므로 같은 사고가 난다. 정상적인 전체 초기화는 doReset()에서
+           //      즐겨찾기를 직접 지우므로 이 가드와 무관하다.
+           //  (v2.23부터 있던 버그. 앱 재실행 시 즐겨찾기가 풀리는 원인)
            useEffect(() => {
+               if (isLoading) return;
+               if (items.length === 0) return;
                if (bookmarkIds.length === 0) return;
                const validIds = new Set(items.map(i => i.id));
                const pruned = bookmarkIds.filter(id => validIds.has(id));
                if (pruned.length !== bookmarkIds.length) saveBookmarkIds(pruned);
-           }, [items]);
+           }, [items, isLoading]);
 
            const filteredItems = useMemo(() => {
                return activeTab === "전체" ? items : items.filter(item => item.factory === activeTab);
@@ -1174,6 +1183,12 @@
                            elderlyCount: cleanCount(elderlyCount) || "1",
                            extendHour,
                            status: isChecked ? "checked" : "pending",
+                           // (v2.24b) [버그수정] 저장 시 dayKey를 안 갱신해서, 06시 자동 리셋
+                           //  로직이 "저장된 지 하루 지났다"고 오판 → 여러 기기가 목록을 다시
+                           //  불러올 때마다 방금 저장한 status·연장·TODAY를 되돌리던 문제.
+                           //  (v2.23까지는 잘 안 드러났으나 실제로는 v2.5 일일사이클 도입 때부터
+                           //  잠재했던 버그. 저장 시점에 dayKey도 함께 오늘로 찍어 방지.)
+                           dayKey: workday,
                            // (v2.17) 입력 저장 시 TODAY 자동 활성.
                            //  오늘 인원 배정이 없던 공사는 '당일 공사 추가'와 동일하게 1명으로 잡아준다.
                            todayOn: workday,
@@ -1209,6 +1224,7 @@
                        elderlyCount: "1",
                        extendHour: null,
                        status: "pending",
+                       dayKey: workday, // (v2.24b) 일관성 유지 — 초기화 시점도 오늘로 갱신
                        // heatResults / lastHeatStatus 는 건드리지 않음 — 보존
                    };
                });
@@ -1373,23 +1389,6 @@
                });
            };
 
-           // (v2.23) 마스터 전용 — 오늘 연장 선택된 공사 전체를 모아 일괄 복사
-           //  (extendHour는 06시 넘어가면 자동 초기화되므로 별도 날짜 필터 불필요)
-           const handleExtensionReport = () => {
-               const targets = items.filter(it => it.extendHour != null);
-               if (targets.length === 0) {
-                   showToast("연장 없음");
-                   return;
-               }
-               const lines = targets.map(it => `${it.title} ${String(it.extendHour).padStart(2, "0")}시`);
-               lines.push("연장입니다");
-               navigator.clipboard.writeText(lines.join("\n")).then(() => {
-                   showToast("⏰ 연장 보고 문구가 복사되었습니다.");
-               }).catch(() => {
-                   showToast("클립보드 복사에 실패했습니다.");
-               });
-           };
-
            const openFactoryFilter = () => {
                setFilterDraft(myFactories ? [...myFactories] : []);
                setShowFactoryFilter(true);
@@ -1473,6 +1472,9 @@
                setItems([]);
                setSheetTitle("");
                setActiveTab("전체");
+               // (v2.24a) 전체 초기화 시 즐겨찾기도 명시적으로 함께 삭제.
+               //  정리 useEffect는 "목록이 빈 경우"를 건너뛰도록 바뀌었으므로 여기서 직접 지운다.
+               saveBookmarkIds([]);
                showToast("데이터가 초기화되었습니다.");
            };
 
@@ -2023,12 +2025,6 @@
                                <p class="flex-1 min-w-0 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 font-semibold truncate">{sheetTitle}</p>
                            ) : (
                                <div class="flex-1" />
-                           )}
-                           {/* (v2.23) 연장 보고 일괄 복사 — 최고 관리자(레벨2) 전용 */}
-                           {masterLevel >= 2 && items.length > 0 && (
-                               <button onClick={handleExtensionReport} class="flex-shrink-0 text-xs px-2.5 py-2 rounded-lg font-medium active:scale-95 transition-all whitespace-nowrap bg-indigo-100 text-indigo-700">
-                                   ⏰ 연장 보고
-                               </button>
                            )}
                            <button onClick={openFactoryFilter} class={`flex-shrink-0 text-xs px-2.5 py-2 rounded-lg font-medium active:scale-95 transition-all whitespace-nowrap ${myFactories ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
                                🏭 내 공장
