@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 PRO 2.24b</title>
+ <title>MMEEC 현장 점검 포켓보드 PRO 2.24c</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.24b";
+       const APP_VERSION = "2.24c";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -1632,7 +1632,8 @@
            const [accessBusy, setAccessBusy] = useState(false);
            const [accessErr, setAccessErr] = useState("");
            const [masterCode, setMasterCode] = useState("");        // 입력값 (메모리만, 저장 안 함)
-           const [masterAuthed, setMasterAuthed] = useState(false);
+           // (v2.24c) masterAuthed 별도 상태 제거 — 30일 캐시(masterLevel)와 안 맞던 버그 수정.
+           // "인증됨" 판정은 이제 masterLevel > 0 하나로 통일 (팝업을 새로 열어도 캐시를 바로 인식)
            const [masterLevel, setMasterLevel] = useState(() => {
                // (23번) 30일 인증 캐시에 권한 레벨 저장 (1=일반 관리자, 2=최고 관리자)
                try {
@@ -1811,7 +1812,6 @@
                        setMasterBusy(false); return;
                    }
                    setMasterLevel(level);
-                   setMasterAuthed(true);
                    // 세션 등록소는 상위 권한만 조회
                    if (level >= 2) {
                        const rows = await rpc("master_list_sessions", { p_code: masterCode.trim() });
@@ -1922,7 +1922,9 @@
            };
 
            const closeMaster = () => {
-               setShowMaster(false); setMasterAuthed(false); setMasterCode("");
+               // (v2.24c) masterAuthed 제거 — 팝업을 닫아도 masterLevel(30일 캐시)은 그대로 유지되므로
+               // 여기서 로그인 상태를 지울 필요가 없음. 진짜 로그아웃은 adminLogout()에서만.
+               setShowMaster(false); setMasterCode("");
                setMasterSessions([]); setMasterContacts(null);
            };
 
@@ -2835,7 +2837,11 @@
                                    <div class="text-4xl mb-2 cursor-pointer select-none active:scale-90 transition-transform inline-block"
                                         onClick={() => { setShowInfo(false); setShowAccess(true); }}>⚡</div>
                                    <h2 class="text-xl font-black text-slate-900">{companyName} 포켓보드 PRO</h2>
-                                   <p class="text-base text-slate-500 mt-1">버전 {APP_VERSION}</p>
+                                   {/* (v2.24c) 지금 이 기기가 어느 모드인지 버전 옆에 표시.
+                                        감독자(비로그인)는 괄호 없이 버전만 */}
+                                   <p class="text-base text-slate-500 mt-1">
+                                       버전 {APP_VERSION}{masterLevel >= 2 ? " (마스터)" : masterLevel >= 1 ? " (관리자)" : ""}
+                                   </p>
                                </div>
                                {/* (v2.22H) 프로그램 목적/사용 대상 소개 */}
                                <div class="bg-slate-50 rounded-2xl p-4 space-y-3 text-sm">
@@ -3280,7 +3286,10 @@
                                <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
                                <h3 class="text-lg font-black text-slate-900 mb-1">🔑 관리자(마스터) 모드</h3>
 
-                               {!masterAuthed ? (
+                               {/* (v2.24c) masterAuthed → masterLevel > 0 으로 통일.
+                                    30일 캐시로 이미 로그인돼 있으면 팝업을 열자마자 바로
+                                    인증된 화면(인증 해제 버튼 포함)이 보임 */}
+                               {masterLevel < 1 ? (
                                    <div class="space-y-3 mt-3">
                                        <p class="text-xs text-slate-400 leading-relaxed">마스터 코드는 서버에서 검증됩니다.<br/>일반 사용자에게는 연락처 등 관리자 데이터가 전송되지 않습니다.</p>
                                        <input type="password" value={masterCode} onChange={(e) => setMasterCode(e.target.value)}
