@@ -1,7 +1,7 @@
 # MMEEC 포켓보드 PRO
 
-## 📁 폴더 구조 (2026-07 개편)
-
+## 📁 폴더 구조 (2026-08.07 개편)
+## PRO final version
 | 폴더 | 내용 | 웹 배포 |
 |---|---|---|
 | `public/` | index.html, config.js, data.js, storage.js, manifest.json, 아이콘, _headers, _redirects | ✅ **이 폴더만 배포됨** |
