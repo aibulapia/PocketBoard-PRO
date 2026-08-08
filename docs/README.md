@@ -4,7 +4,7 @@
 
 | 폴더 | 내용 | 웹 배포 |
 |---|---|---|
-| `public/` | index.html, config.js, data.js, storage.js, manifest.json, 아이콘, _headers, _redirects | ✅ **이 폴더만 배포됨** |
+| `public/` | index.html, config.js, data.js, storage.js, sw.js, manifest.json, 아이콘, _headers, _redirects | ✅ **이 폴더만 배포됨** |
 | `server/` | supabase-*.sql, apps-script-v3.gs (Supabase·구글시트에 붙여넣는 설정문) | ❌ |
 | `docs/` | README, BACKLOG, 백업문서(인증정보 제거본) | ❌ |
 
@@ -19,7 +19,7 @@
 
 주말공사 현장 점검 · 긴급공사 등록 · 체감온도 관리 PWA
 
-> **버전: 2.5** (2026-08-07)
+> **버전: 2.5c** (2026-08-08)
 > 배포: Cloudflare Pages (https://pocketboardprov2.pages.dev/)
 > ⚠️ Private 저장소 — config.js에 서비스 키 포함
 > 전체 버전 이력은 [`CHANGELOG.md`](./CHANGELOG.md) 참고
@@ -31,7 +31,8 @@
 | `index.html` | `public/` | 메인 앱 (React CDN + Babel, 단일 파일) |
 | `config.js` | `public/` | Supabase + 구글시트 + 기상청 API 키 |
 | `data.js` | `public/` | **감독자 명단·공장·안전대책** (이름만! 연락처 금지) |
-| `storage.js` | `public/` | 저장·동기화·병합 |
+| `storage.js` | `public/` | 저장·동기화·병합 + 오프라인 대기열(v2.5c) |
+| `sw.js` | `public/` | 서비스워커 — 오프라인 화면 캐시 (v2.5c 신규). **버전 올릴 때 APP_VERSION 같이 수정 필수** |
 | `manifest.json`, `icon-192/512.png` | `public/` | PWA |
 | `_headers`, `_redirects` | `public/` | Cloudflare 설정 |
 | `supabase-rls-v2.sql` | `server/` | RLS 강화 (Supabase에서 1회 실행, 완료됨) |
@@ -42,6 +43,16 @@
 
 ## 최근 주요 버전 요약
 
+- **v2.5c** — ①공사 코드 개념 폐지: 코드마다 저장소가 갈려 코드를 바꾸면 TODAY 체크가
+  사라진 것처럼 보이던 구조적 문제 해결. 데이터는 항상 한 곳(`default`)에 저장되고
+  화면 필터는 공장 탭·🏭 내 공장이 담당. ②오프라인 지원 신규: `sw.js` 도입으로 인터넷이
+  끊겨도 화면이 뜨고, 저장 실패 시 기기에 대기시켰다가 연결되면 자동 전송
+- **v2.5b** — TODAY 체크 시 목록이 즉시 재정렬돼 출렁이던 문제 해결. 정렬을 "목록을
+  새로 불러온 순간"에만 계산해 고정(스냅샷)하고, 체크는 색깔만 바꾸도록 변경
+- **v2.5a** — 공사목록 정렬 전면 재작성(TODAY → 즐겨찾기 → 공정(프레스·차체·도장·의장)
+  → 엑셀순서). v2.24d에서 잘못된 기준(`todayOn`)을 써서 정렬이 사실상 동작하지 않던 문제
+  수정. 마스터 모드 서버 기능 전체가 "연락처 조회 실패" 등으로 멈춰 있던 문제 수정
+  (v2.24c 부작용). 폴드4 등 좁은 화면에서 마스터 모드 입력줄이 가로로 넘치던 문제 수정
 - **v2.5** — 버전 번호를 2.24g에서 2.5로 변경(실장님 확정). ❓ 정보팝업 소개 문구 교체
   ("📌 포켓보드?" — 즐겨찾기·Today 켜고끄기·관리자모드 전화연결 언급 추가)
 - **v2.24g** — ❓ 정보팝업의 버전 표기를 "버전 2.24g" → "Ver. 2.24g" 형식으로 변경

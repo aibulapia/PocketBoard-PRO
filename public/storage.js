@@ -12,25 +12,21 @@ function isCloudEnabled() {
   return Boolean(cfg.supabaseUrl && cfg.supabaseKey);
 }
 
+// (v2.5c) 공사 코드 개념 폐지 — 데이터 저장소를 "default" 하나로 일원화.
+//  이전에는 공사 코드마다 저장소가 통째로 갈려서, 코드를 바꾸면 다른 저장소로 이동해
+//  방금 한 TODAY 체크·감독자·메모가 사라진 것처럼 보였다(실제로는 다른 세션을 본 것).
+//  화면 필터는 이미 있는 🏭 내 공장 / 공장 탭이 담당하며, 이들은 데이터를 나누지 않는다.
+//  ⚠️ 구버전 호환: 예전 기기에 남아있는 MMEEC_SESSION_ID나 URL의 ?session= 값은
+//     무시하고 항상 default를 쓴다(있어도 오류 없이 그냥 무시됨).
+const FIXED_SESSION_ID = "default";
+
 function getSessionId() {
-  const params = new URLSearchParams(window.location.search);
-  const fromUrl = params.get("session");
-  if (fromUrl && fromUrl.trim()) {
-    const sid = fromUrl.trim();
-    localStorage.setItem(LOCAL_SESSION_KEY, sid);
-    return sid;
-  }
-  return localStorage.getItem(LOCAL_SESSION_KEY) || "default";
+  return FIXED_SESSION_ID;
 }
 
-function setSessionId(sessionId) {
-  const sid = sessionId.trim();
-  if (!sid) return false;
-  localStorage.setItem(LOCAL_SESSION_KEY, sid);
-  const url = new URL(window.location.href);
-  url.searchParams.set("session", sid);
-  window.history.replaceState({}, "", url.toString());
-  return true;
+// 남아있는 호출부 호환용 — 더 이상 세션을 바꾸지 않는다(항상 default).
+function setSessionId() {
+  return false;
 }
 
 function saveLocal(items, meta) {
@@ -113,16 +109,59 @@ async function load() {
   return { ...local, sessionId, source: "local" };
 }
 
+// ── (v2.5c) 오프라인 저장 대기열 ──────────────────────────────
+//  신호가 약하거나 끊긴 곳에서도 입력이 사라지지 않게 한다.
+//  저장은 항상 "목록 전체"를 통째로 보내는 방식이라, 대기열에 여러 건을 순서대로
+//  쌓을 필요 없이 **가장 마지막 상태 하나만** 들고 있으면 충분하다.
+//  (공사 1개 = 감독자 1명 전담 원칙이라 남의 기록과 겹칠 일이 없음)
+const PENDING_KEY = "MMEEC_PENDING_SAVE";
+
+function getPending() {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY) || "null"); }
+  catch { return null; }
+}
+function setPending(items, meta) {
+  try {
+    localStorage.setItem(PENDING_KEY, JSON.stringify({ items, meta, at: Date.now() }));
+  } catch (e) { console.warn("대기열 저장 실패:", e); }
+}
+function clearPending() {
+  try { localStorage.removeItem(PENDING_KEY); } catch {}
+}
+function hasPending() { return Boolean(getPending()); }
+
+// 인터넷이 돌아왔을 때 대기 중인 기록을 서버로 올린다.
+// 오래된 기록도 사람 확인 없이 그대로 전송(2026-08-04 확정 사양).
+async function flushPending() {
+  const p = getPending();
+  if (!p || !isCloudEnabled()) return { flushed: false };
+  try {
+    await saveCloud(getSessionId(), p.items, p.meta);
+    clearPending();
+    return { flushed: true, at: p.at };
+  } catch (e) {
+    return { flushed: false, error: e };
+  }
+}
+
 async function save(items, meta) {
   const sessionId = getSessionId();
-  saveLocal(items, meta);
+  saveLocal(items, meta);   // 기기에는 무조건 먼저 저장 — 어떤 경우에도 입력을 잃지 않는다
 
   if (!isCloudEnabled()) {
     return { sessionId, mode: "local" };
   }
 
-  await saveCloud(sessionId, items, meta);
-  return { sessionId, mode: "cloud" };
+  try {
+    await saveCloud(sessionId, items, meta);
+    clearPending();   // 서버까지 올라갔으면 대기열 비움
+    return { sessionId, mode: "cloud" };
+  } catch (e) {
+    // (v2.5c) 네트워크 실패 시 예외를 던지지 않고 대기열에 넣는다.
+    //  예전에는 여기서 그냥 실패해 "저장 실패" 토스트만 뜨고 기록이 서버에 영영 안 올라갔다.
+    setPending(items, meta);
+    return { sessionId, mode: "offline", error: e };
+  }
 }
 
 async function clear(sessionId) {
@@ -240,5 +279,9 @@ window.MMEECStorage = {
   mergeItems,
   itemKey,
   subscribeRealtime,
+  // (v2.5c) 오프라인 대기열
+  hasPending,
+  flushPending,
+  getPending,
 };
 })();

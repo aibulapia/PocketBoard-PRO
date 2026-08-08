@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.5</title>
+ <title>MMEEC 현장 점검 포켓보드 2.5c</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.5";
+       const APP_VERSION = "2.5c";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -207,8 +207,8 @@
 
        // (v2.22H) 도움말 — 화면 흐름 순서(공사 리스트 → 공사 세부)로 정리한 FAQ
        const HELP_ITEMS = [
-           { id: "h1", group: "📋 공사 리스트 화면", q: "공사 코드가 뭔가요?",
-             a: "같은 코드를 쓰는 사람끼리 데이터가 공유됩니다. 팀별로 자유롭게 설정하세요." },
+           { id: "h1", group: "📋 공사 리스트 화면", q: "내가 체크한 게 다른 사람에게도 보이나요?",
+             a: "네. 모든 기록은 한 곳에 저장되어, 누가 어디서 체크하든 전원에게 똑같이 보입니다. 화면에 보이는 범위만 내 공장 설정이나 권한에 따라 달라질 뿐입니다." },
            { id: "h2", group: "📋 공사 리스트 화면", q: "내 공장 설정은 왜 필요한가요?",
              a: "담당 공장을 정하면 그 공장만 걸러보고, 앱을 열 때 첫 화면으로 자동 표시됩니다." },
            { id: "h3", group: "📋 공사 리스트 화면", q: "TODAY 배지가 뭔가요?",
@@ -346,9 +346,13 @@
            const [sessionId, setSessionId] = useState(MMEECStorage.getSessionId());
            const [sheetTitle, setSheetTitle] = useState("");
            const [syncStatus, setSyncStatus] = useState("idle");
+           // (v2.5c) 오프라인 지원 — 전송 대기 중인 기록이 있는지 / 지금 인터넷이 끊겼는지
+           const [pendingSave, setPendingSave] = useState(() => {
+               try { return MMEECStorage.hasPending ? MMEECStorage.hasPending() : false; }
+               catch { return false; }
+           });
+           const [isOffline, setIsOffline] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
            const [isLoading, setIsLoading] = useState(true);
-           const [showSessionModal, setShowSessionModal] = useState(false);
-           const [sessionInput, setSessionInput] = useState(MMEECStorage.getSessionId());
 
            // 회사명 (수정 가능, localStorage 저장)
            const [companyName, setCompanyName] = useState(() =>
@@ -516,6 +520,34 @@
            const WORK_TYPE_OPTIONS = D.WORK_TYPE_OPTIONS || ["고소", "중량물", "화기", "밀폐", "건설기계", "전기", "자동화", "청소", "운반", "도색"];
 
            // ── 분 단위 틱: 06시 넘김/17시 전환 자동 감지용 리렌더 ──
+           // (v2.5c) 오프라인 대기 기록 자동 전송
+           //  브라우저의 온라인/오프라인 신호는 부정확할 수 있어(신호가 잡혀도 실제로는 안 되는 경우),
+           //  ① 온라인 신호가 올 때 ② 30초마다 주기적으로 — 두 방법으로 실제 전송을 시도한다.
+           const tryFlushPending = React.useCallback(async () => {
+               if (!MMEECStorage.flushPending) return;
+               if (!MMEECStorage.hasPending || !MMEECStorage.hasPending()) { setPendingSave(false); return; }
+               const r = await MMEECStorage.flushPending();
+               if (r.flushed) {
+                   setPendingSave(false);
+                   setSyncStatus("saved");
+                   showToast("✅ 대기 중이던 기록이 서버에 전송되었습니다");
+               }
+           }, []);
+
+           useEffect(() => {
+               const goOnline = () => { setIsOffline(false); tryFlushPending(); };
+               const goOffline = () => setIsOffline(true);
+               window.addEventListener("online", goOnline);
+               window.addEventListener("offline", goOffline);
+               const t = setInterval(() => { if (navigator.onLine !== false) tryFlushPending(); }, 30 * 1000);
+               tryFlushPending();   // 앱을 켤 때도 한 번 시도
+               return () => {
+                   window.removeEventListener("online", goOnline);
+                   window.removeEventListener("offline", goOffline);
+                   clearInterval(t);
+               };
+           }, [tryFlushPending]);
+
            const [nowTick, setNowTick] = useState(() => new Date());
            useEffect(() => {
                const t = setInterval(() => setNowTick(new Date()), 60 * 1000);
@@ -696,7 +728,16 @@
                const meta = metaOverride || { sheetTitle: sheetTitle || null };
                try {
                    const result = await MMEECStorage.save(newItems, meta);
-                   setSyncStatus(result.mode === "cloud" ? "saved" : "local");
+                   // (v2.5c) 네트워크가 끊겨도 기기에는 저장되고 대기열에 들어간다.
+                   //  인터넷이 돌아오면 자동으로 서버에 올라가므로 "실패"가 아니라 "대기 중"으로 표시.
+                   if (result.mode === "offline") {
+                       setSyncStatus("offline");
+                       setPendingSave(true);
+                       showToast("📴 오프라인 저장됨 — 연결되면 자동 전송됩니다");
+                   } else {
+                       setSyncStatus(result.mode === "cloud" ? "saved" : "local");
+                       setPendingSave(false);
+                   }
                } catch (e) {
                    console.error(e);
                    setSyncStatus("error");
@@ -712,6 +753,8 @@
                        const data = await MMEECStorage.load();
                        if (!mounted) return;
                        setItems(data.items || []);
+                       // (v2.5b) 목록을 새로 불러온 시점 → 정렬 스냅샷 갱신
+                       setSortedOrder(computeSortedOrder(data.items || [], selectedDate));
                        // 진단 로그 (문제 발생 시 개발자도구 확인용)
                        console.log("[포켓보드 v" + APP_VERSION + "] 로드:", (data.items||[]).length + "건",
                            "| workday:", getWorkdayKey(), "| dow:", getWorkdayDow(),
@@ -745,29 +788,12 @@
                return () => { if (socket) socket.close(); };
            }, [sessionId]);
 
-           const handleChangeSession = async () => {
-               if (!sessionInput.trim()) { showToast("공사 코드를 입력해주세요."); return; }
-               MMEECStorage.setSessionId(sessionInput.trim());
-               setSessionId(sessionInput.trim());
-               setShowSessionModal(false);
-               setIsLoading(true);
-               try {
-                   const data = await MMEECStorage.load();
-                   setItems(data.items || []);
-                   if (data.meta?.sheetTitle) setSheetTitle(data.meta.sheetTitle);
-                   showToast(`공사 코드 [${sessionInput.trim()}] 로드 완료`);
-               } catch (e) {
-                   showToast("공사 코드 데이터 불러오기 실패");
-               } finally {
-                   setIsLoading(false);
-               }
-           };
-
            const syncLabel = {
                idle: "준비",
                saving: "저장 중…",
                saved: "☁️ 저장됨",
                local: "📱 기기 저장",
+               offline: "📴 오프라인 저장 (전송 대기)",   // (v2.5c)
                error: "⚠️ 저장 실패"
            }[syncStatus] || "";
 
@@ -944,6 +970,8 @@
                        const cycled = applyDailyCycle(merged).list;
                        setSheetTitle(detectedTitle);
                        persistItems(cycled, { sheetTitle: detectedTitle });
+                       // (v2.5b) 엑셀 업로드는 목록 전체가 새로 들어오는 시점 → 재정렬
+                       setSortedOrder(computeSortedOrder(cycled, selectedDate));
                        setActiveTab("전체");
                        const noDateCol = Object.keys(dateColMap).length === 0;
                        showToast(noDateCol
@@ -1092,20 +1120,69 @@
                return activeTab === "전체" ? items : items.filter(item => item.factory === activeTab);
            }, [items, activeTab]);
 
-           // (v2.24d) 정렬 우선순위 변경: TODAY(오늘 활성) 여부를 즐겨찾기보다 먼저 봄.
-           //  이유: TODAY가 꺼진 공사는 오늘 작업이 없다는 뜻이라, 즐겨찾기여도 위로 올라올
-           //  필요가 없음. 최종 순서: TODAY+★ → TODAY → 비TODAY+★ → 비TODAY(원래순서)
-           //  각 그룹 안에서는 원래 순서(공장·시간순)를 그대로 유지 (안정 정렬)
+           // (v2.5a) 공사목록 정렬 — 4단계 우선순위
+           //  1) 보고 있는 날짜에 인원 배정 있음(TODAY 배지가 뜨는 것)
+           //  2) 즐겨찾기 ★
+           //  3) 공정 순서: 프레스 → 차체 → 도장 → 의장 → 기타
+           //  4) 같으면 엑셀 원래 순서 유지
+           //  ⚠️ v2.24d에서는 1)을 isTodayActive(수동 토글 todayOn)로 잘못 썼다.
+           //     실제 데이터는 todayOn이 거의 항상 null이라 이 기준이 아무 데도 안 맞았고,
+           //     결국 "즐겨찾기 먼저 → 나머지 엑셀순서"로 떨어져 오늘 공사가 밀려났다.
+           //     배지 표시와 똑같이 hasWorkOn(item, selectedDate)를 기준으로 통일한다.
+           const GONGJEONG_ORDER = ["프레스", "차체", "도장", "의장"];
+           const gongjeongRank = (item) => {
+               const t = item.title || "";
+               const i = GONGJEONG_ORDER.findIndex(g => t.includes(g));
+               return i < 0 ? GONGJEONG_ORDER.length : i;   // 못 찾으면 '기타'로 맨 뒤
+           };
+           // (v2.5b) 정렬 "스냅샷" — 목록을 새로 불러온 순간에만 계산해 고정한다.
+           //  이유: 예전에는 체크할 때마다 실시간 재정렬돼 방금 누른 카드가 휙 이동,
+           //  화면이 출렁여 어디를 눌렀는지 놓치는 문제가 있었다.
+           //  이제 TODAY 배지를 눌러도 색깔만 바뀌고 순서는 그대로. 다음에 목록을
+           //  새로 불러올 때(앱 재실행·세션 로드·다른 사람 수정 수신) 정리된다.
+           //  전체 items 기준으로 순서를 잡아두므로 공장 탭을 옮겨도 순서가 흔들리지 않는다.
+           const computeSortedOrder = (list, date) => {
+               return (list || [])
+                   .map((item, idx) => ({ item, idx }))   // 안정 정렬용 원래(엑셀) 순서 보존
+                   .sort((a, b) => {
+                       const ta = hasWorkOn(a.item, date) ? 0 : 1;
+                       const tb = hasWorkOn(b.item, date) ? 0 : 1;
+                       if (ta !== tb) return ta - tb;
+                       const fa = bookmarkIds.includes(a.item.id) ? 0 : 1;
+                       const fb = bookmarkIds.includes(b.item.id) ? 0 : 1;
+                       if (fa !== fb) return fa - fb;
+                       const ga = gongjeongRank(a.item), gb = gongjeongRank(b.item);
+                       if (ga !== gb) return ga - gb;
+                       return a.idx - b.idx;
+                   })
+                   .map(x => x.item.id);
+           };
+           const [sortedOrder, setSortedOrder] = useState([]);
+           //  보는 날짜가 바뀌면 그 날짜 기준으로 다시 정렬 (날짜 넘겨보기는 재정렬 대상)
+           //  ⚠️ selectedDate는 nowTick(1분마다 갱신)에서 파생돼 매분 새 객체가 된다.
+           //     객체를 그대로 의존성에 쓰면 1분마다 재정렬이 터져(참조가 매번 달라짐)
+           //     체크 도중 목록이 움직이는, 바로 이번에 고치려던 문제가 재발한다.
+           //     그래서 "연-월-일" 문자열로 바꿔 실제 날짜가 바뀔 때만 반응시킨다.
+           const selectedDateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
+           useEffect(() => {
+               setSortedOrder(computeSortedOrder(items, selectedDate));
+               // eslint-disable-next-line react-hooks/exhaustive-deps
+           }, [selectedDateKey]);
+
            const displayItems = useMemo(() => {
-               if (bookmarkIds.length === 0) {
-                   // 즐겨찾기가 없어도 TODAY 우선순위는 여전히 적용
-                   const today = filteredItems.filter(i => isTodayActive(i));
-                   const rest = filteredItems.filter(i => !isTodayActive(i));
-                   return [...today, ...rest];
-               }
-               const rank = (i) => (isTodayActive(i) ? 0 : 2) + (bookmarkIds.includes(i.id) ? 0 : 1);
-               return [...filteredItems].sort((a, b) => rank(a) - rank(b));
-           }, [filteredItems, bookmarkIds, workday]);
+               // 스냅샷에 있는 id는 그 순서대로, 없는 항목(당일 추가 공사 등)은
+               // 엑셀 원래 순서를 유지한 채 뒤에 붙는다. 다음 새로고침 때 제자리로 정리됨.
+               const rank = new Map(sortedOrder.map((id, i) => [id, i]));
+               return filteredItems
+                   .map((item, idx) => ({ item, idx }))
+                   .sort((a, b) => {
+                       const ra = rank.has(a.item.id) ? rank.get(a.item.id) : Number.MAX_SAFE_INTEGER;
+                       const rb = rank.has(b.item.id) ? rank.get(b.item.id) : Number.MAX_SAFE_INTEGER;
+                       if (ra !== rb) return ra - rb;
+                       return a.idx - b.idx;
+                   })
+                   .map(x => x.item);
+           }, [filteredItems, sortedOrder]);
 
            // 날짜 옆 "예정 공사 N건" 문구 전용 — 선택한 날짜에 실제 배정된 건수
            //  (목록 표시와는 별개. 진행 중인 공사는 배정이 없어도 카운트에 포함해
@@ -1480,6 +1557,7 @@
                    console.error(e);
                }
                setItems([]);
+               setSortedOrder([]);   // (v2.5b) 정렬 스냅샷도 함께 비움
                setSheetTitle("");
                setActiveTab("전체");
                // (v2.24a) 전체 초기화 시 즐겨찾기도 명시적으로 함께 삭제.
@@ -1641,7 +1719,18 @@
            const [accessStats, setAccessStats] = useState(null);   // [{day, factory, devices}]
            const [accessBusy, setAccessBusy] = useState(false);
            const [accessErr, setAccessErr] = useState("");
-           const [masterCode, setMasterCode] = useState("");        // 입력값 (메모리만, 저장 안 함)
+           // (v2.5a) 인증이 살아있는 기기에서는 저장해둔 마스터 코드를 복원한다.
+           //  이 값이 없으면 마스터 기능용 서버 요청이 전부 거부된다(v2.24c 부작용 수정).
+           const [masterCode, setMasterCode] = useState(() => {
+               try {
+                   const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
+                   const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
+                   if (at > 0 && Date.now() - at < ADMIN_TTL) {
+                       return localStorage.getItem("MMEEC_ADMIN_CODE") || "";
+                   }
+               } catch {}
+               return "";
+           });
            // (v2.24c) masterAuthed 별도 상태 제거 — 30일 캐시(masterLevel)와 안 맞던 버그 수정.
            // "인증됨" 판정은 이제 masterLevel > 0 하나로 통일 (팝업을 새로 열어도 캐시를 바로 인식)
            const [masterLevel, setMasterLevel] = useState(() => {
@@ -1662,11 +1751,8 @@
            useEffect(() => {
                document.title = `MMEEC 현장 점검 ${appDisplayName} ${APP_VERSION}`;
            }, [appDisplayName]);
-           const [masterSessions, setMasterSessions] = useState([]);
            const [masterContacts, setMasterContacts] = useState(null); // null=미로드
            const [masterBusy, setMasterBusy] = useState(false);
-           const [regCode, setRegCode] = useState("");
-           const [regName, setRegName] = useState("");
            const [ctName, setCtName] = useState("");
            const [ctPhone, setCtPhone] = useState("");
            const [ctFactory, setCtFactory] = useState("");
@@ -1835,18 +1921,17 @@
                        setMasterBusy(false); return;
                    }
                    setMasterLevel(level);
-                   // 세션 등록소는 상위 권한만 조회
-                   if (level >= 2) {
-                       const rows = await rpc("master_list_sessions", { p_code: masterCode.trim() });
-                       setMasterSessions(rows || []);
-                   } else {
-                       setMasterSessions([]);
-                   }
                    // (13번) 관리자 인증 30일 저장 + 연락처 캐시 + 레벨 저장
                    try {
                        const contacts = await rpc("master_list_contacts", { p_code: masterCode.trim() }) || [];
                        localStorage.setItem("MMEEC_ADMIN_AT", String(Date.now()));
                        localStorage.setItem("MMEEC_ADMIN_LV", String(level));
+                       // (v2.5a) 마스터 코드도 함께 보관.
+                       //  v2.24c에서 "팝업 열면 바로 인증된 화면"으로 바꾼 뒤, 코드를 다시 입력하지
+                       //  않게 되면서 masterCode가 빈 값이 되었고, 이 값을 필요로 하는 서버 요청
+                       //  11개(연락처 조회·추가·삭제, 공지 저장, 세션 관리, 전체 엑셀)가 전부
+                       //  실패했다("연락처 조회 실패"). 인증 해제 시 함께 삭제된다.
+                       localStorage.setItem("MMEEC_ADMIN_CODE", masterCode.trim());
                        localStorage.setItem("MMEEC_CONTACTS", JSON.stringify(contacts));
                        setAdminAuthed(true);
                        setContactBook(contacts);
@@ -1864,35 +1949,15 @@
                localStorage.removeItem("MMEEC_ADMIN_AT");
                localStorage.removeItem("MMEEC_ADMIN_LV");
                localStorage.removeItem("MMEEC_CONTACTS");
+               // (v2.5a) 저장해둔 마스터 코드도 반드시 함께 삭제 — 이게 남으면 인증을 해제해도
+               //  기기에 코드가 남아 다음 사용자가 쓸 수 있게 된다.
+               localStorage.removeItem("MMEEC_ADMIN_CODE");
                setAdminAuthed(false);
                setMasterLevel(0);
+               setMasterCode("");
                setContactBook([]);
+               setMasterContacts(null);
                showToast("이 기기의 관리자 인증을 해제했습니다.");
-           };
-
-           const masterRefreshSessions = async () => {
-               try { setMasterSessions(await rpc("master_list_sessions", { p_code: masterCode.trim() }) || []); }
-               catch (e) { showToast("목록 갱신 실패"); }
-           };
-
-           const masterAddSession = async () => {
-               if (!regCode.trim()) { showToast("세션 코드를 입력해주세요."); return; }
-               setMasterBusy(true);
-               try {
-                   await rpc("master_upsert_session", { p_code: masterCode.trim(), p_session: regCode.trim(), p_site: regName.trim() || regCode.trim() });
-                   setRegCode(""); setRegName("");
-                   await masterRefreshSessions();
-                   showToast("현장 코드가 등록되었습니다.");
-               } catch (e) { showToast("등록 실패"); } finally { setMasterBusy(false); }
-           };
-
-           const masterDeleteSession = async (code) => {
-               setMasterBusy(true);
-               try {
-                   await rpc("master_delete_session", { p_code: masterCode.trim(), p_session: code });
-                   await masterRefreshSessions();
-                   showToast("삭제되었습니다.");
-               } catch (e) { showToast("삭제 실패"); } finally { setMasterBusy(false); }
            };
 
            const masterExportAll = async () => {
@@ -1947,8 +2012,11 @@
            const closeMaster = () => {
                // (v2.24c) masterAuthed 제거 — 팝업을 닫아도 masterLevel(30일 캐시)은 그대로 유지되므로
                // 여기서 로그인 상태를 지울 필요가 없음. 진짜 로그아웃은 adminLogout()에서만.
-               setShowMaster(false); setMasterCode("");
-               setMasterSessions([]); setMasterContacts(null);
+               // (v2.5a) 인증된 상태에서는 masterCode도 지우면 안 된다. 지우면 다음에 팝업을 열었을 때
+               //  서버 요청(연락처·공지·세션·엑셀)이 전부 코드 없이 나가 실패한다.
+               setShowMaster(false);
+               if (masterLevel < 1) setMasterCode("");   // 인증 실패 상태에서만 입력값 비움
+               setMasterContacts(null);
            };
 
            // (3번) PWA 설치 안내 배너 — 최초 1회
@@ -2007,15 +2075,20 @@
                            </button>
                        </div>
 
-                       {/* 줄2: 공사 코드 + (최고관리자 전용) 초기화·파일변경 */}
+                       {/* (v2.5c) 오프라인 / 전송 대기 알림 — 안전 기록이라 상태를 분명히 보여준다 */}
+                       {(isOffline || pendingSave) && (
+                           <div class={`mb-3 rounded-xl px-3 py-2 text-xs font-bold ${isOffline ? "bg-slate-800 text-amber-300" : "bg-amber-50 text-amber-700"}`}>
+                               {isOffline
+                                   ? "📴 오프라인 — 입력은 기기에 저장되고, 연결되면 자동 전송됩니다"
+                                   : "⏳ 전송 대기 중인 기록이 있습니다 — 연결되면 자동으로 올라갑니다"}
+                               {isOffline && <span class="block font-medium text-slate-300 mt-0.5">지금 보이는 목록은 최신이 아닐 수 있습니다</span>}
+                           </div>
+                       )}
+
+                       {/* 줄2: (최고관리자 전용) 초기화·파일변경
+                            (v2.5c) 공사 코드 버튼 제거 — 코드 개념 폐지, 데이터는 항상 한 곳.
+                            화면 필터는 아래 공장 탭 / 🏭 내 공장이 담당한다. */}
                        <div class="flex items-center gap-2 mb-3">
-                           <button
-                               onClick={() => { setSessionInput(sessionId); setShowSessionModal(true); }}
-                               class="flex-1 min-w-0 flex items-center justify-between bg-slate-100 hover:bg-slate-200 rounded-xl px-3 py-2.5 active:scale-[0.99] transition-all"
-                           >
-                               <span class="text-xs text-slate-500 font-semibold">공사 코드</span>
-                               <span class="text-sm font-black text-slate-800 truncate ml-2">{sessionId}</span>
-                           </button>
                            {/* (v2.21) 초기화·파일변경은 최고 관리자(레벨2)만 노출 */}
                            {masterLevel >= 2 && items.length > 0 && (
                                <button onClick={() => openPwModal("reset")} class="flex-shrink-0 text-xs text-rose-500 bg-rose-50 px-3 py-2.5 rounded-xl font-medium active:scale-95 transition-all">
@@ -2669,31 +2742,6 @@
                        </div>
                    )}
 
-                   {/* 공사 코드 변경 모달 */}
-                   <div class={`fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${showSessionModal ? "opacity-100 visible" : "opacity-0 invisible"}`}>
-                       <div onClick={() => setShowSessionModal(false)} class="absolute inset-0" />
-                       <div class={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[28px] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 transform ${showSessionModal ? "translate-y-0" : "translate-y-full"}`}>
-                           <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
-                           <h3 class="text-lg font-black text-slate-900 mb-1">공사 코드 설정</h3>
-                           <p class="text-xs text-slate-400 mb-4 leading-relaxed">같은 코드를 쓰면 팀원 모바일에서도 입력 내용이 동기화됩니다.<br/>예: <span class="font-bold text-slate-600">2025-06-4week</span></p>
-                           <input
-                               type="text"
-                               value={sessionInput}
-                               onChange={(e) => setSessionInput(e.target.value.replace(/\s/g, ""))}
-                               placeholder="공사 코드 입력"
-                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-amber-500 mb-4 min-h-[52px]"
-                           />
-                           <div class="grid grid-cols-2 gap-3">
-                               <button type="button" onClick={() => setShowSessionModal(false)} class="w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl min-h-[52px]">취소</button>
-                               <button type="button" onClick={handleChangeSession} class="w-full bg-amber-500 text-white font-bold py-3.5 rounded-xl min-h-[52px]">적용</button>
-                           </div>
-                           <button type="button" onClick={() => { setShowSessionModal(false); setShowMaster(true); }}
-                               class="w-full mt-3 text-xs text-slate-400 font-semibold py-2 active:scale-95 transition-all">
-                               🔑 관리자(마스터) 모드
-                           </button>
-                       </div>
-                   </div>
-
                    {/* ── (v2.18) 접속 현황 (히든 메뉴, 관리자 레벨2) ── */}
                    {showAccess && (
                        <div class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6">
@@ -2898,6 +2946,12 @@
                                </p>
                                <button onClick={() => setShowInfo(false)} class="w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all">
                                    확인
+                               </button>
+                               {/* (v2.5c) 마스터 모드 진입로. 원래는 "공사 코드 설정" 모달 안에만 있었는데
+                                    그 모달을 없애면서 진입 방법이 사라지므로 여기로 옮김 */}
+                               <button type="button" onClick={() => { setShowInfo(false); setShowMaster(true); }}
+                                   class="w-full text-xs text-slate-400 font-semibold py-2 active:scale-95 transition-all">
+                                   🔑 관리자(마스터) 모드
                                </button>
                            </div>
                        </div>
@@ -3345,36 +3399,6 @@
                                        </button>
                                        )}
 
-                                       {/* 세션 등록소 — 최고 관리자(레벨2)만 */}
-                                       {masterLevel >= 2 && (
-                                       <div class="space-y-2">
-                                           <p class="text-base font-bold text-slate-800">🏗️ 현장(세션) 등록소</p>
-                                           <div class="space-y-1.5 max-h-[180px] overflow-y-auto">
-                                               {masterSessions.length === 0 && <p class="text-xs text-slate-400 py-2">등록된 현장이 없습니다.</p>}
-                                               {masterSessions.map(s => (
-                                                   <div key={s.session_code} class="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2">
-                                                       <div class="flex-1 min-w-0">
-                                                           <p class="text-sm font-bold text-slate-800 truncate">{s.site_name}</p>
-                                                           <p class="text-xs text-slate-400 truncate">{s.session_code}</p>
-                                                       </div>
-                                                       <button onClick={() => { MMEECStorage.setSessionId(s.session_code); setSessionId(s.session_code); closeMaster(); showToast(`[${s.site_name}] 세션으로 이동`); }}
-                                                           class="text-xs bg-amber-100 text-amber-700 font-bold px-2.5 py-1.5 rounded-lg active:scale-95">열기</button>
-                                                       <button onClick={() => masterDeleteSession(s.session_code)}
-                                                           class="text-xs bg-rose-50 text-rose-500 font-bold px-2.5 py-1.5 rounded-lg active:scale-95">삭제</button>
-                                                   </div>
-                                               ))}
-                                           </div>
-                                           <div class="flex gap-2">
-                                               <input type="text" value={regCode} onChange={(e) => setRegCode(e.target.value.replace(/\s/g,""))} placeholder="세션 코드"
-                                                   class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500" />
-                                               <input type="text" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="현장명"
-                                                   class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500" />
-                                               <button onClick={masterAddSession} disabled={masterBusy}
-                                                   class="bg-slate-900 text-amber-400 font-bold px-3 rounded-xl text-sm active:scale-95 disabled:opacity-50">등록</button>
-                                           </div>
-                                       </div>
-                                       )}
-
                                        {/* (20번) 공지사항 편집 */}
                                        <div class="space-y-2">
                                            <p class="text-base font-bold text-slate-800">📢 공지사항 <span class="text-xs font-normal text-slate-400">(저장 시 전 사용자에게 자동 표시)</span></p>
@@ -3411,21 +3435,23 @@
                                                            </div>
                                                        ))}
                                                    </div>
-                                                   <div class="grid grid-cols-4 gap-2">
+                                                   {/* (v2.5a) 4칸 한 줄 → 2칸씩 두 줄. 폴드4(약 344px)에서 칸당 75px로
+                                                        눌려 글자가 안 보이고 가로로 넘치던 문제 수정. min-w-0도 함께 지정 */}
+                                                   <div class="grid grid-cols-2 gap-2">
                                                        <input type="text" value={ctName} onChange={(e) => setCtName(e.target.value)} placeholder="이름"
-                                                           class="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500" />
+                                                           class="min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500" />
                                                        <input type="tel" value={ctPhone} onChange={(e) => setCtPhone(e.target.value)} placeholder="연락처"
-                                                           class="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500" />
+                                                           class="min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500" />
                                                        {/* (v2.24d) 자유 입력 → 목록 선택으로 변경. 오타 나면 전화연결 매칭이
                                                             깨지므로(findContact가 정확히 일치하는 문자열만 인정), 목록에 있는
                                                             값만 고르게 막음. 부서는 공장과 무관하게 독립적으로 선택 */}
                                                        <select value={ctDept} onChange={(e) => setCtDept(e.target.value)}
-                                                           class="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500">
+                                                           class="min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500">
                                                            <option value="">부서 선택</option>
                                                            {ALL_DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
                                                        </select>
                                                        <select value={ctFactory} onChange={(e) => setCtFactory(e.target.value)}
-                                                           class="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500">
+                                                           class="min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500">
                                                            <option value="">공장 선택</option>
                                                            {SUPPORTED_FACTORIES.map(f => <option key={f} value={f}>{f}</option>)}
                                                        </select>
@@ -3480,6 +3506,16 @@
        const container = document.getElementById('root');
        const root = ReactDOM.createRoot(container);
        root.render(<App />);
+
+       // (v2.5c) 서비스워커 등록 — 인터넷이 끊겨도 앱 화면이 뜨게 한다.
+       //  등록 실패해도 앱은 평소대로 동작해야 하므로 조용히 무시한다(원칙2: 안전한 쪽).
+       if ("serviceWorker" in navigator) {
+           window.addEventListener("load", () => {
+               navigator.serviceWorker.register("./sw.js").catch((e) => {
+                   console.warn("서비스워커 등록 실패(앱 동작에는 지장 없음):", e);
+               });
+           });
+       }
  </script>
 </body>
 </html>
