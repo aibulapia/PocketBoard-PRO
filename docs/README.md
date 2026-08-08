@@ -1,14 +1,13 @@
 # MMEEC 포켓보드 PRO
 
-## 📁 폴더 구조 (2026-08.07 개편)
-## PRO final version
+## 📁 폴더 구조 (2026-07 개편)
+
 | 폴더 | 내용 | 웹 배포 |
 |---|---|---|
 | `public/` | index.html, config.js, data.js, storage.js, manifest.json, 아이콘, _headers, _redirects | ✅ **이 폴더만 배포됨** |
 | `server/` | supabase-*.sql, apps-script-v3.gs (Supabase·구글시트에 붙여넣는 설정문) | ❌ |
 | `docs/` | README, BACKLOG, 백업문서(인증정보 제거본) | ❌ |
 
-> 관리자 모드: 감독자 연락처 전화걸기 기능 - 전속.직영 (연락처 SUPABASE분리 보관)
 > ⚠️ **Cloudflare Pages 설정**: Build output directory = `public`
 > 이 설정 덕분에 `server/`·`docs/`의 파일은 웹에 노출되지 않습니다.
 > 새 파일을 추가할 때 **웹에 공개돼도 되는 것만 `public/`에** 넣으세요.
