@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.5e</title>
+ <title>MMEEC 현장 점검 포켓보드 2.5f</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.5e";
+       const APP_VERSION = "2.5f";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -1733,7 +1733,7 @@
            // (v2.24c) masterAuthed 별도 상태 제거 — 30일 캐시(masterLevel)와 안 맞던 버그 수정.
            // "인증됨" 판정은 이제 masterLevel > 0 하나로 통일 (팝업을 새로 열어도 캐시를 바로 인식)
            const [masterLevel, setMasterLevel] = useState(() => {
-               // (23번) 30일 인증 캐시에 권한 레벨 저장 (1=일반 관리자, 2=최고 관리자)
+               // (23번) 30일 인증 캐시에 권한 레벨 저장 (1=관리자, 2=최고 관리자)
                try {
                    const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
                    const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
@@ -1911,7 +1911,7 @@
                if (!masterCode.trim()) { showToast("마스터 코드를 입력해주세요."); return; }
                setMasterBusy(true);
                try {
-                   // (23번) 권한 레벨 확인 (0=불일치, 1=일반 관리자, 2=최고 관리자)
+                   // (23번) 권한 레벨 확인 (0=불일치, 1=관리자, 2=최고 관리자)
                    const lv = await rpc("master_level", { p_code: masterCode.trim() });
                    const level = Number(lv) || 0;
                    if (level < 1) {
@@ -3392,7 +3392,7 @@
                                ) : (
                                    <div class="space-y-5 mt-3">
                                        {masterLevel < 2 && (
-                                           <p class="text-xs text-sky-600 bg-sky-50 rounded-xl px-3 py-2 font-medium">일반 관리자 모드 — 공지 작성과 연락처 조회·추가만 가능합니다.</p>
+                                           <p class="text-xs text-sky-600 bg-sky-50 rounded-xl px-3 py-2 font-medium">관리자 모드 — 공지 작성 및 연락처 조회·추가</p>
                                        )}
                                        {masterLevel >= 2 && (
                                        <button onClick={masterExportAll} disabled={masterBusy}
@@ -3465,7 +3465,7 @@
                                        </div>
 
                                        {adminAuthed && (
-                                           <p class="text-xs text-emerald-600 font-semibold text-center">✅ 이 기기는 관리자 인증됨 ({masterLevel >= 2 ? "최고 관리자" : "일반 관리자"}) — 감독자 카드에 전화 버튼 표시 (30일 유지)</p>
+                                           <p class="text-xs text-emerald-600 font-semibold text-center">{masterLevel >= 2 ? "마스터 인증됨 (최고 관리자)" : "관리자 인증됨"} — 감독자 카드에 전화 버튼 표시 (30일 유지)</p>
                                        )}
                                        <div class="grid grid-cols-2 gap-3">
                                            <button onClick={adminLogout} class="w-full bg-rose-50 text-rose-500 font-bold py-3.5 rounded-xl text-sm active:scale-95 transition-all">인증 해제</button>
@@ -3479,7 +3479,7 @@
 
                    {/* ══ (3번) 홈화면 설치 안내 (최초 1회) ══ */}
                    {showInstall && !isLoading && (
-                       <div class="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-slate-900 text-white rounded-2xl p-4 shadow-2xl z-40 flex items-center gap-3">
+                       <div class="fixed top-4 left-4 right-4 max-w-md mx-auto bg-slate-900 text-white rounded-2xl p-4 shadow-2xl z-40 flex items-center gap-3">
                            <div class="text-2xl">📲</div>
                            <div class="flex-1 min-w-0">
                                <p class="text-sm font-bold">홈 화면에 추가하면 앱처럼 쓸 수 있어요</p>

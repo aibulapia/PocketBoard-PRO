@@ -19,7 +19,7 @@
 
 주말공사 현장 점검 · 긴급공사 등록 · 체감온도 관리 PWA
 
-> **버전: 2.5e** (2026-08-09)
+> **버전: 2.5f** (2026-08-09)
 > 배포: Cloudflare Pages (https://pocketboardprov2.pages.dev/)
 > ⚠️ Private 저장소 — config.js에 서비스 키 포함
 > 전체 버전 이력은 [`CHANGELOG.md`](./CHANGELOG.md) 참고
