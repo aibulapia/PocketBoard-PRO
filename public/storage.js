@@ -130,15 +130,50 @@ function clearPending() {
 }
 function hasPending() { return Boolean(getPending()); }
 
+// (v2.5d) 카드 단위 병합 — "목록 통째로 덮어쓰기"가 남의 기록을 지우던 문제 수정.
+//  각 카드에 마지막으로 고친 시각(updatedAt)을 찍어두고, 저장 직전 서버 것과 비교해
+//  **카드마다 더 최신인 쪽만** 남긴다. 내가 안 건드린 카드는 남의 최신 기록이 보존된다.
+//  ⚠️ 구버전 호환: updatedAt이 없는 옛 데이터는 0으로 취급 → 새로 고친 쪽이 항상 이긴다.
+function mergeByUpdatedAt(serverItems, localItems) {
+  const out = new Map();
+  (serverItems || []).forEach(it => { if (it && it.id) out.set(it.id, it); });
+  (localItems || []).forEach(it => {
+    if (!it || !it.id) return;
+    const s = out.get(it.id);
+    if (!s) { out.set(it.id, it); return; }
+    const sT = Number(s.updatedAt || 0);
+    const lT = Number(it.updatedAt || 0);
+    out.set(it.id, lT >= sT ? it : s);
+  });
+  return Array.from(out.values());
+}
+
+// 서버 최신본을 읽어와 내 변경분과 합친 결과를 돌려준다.
+// 읽기에 실패하면(오프라인 등) 합치지 못하므로 내 것 그대로 반환한다.
+async function mergeWithCloud(items) {
+  try {
+    const cloud = await loadCloud(getSessionId());
+    if (cloud && Array.isArray(cloud.items) && cloud.items.length) {
+      return mergeByUpdatedAt(cloud.items, items);
+    }
+  } catch (e) {
+    console.warn("병합용 서버 조회 실패 — 내 목록 그대로 저장:", e);
+  }
+  return items;
+}
+
 // 인터넷이 돌아왔을 때 대기 중인 기록을 서버로 올린다.
-// 오래된 기록도 사람 확인 없이 그대로 전송(2026-08-04 확정 사양).
+// (v2.5d) 그대로 덮어쓰지 않고 서버 최신본과 병합해서 올린다.
+//  예전에는 신호 약한 곳에서 저장된 옛 목록이 나중에 통째로 올라가면서
+//  그 사이 다른 사람이 한 체크를 지워버렸다.
 async function flushPending() {
   const p = getPending();
   if (!p || !isCloudEnabled()) return { flushed: false };
   try {
-    await saveCloud(getSessionId(), p.items, p.meta);
+    const merged = await mergeWithCloud(p.items);
+    await saveCloud(getSessionId(), merged, p.meta);
     clearPending();
-    return { flushed: true, at: p.at };
+    return { flushed: true, at: p.at, items: merged };
   } catch (e) {
     return { flushed: false, error: e };
   }
@@ -149,13 +184,15 @@ async function save(items, meta) {
   saveLocal(items, meta);   // 기기에는 무조건 먼저 저장 — 어떤 경우에도 입력을 잃지 않는다
 
   if (!isCloudEnabled()) {
-    return { sessionId, mode: "local" };
+    return { sessionId, mode: "local", items };
   }
 
   try {
-    await saveCloud(sessionId, items, meta);
-    clearPending();   // 서버까지 올라갔으면 대기열 비움
-    return { sessionId, mode: "cloud" };
+    const merged = await mergeWithCloud(items);   // (v2.5d) 서버 최신본과 합쳐서 저장
+    await saveCloud(sessionId, merged, meta);
+    saveLocal(merged, meta);   // 합쳐진 결과를 기기에도 반영
+    clearPending();
+    return { sessionId, mode: "cloud", items: merged };
   } catch (e) {
     // (v2.5c) 네트워크 실패 시 예외를 던지지 않고 대기열에 넣는다.
     //  예전에는 여기서 그냥 실패해 "저장 실패" 토스트만 뜨고 기록이 서버에 영영 안 올라갔다.
