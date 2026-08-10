@@ -48,7 +48,7 @@ async function loadCloud(sessionId) {
   const cfg = getConfig();
   const url =
     `${cfg.supabaseUrl}/rest/v1/pocket_sessions?session_id=eq.${encodeURIComponent(sessionId)}` +
-    "&select=items,sheet_title,updated_at";
+    "&select=items,sheet_title,period_start,period_end,updated_at";
 
   const res = await fetch(url, {
     headers: {
@@ -62,7 +62,12 @@ async function loadCloud(sessionId) {
   if (!rows.length) return null;
   return {
     items: rows[0].items || [],
-    meta: { sheetTitle: rows[0].sheet_title, updatedAt: rows[0].updated_at },
+    meta: {
+      sheetTitle: rows[0].sheet_title,
+      periodStart: rows[0].period_start || null,
+      periodEnd: rows[0].period_end || null,
+      updatedAt: rows[0].updated_at,
+    },
   };
 }
 
@@ -80,6 +85,8 @@ async function saveCloud(sessionId, items, meta) {
       session_id: sessionId,
       items,
       sheet_title: meta?.sheetTitle || null,
+      period_start: meta?.periodStart || null,
+      period_end: meta?.periodEnd || null,
       updated_at: new Date().toISOString(),
     }),
   });
@@ -97,12 +104,7 @@ async function load() {
 
   try {
     const cloud = await loadCloud(sessionId);
-    // (v2.5g) 서버에 저장소가 있으면 **비어 있어도** 그것이 정답이다.
-    //  예전에는 items가 0건이면 "못 불러온 것"으로 보고 기기에 남은 옛 목록을 썼다.
-    //  그래서 초기화·시즌 종료로 서버를 비워도 다른 기기에는 옛 목록이 그대로 보이고,
-    //  그 기기가 저장하는 순간 옛 데이터 전체가 서버에 되살아났다.
-    //  저장소 자체가 없을 때(loadCloud가 null)만 기기 데이터로 폴백한다.
-    if (cloud) {
+    if (cloud && cloud.items.length) {
       saveLocal(cloud.items, cloud.meta);
       return { ...cloud, sessionId, source: "cloud" };
     }
@@ -135,27 +137,6 @@ function clearPending() {
 }
 function hasPending() { return Boolean(getPending()); }
 
-// (v2.5g) 저장 직전 공통 필터 — 앱(index.html)이 "시즌이 끝났으면 비운다" 규칙을 주입한다.
-//  병합(mergeByUpdatedAt)은 카드별로 최신 것을 남기는 방식이라 **삭제를 표현하지 못한다**.
-//  그래서 지운 카드가 서버에서 계속 되살아나 삭제↔부활이 무한 반복됐고,
-//  그 반복 중 조회가 한 번만 실패하면 목록 전체가 날아갔다.
-//  → 합친 "결과"에 같은 규칙을 한 번 더 적용해, 어느 기기에서 올려도 결론이 같아지게 한다.
-//  ⚠️ 안전 우선: 필터가 등록되지 않았거나 오류가 나면 아무것도 지우지 않는다(원본 그대로).
-let postMergeFilter = null;
-function setPostMergeFilter(fn) {
-  postMergeFilter = typeof fn === "function" ? fn : null;
-}
-function applyPostMergeFilter(list) {
-  if (!postMergeFilter) return list;
-  try {
-    const out = postMergeFilter(list);
-    return Array.isArray(out) ? out : list;
-  } catch (e) {
-    console.warn("저장 전 필터 오류 — 원본 유지:", e);
-    return list;
-  }
-}
-
 // (v2.5d) 카드 단위 병합 — "목록 통째로 덮어쓰기"가 남의 기록을 지우던 문제 수정.
 //  각 카드에 마지막으로 고친 시각(updatedAt)을 찍어두고, 저장 직전 서버 것과 비교해
 //  **카드마다 더 최신인 쪽만** 남긴다. 내가 안 건드린 카드는 남의 최신 기록이 보존된다.
@@ -179,7 +160,7 @@ function mergeByUpdatedAt(serverItems, localItems) {
 async function mergeWithCloud(items) {
   try {
     const cloud = await loadCloud(getSessionId());
-    if (cloud && Array.isArray(cloud.items)) {
+    if (cloud && Array.isArray(cloud.items) && cloud.items.length) {
       return mergeByUpdatedAt(cloud.items, items);
     }
   } catch (e) {
@@ -196,27 +177,8 @@ async function flushPending() {
   const p = getPending();
   if (!p || !isCloudEnabled()) return { flushed: false };
   try {
-    const cloud = await loadCloud(getSessionId());
-
-    // (v2.5g) 서버가 비어 있고, 그 "비움"이 내 대기 기록보다 **나중**이라면
-    //  초기화(또는 시즌 종료 삭제)가 나중에 일어난 것이므로 옛 기록을 되살리지 않는다.
-    //  예전에는 신호 약한 곳에서 대기하던 옛 목록이 초기화 직후 통째로 올라가 되살아났다.
-    //  반대로 비움보다 내 기록이 나중이면(초기화 뒤에 새로 입력) 정상 전송한다.
-    if (cloud && Array.isArray(cloud.items) && cloud.items.length === 0) {
-      const serverAt = Date.parse(cloud.meta && cloud.meta.updatedAt ? cloud.meta.updatedAt : 0) || 0;
-      if (serverAt > Number(p.at || 0)) {
-        clearPending();
-        saveLocal([], { sheetTitle: null });
-        return { flushed: true, discarded: true, at: p.at, items: [] };
-      }
-    }
-
-    const base = (cloud && Array.isArray(cloud.items))
-      ? mergeByUpdatedAt(cloud.items, p.items)
-      : p.items;
-    const merged = applyPostMergeFilter(base);
+    const merged = await mergeWithCloud(p.items);
     await saveCloud(getSessionId(), merged, p.meta);
-    saveLocal(merged, p.meta);
     clearPending();
     return { flushed: true, at: p.at, items: merged };
   } catch (e) {
@@ -233,8 +195,7 @@ async function save(items, meta) {
   }
 
   try {
-    // (v2.5d) 서버 최신본과 합치고 → (v2.5g) 합친 결과에 시즌 종료 규칙을 한 번 더 적용
-    const merged = applyPostMergeFilter(await mergeWithCloud(items));
+    const merged = await mergeWithCloud(items);   // (v2.5d) 서버 최신본과 합쳐서 저장
     await saveCloud(sessionId, merged, meta);
     saveLocal(merged, meta);   // 합쳐진 결과를 기기에도 반영
     clearPending();
@@ -250,14 +211,11 @@ async function save(items, meta) {
 async function clear(sessionId) {
   localStorage.removeItem(LOCAL_ITEMS_KEY);
   localStorage.removeItem(LOCAL_META_KEY);
-  // (v2.5g) 전송 대기 중인 옛 기록도 함께 버린다.
-  //  예전에는 초기화 뒤 대기 기록이 나중에 올라가 지운 데이터가 되살아났다.
-  clearPending();
 
   if (!isCloudEnabled()) return;
 
   // RLS 강화(v2.1)로 DELETE가 차단되므로 빈 배열로 덮어쓰기 방식 사용
-  await saveCloud(sessionId, [], { sheetTitle: null });
+  await saveCloud(sessionId, [], { sheetTitle: null, periodStart: null, periodEnd: null });
 }
 
 function itemKey(item) {
@@ -270,7 +228,7 @@ function looseKey(item) {
   return `${item.no}|${item.factory}`;
 }
 
-function mergeItems(existing, parsed) {
+function mergeItems(existing, parsed, urgentOnly) {
   const exactMap = new Map();
   const looseMap = new Map();
   existing.forEach((item) => {
@@ -302,6 +260,7 @@ function mergeItems(existing, parsed) {
       // v2.5 일일 사이클 필드 보존
       pastWorkDays: old.pastWorkDays || 0,
       activeMark: old.activeMark || null,
+      todayOff: old.todayOff || null,
       extendHour: (old.extendHour ?? null),
       dayKey: old.dayKey || null,
       reportStage: old.reportStage || "전",
@@ -321,10 +280,6 @@ function mergeItems(existing, parsed) {
 }
 
 // ── Realtime 구독 ──────────────────────────────────────
-// (v2.5g) 연결 유지 신호(heartbeat)와 자동 재연결 추가.
-//  예전에는 접속만 하고 아무 신호도 보내지 않아 서버가 약 1분 뒤 연결을 끊었고,
-//  끊긴 것을 알아채는 곳도 없어 "다른 사람 기록이 자동으로 안 뜨는" 상태가 조용히 이어졌다.
-//  반환값은 { close() } — 기존 호출부(socket.close())와 그대로 호환된다.
 function subscribeRealtime(sessionId, onUpdate) {
   const cfg = getConfig();
   if (!cfg.supabaseUrl || !cfg.supabaseKey) return null;
@@ -333,80 +288,29 @@ function subscribeRealtime(sessionId, onUpdate) {
     cfg.supabaseUrl.replace("https://", "wss://") +
     `/realtime/v1/websocket?apikey=${cfg.supabaseKey}&vsn=1.0.0`;
 
-  let socket = null;
-  let heartbeat = null;
-  let retryTimer = null;
-  let tries = 0;
-  let closed = false;
+  const socket = new WebSocket(wsUrl);
 
-  const stopHeartbeat = () => { if (heartbeat) { clearInterval(heartbeat); heartbeat = null; } };
-
-  const scheduleRetry = () => {
-    if (closed || retryTimer) return;
-    tries = Math.min(tries + 1, 5);
-    const wait = Math.min(30000, 2000 * Math.pow(2, tries - 1)); // 2초 → 최대 30초
-    retryTimer = setTimeout(() => { retryTimer = null; connect(); }, wait);
+  socket.onopen = () => {
+    socket.send(JSON.stringify({
+      topic: `realtime:public:pocket_sessions:session_id=eq.${sessionId}`,
+      event: "phx_join",
+      payload: {},
+      ref: "1",
+    }));
   };
 
-  function connect() {
-    if (closed) return;
+  socket.onmessage = (e) => {
     try {
-      socket = new WebSocket(wsUrl);
-    } catch (e) {
-      console.warn("Realtime 연결 실패:", e);
-      scheduleRetry();
-      return;
-    }
-
-    socket.onopen = () => {
-      tries = 0;
-      try {
-        socket.send(JSON.stringify({
-          topic: `realtime:public:pocket_sessions:session_id=eq.${sessionId}`,
-          event: "phx_join",
-          payload: {},
-          ref: "1",
-        }));
-      } catch (e) { console.warn("Realtime 구독 요청 실패:", e); }
-
-      stopHeartbeat();
-      heartbeat = setInterval(() => {
-        if (!socket || socket.readyState !== 1) return;
-        try {
-          socket.send(JSON.stringify({
-            topic: "phoenix", event: "heartbeat", payload: {}, ref: String(Date.now()),
-          }));
-        } catch (e) { console.warn("Realtime 유지 신호 실패:", e); }
-      }, 25000);
-    };
-
-    socket.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.event === "UPDATE" || msg.event === "INSERT") {
-          onUpdate();
-        }
-      } catch {}
-    };
-
-    socket.onerror = (e) => console.warn("Realtime 연결 오류:", e);
-
-    socket.onclose = () => {
-      stopHeartbeat();
-      scheduleRetry();
-    };
-  }
-
-  connect();
-
-  return {
-    close() {
-      closed = true;
-      stopHeartbeat();
-      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
-      try { if (socket) socket.close(); } catch {}
-    },
+      const msg = JSON.parse(e.data);
+      if (msg.event === "UPDATE" || msg.event === "INSERT") {
+        onUpdate();
+      }
+    } catch {}
   };
+
+  socket.onerror = (e) => console.warn("Realtime 연결 오류:", e);
+
+  return socket;
 }
 
 window.MMEECStorage = {
@@ -419,8 +323,6 @@ window.MMEECStorage = {
   mergeItems,
   itemKey,
   subscribeRealtime,
-  // (v2.5g) 저장 직전 공통 필터 등록 (시즌 종료 규칙 주입용)
-  setPostMergeFilter,
   // (v2.5c) 오프라인 대기열
   hasPending,
   flushPending,

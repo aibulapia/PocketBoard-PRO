@@ -6,7 +6,7 @@
 |---|---|---|
 | `public/` | index.html, config.js, data.js, storage.js, sw.js, manifest.json, 아이콘, _headers, _redirects | ✅ **이 폴더만 배포됨** |
 | `server/` | supabase-*.sql, apps-script-v3.gs (Supabase·구글시트에 붙여넣는 설정문) | ❌ |
-| `docs/` | README, CHANGELOG, BACKLOG, 사용설명서, 점검보고서, 설계기록, `archive/`(구버전 보관) | ❌ |
+| `docs/` | README, BACKLOG, 백업문서(인증정보 제거본) | ❌ |
 
 > ⚠️ **Cloudflare Pages 설정**: Build output directory = `public`
 > 이 설정 덕분에 `server/`·`docs/`의 파일은 웹에 노출되지 않습니다.
@@ -21,32 +21,8 @@
 
 > **버전: 2.5g** (2026-08-10)
 > 배포: Cloudflare Pages (https://pocketboardprov2.pages.dev/)
-> ⚠️ **`public/config.js`의 키는 웹에 그대로 공개됩니다.** 저장소가 Private인 것과 무관합니다
->    (브라우저에서 소스 보기로 누구나 읽을 수 있음). 구글시트 토큰·기상청 키가 여기 들어 있어
->    주기적 교체가 필요하며, 근본 해결은 중계 서버 도입(백로그)입니다.
+> ⚠️ Private 저장소 — config.js에 서비스 키 포함
 > 전체 버전 이력은 [`CHANGELOG.md`](./CHANGELOG.md) 참고
-
-## 📚 docs 폴더 문서 안내 (2026-08-10 정리)
-
-| 문서 | 무엇을 담고 있나 | 언제 보나 |
-|---|---|---|
-| `README.md` | 폴더 구조·구성 파일·버전 요약 (이 문서) | 프로젝트 전체를 훑을 때 |
-| `CHANGELOG.md` | 버전별 변경 이력 전체 | "이 기능이 언제 왜 바뀌었지?" |
-| `BACKLOG.md` | 남은 할 일·보류 항목·완료 이력 | 다음에 뭘 할지 정할 때 |
-| `사용설명서_v2_5g.html` | 감독자·관리자용 전체 기능 안내 | 현장 배포·교육용 |
-| `점검보고서_v2_5f.md` | 2026-08-10 전면 점검 (저장 구조·보안) | 지금 남은 위험을 확인할 때 |
-| `점검보고서_v2_5a.md` | 2026-08-08 전면 점검 (보안 3건 최초 발견) | 보안 항목의 배경 |
-| `설계_공사코드폐지_일원화.md` | 공사 코드를 없앤 이유 (v2.5c 구현 완료) | 저장 구조를 다시 손볼 때 |
-| `설계_TODAY체크_목록고정.md` | 목록 흔들림 해결 설계 (v2.5b 구현 완료) | 정렬을 다시 손볼 때 |
-| `참고_주말공사앱_백로그.md` | 별개 앱(위크매치) 참고 자료 | 연동 검토 시 |
-| `archive/` | 백서(v2.24b)·백업문서(v2.12) 보관 | 옛 이력 확인 시 — **현행 아님** |
-
-> ⚠️ **작업 원칙은 저장소 루트의 `CLAUDE.md`에 있습니다.** docs 안이 아닙니다.
->
-> ⚠️ **인증정보(관리자 코드·백업 토큰·API 키)는 어떤 문서에도 적지 않습니다.**
->    2026-08-10 정리에서 `점검보고서_v2_5a.md`에 남아 있던 백업 토큰을 마스킹했습니다.
-
----
 
 ## 구성 파일 (2026-07 폴더 개편 반영)
 
@@ -59,10 +35,10 @@
 | `sw.js` | `public/` | 서비스워커 — 오프라인 화면 캐시 (v2.5c 신규). **버전 올릴 때 APP_VERSION 같이 수정 필수** |
 | `manifest.json`, `icon-192/512.png` | `public/` | PWA |
 | `_headers`, `_redirects` | `public/` | Cloudflare 설정 |
-| `supabase-rls-v2.sql` | `server/` | RLS 강화 — ⚠️ **아직 미적용** (2026-08-10 서버 확인: 정책이 `무조건 허용` 2개뿐) |
+| `supabase-rls-v2.sql` | `server/` | RLS 강화 (Supabase에서 1회 실행, 완료됨) |
 | `supabase-rotate-codes-v1.sql` | `server/` | 관리자 코드·백업 토큰 교체용 |
 | `supabase-access-v1.sql` | `server/` | 접속 현황 기능 (Supabase에서 실행 완료) |
-| `apps-script-v3.gs` | `server/` | 체감온도 기록 + 자동백업 — ⚠️ **백업 미작동**: `session_registry`가 0건이고 파일 속 토큰이 서버 값과 다름 |
+| `apps-script-v3.gs` | `server/` | 체감온도 기록 + 자동백업(05시, 현재 미사용) |
 | `supabase-master-v3.sql` | `server/` | ⚠️ v2.5 시점 구버전 — **재실행 금지**, 참고용만 |
 
 ## 최근 주요 버전 요약
