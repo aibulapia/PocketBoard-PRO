@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.5f</title>
+ <title>MMEEC 현장 점검 포켓보드 2.5g</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -174,7 +174,7 @@
        const { useState, useEffect, useMemo, useRef } = React;
 
        // 앱 버전 및 관리 암호 (클라이언트 노출 전제 — 실수 방지용 잠금 수준)
-       const APP_VERSION = "2.5f";
+       const APP_VERSION = "2.5g";
        // 암호는 SHA-256 해시로만 소스에 존재 (원본 문자열 미노출)
        //  초기화: "1895" / 회사명 수정: "98951895"
        const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
@@ -233,6 +233,35 @@
            return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
        };
        const getWorkdayDow = (d = new Date()) => getWorkdayDate(d).getDay();
+
+       // ── (v2.5g) 공사 시즌 종료 판정 ─────────────────────────────
+       //  "시트에 담긴 공사 기간 전체가 끝났는가"를 본다.
+       //  기준은 배너 제목 글자가 아니라 **카드들의 최종일 중 가장 늦은 날**이다.
+       //  (제목은 "26하계공사(8/1~8/9)" / "8-1~9 하계휴무공사" 등 형식이 제각각이라
+       //   글자를 해석하다 틀리면 시즌이 안 끝났는데 전부 지워질 수 있다.)
+       const seasonEndDate = (list) => {
+           let latest = null;
+           (list || []).forEach(it => {
+               const d = it && it.endDate;
+               if (typeof d !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+               if (!latest || d > latest) latest = d;
+           });
+           return latest;
+       };
+       // 최종일이 하나도 없으면(구버전 데이터·긴급공사만 있는 경우) 종료로 보지 않는다 — 안전 우선.
+       const isSeasonOver = (list, wd = getWorkdayKey()) => {
+           const end = seasonEndDate(list);
+           return Boolean(end) && end < wd;
+       };
+       // 시즌이 끝났으면 목록을 통째로 비운다(긴급공사 포함 — 실장님 결정).
+       const applySeasonPurge = (list) => (isSeasonOver(list) ? [] : (list || []));
+       // 저장 직전에도 같은 규칙을 적용하도록 storage에 등록.
+       //  이게 없으면 병합 저장 때 지운 카드가 서버에서 되살아나 삭제↔부활이 무한 반복된다.
+       try { window.MMEECStorage.setPostMergeFilter(applySeasonPurge); }
+       catch (e) { console.warn("시즌 종료 필터 등록 실패:", e); }
+
+       // (13번) 관리자 인증 30일 유지 — 세 군데 각각 선언하던 것을 한 곳으로 통일 (v2.5g)
+       const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
        // (v2.19) 날짜별 인원 조회 공통 헬퍼
        const findDayWorkers = (dateWorkers, targetDate) => {
            if (!dateWorkers || !targetDate) return null;
@@ -330,6 +359,11 @@
 
        function App() {
            const [items, setItems] = useState([]);
+           // (v2.5g) 화면에 그려지기 전이라도 "가장 최근 목록"을 즉시 참조하기 위한 보관용
+           const itemsRef = React.useRef([]);
+           itemsRef.current = items;
+           // (v2.5g) 저장 순번 — 늦게 도착한 옛 응답이 최신 화면을 덮어쓰지 않게 한다
+           const saveSeqRef = React.useRef(0);
            const [activeTab, setActiveTab] = useState("전체");
            const [selectedItem, setSelectedItem] = useState(null);
            const [toast, setToast] = useState(null);
@@ -365,9 +399,6 @@
            const [pwInput, setPwInput] = useState("");
            const [pwTarget, setPwTarget] = useState(""); // "reset" | "company"
            const [pwError, setPwError] = useState(false);
-
-           // 최초 실행 여부 (내 공장 세팅 팝업)
-           const [firstRun] = useState(() => !localStorage.getItem("MMEEC_MY_FACTORIES"));
 
            // 개인별 공장 필터 (localStorage 기반, 기기마다 독립)
            //  (12번) 기본값 자동 지정 제거 — 최초엔 null, 강제 설정 유도
@@ -413,7 +444,6 @@
            const [heatTemp, setHeatTemp] = useState("");
            const [heatHumidity, setHeatHumidity] = useState("");
            const [heatResults, setHeatResults] = useState([]); // 누적 결과 배열
-           const [currentHeatStatus, setCurrentHeatStatus] = useState(null); // 바텀시트 내 계산기 표시용만
 
            // ── 구글 시트 체감온도 자동 기록 ──────────────
            const sendHeatToSheet = async (item, entry) => {
@@ -492,7 +522,6 @@
            const calcHeatIndex = () => {
                calcHeatFor(selectedItem, heatTemp, heatHumidity, (entry) => {
                    setHeatResults(prev => [entry, ...prev]);
-                   setCurrentHeatStatus(entry);
                });
            };
 
@@ -521,7 +550,10 @@
                    if (r.items) setItems(r.items);   // (v2.5d) 병합 결과 반영
                    setPendingSave(false);
                    setSyncStatus("saved");
-                   showToast("✅ 대기 중이던 기록이 서버에 전송되었습니다");
+                   // (v2.5g) 대기 중이던 기록보다 초기화/시즌 종료가 나중이면 전송하지 않고 버린다
+                   showToast(r.discarded
+                       ? "🧹 목록이 초기화되어 대기 중이던 옛 기록은 전송하지 않았습니다"
+                       : "✅ 대기 중이던 기록이 서버에 전송되었습니다");
                }
            }, []);
 
@@ -545,16 +577,9 @@
                return () => clearInterval(t);
            }, []);
            const workday = getWorkdayKey(nowTick);
-           const todayDow = getWorkdayDow(nowTick);
            // (v2.17) 06시 넘겨 workday가 바뀌면 수동 펼침 상태 초기화
            useEffect(() => { setExpandedIds([]); }, [workday]);
            const after17 = isAfter17(nowTick);
-           // (27번) 오늘 실제 날짜 라벨 "M/D(요일)" — 06시 workday 아닌 실제 달력 기준
-           const todayLabel = (() => {
-               const d = nowTick || new Date();
-               const dows = ["일", "월", "화", "수", "목", "금", "토"];
-               return `${d.getMonth() + 1}/${d.getDate()}(${dows[d.getDay()]})`;
-           })();
 
            // (v2.14) 임의 날짜 공사 목록 조회 — ◀ 날짜 ▶ 네비게이션
            // dateOffset: 0=오늘, +N=N일 후, -N=N일 전
@@ -631,11 +656,17 @@
                    if (!active && it.activeMark === wd) { mut(); it.activeMark = null; }
                    return it;
                });
-               // (19번) 공사 최종일이 지난 카드 완전 제거 (endDate < 오늘 workday).
-               //  endDate 없는 구버전 카드는 안전하게 보존(제거 대상 제외).
-               const before = out.length;
-               out = out.filter(it => !(it.endDate && it.endDate < wd));
-               if (out.length !== before) changed = true;
+               // (v2.5g) 공사 최종일 처리 — 카드별 개별 삭제 → **시즌 전체 종료 시 일괄 삭제**로 변경.
+               //  [바뀐 이유] v2.19~v2.5f는 endDate가 지난 카드를 하나씩 지웠는데,
+               //  저장은 "서버 것과 카드별로 합치기"라 삭제를 표현하지 못해 지운 카드가 그대로 되살아났다.
+               //  → 지움 → 부활 → 다시 지움 이 끝없이 반복되고(통신 낭비),
+               //    그 반복 중 서버 조회가 한 번만 실패하면 목록 전체가 날아갔다.
+               //  [지금] 시즌(가장 늦은 최종일)이 지났을 때만 긴급공사까지 통째로 비운다.
+               //  저장 직전에도 같은 규칙이 한 번 더 적용되므로(storage.setPostMergeFilter) 부활하지 않는다.
+               if (isSeasonOver(out, wd)) {
+                   if (out.length > 0) changed = true;
+                   return { list: [], changed };
+               }
                return { list: changed ? out : list, changed };
            };
 
@@ -643,11 +674,24 @@
            useEffect(() => {
                if (isLoading || items.length === 0) return;
                const { list, changed } = applyDailyCycle(items);
-               if (changed) persistItems(list);
+               if (!changed) return;
+               // (v2.5g) 시즌 종료로 목록이 통째로 비워진 경우 —
+               //  카드만 지우고 배너 제목·정렬·즐겨찾기가 남으면 "지난 시즌 제목"이 그대로 보여 혼란스럽다.
+               //  전체 초기화(doReset)와 동일하게 부속 정보도 함께 정리한다.
+               if (list.length === 0) {
+                   setSheetTitle("");
+                   setSortedOrder([]);
+                   saveBookmarkIds([]);
+                   setActiveTab("전체");
+                   persistItems(list, { sheetTitle: null });
+                   showToast("공사 기간이 끝나 목록이 정리되었습니다.");
+                   return;
+               }
+               persistItems(list);
            }, [isLoading, workday, items.length]);
 
            // (7번) TODAY 배지 터치 토글 — 회색 ↔ 파랑
-           const toggleTodayOff = (item, e) => {
+           const toggleTodayOn = (item, e) => {
                if (e) e.stopPropagation();
                const wd = getWorkdayKey();
                const updated = items.map(it => {
@@ -717,7 +761,10 @@
                // (v2.5d) 이번에 실제로 바뀐 카드에만 "고친 시각"을 찍는다.
                //  저장할 때 서버 것과 카드 단위로 비교해, 더 최신인 쪽만 남기기 위한 기준이다.
                //  내가 안 건드린 카드는 시각이 그대로라 남의 최신 기록이 지워지지 않는다.
-               const prevMap = new Map((items || []).map(it => [it.id, JSON.stringify(it)]));
+               // (v2.5g) 비교 기준을 itemsRef로 바꿈 — 카드를 연달아 빠르게 누르면
+               //  화면이 다시 그려지기 전이라 items가 직전 값에 머물러, 두 번째 변경에
+               //  "고친 시각"이 안 찍히는 경우가 있었다.
+               const prevMap = new Map((itemsRef.current || []).map(it => [it.id, JSON.stringify(it)]));
                const now = Date.now();
                const stamped = (newItems || []).map(it => {
                    const before = prevMap.get(it.id);
@@ -727,7 +774,12 @@
                    }
                    return it;
                });
+               itemsRef.current = stamped;
                setItems(stamped);
+               // (v2.5g) 저장 순번 — 나중에 시작한 저장의 결과만 화면에 반영한다.
+               //  예전에는 먼저 시작한 저장의 응답이 늦게 도착하면서, 그 사이 누른 체크가
+               //  화면에서 잠깐 풀린 것처럼 되돌아갔다.
+               const mySeq = ++saveSeqRef.current;
                setSyncStatus("saving");
                const meta = metaOverride || { sheetTitle: sheetTitle || null };
                try {
@@ -741,7 +793,10 @@
                    } else {
                        // (v2.5d) 서버와 합쳐진 결과를 화면에도 반영 —
                        //  다른 사람이 그 사이 체크한 내용이 내 화면에도 바로 보인다.
-                       if (result.items) setItems(result.items);
+                       if (result.items && mySeq === saveSeqRef.current) {
+                           itemsRef.current = result.items;
+                           setItems(result.items);
+                       }
                        setSyncStatus(result.mode === "cloud" ? "saved" : "local");
                        setPendingSave(false);
                    }
@@ -1009,7 +1064,14 @@
                const d = getWorkdayDate();
                const dw = { ...(item.dateWorkers || {}) };
                const existing = findDayWorkers(dw, d);
-               if (existing) { existing.workers = Math.max(1, Number(existing.workers) || 0); return dw; }
+               if (existing) {
+                   // (v2.5g) 원본 객체를 직접 고치지 않고 새 객체로 교체한다.
+                   //  직접 고치면 "바뀐 카드에만 시각 도장 찍기"가 변경을 못 알아채,
+                   //  당일 공사 추가가 서버에 반영되지 않는 경우가 있었다.
+                   const key = Object.keys(dw).find(k => dw[k] === existing);
+                   if (key != null) dw[key] = { ...existing, workers: Math.max(1, Number(existing.workers) || 0) };
+                   return dw;
+               }
                let slot = d.getDay();
                while (dw[slot] !== undefined) slot += 7;
                dw[slot] = { day: d.getDate(), month: d.getMonth() + 1, workers: 1 };
@@ -1566,7 +1628,7 @@
            };
 
            // ═══════════════════════════════════════════════════
-           // (2번) 기상 정보 — 기상청 오픈API, 2시간 캐시
+           // (2번) 기상 정보 — 기상청 오픈API, 1시간 캐시 (10분마다 만료 여부 확인)
            // ═══════════════════════════════════════════════════
            const [showWeather, setShowWeather] = useState(false);
            const [weather, setWeather] = useState(() => {
@@ -1579,14 +1641,17 @@
                const cfg = window.APP_CONFIG || {};
                if (!cfg.kmaServiceKey) { showToast("기상청 API 키가 설정되지 않았습니다."); return; }
                const TTL = 60 * 60 * 1000; // 1시간
-               if (!force && weather && Date.now() - weather.ts < TTL) return;
+               // (v2.5g) 캐시 판정을 저장된 값 기준으로 바꿈 — 예전에는 이 함수가 처음 만들어질 때의
+               //  weather 값에 묶여 있어 1시간 캐시가 사실상 동작하지 않고 10분마다 계속 조회했다.
+               const cached = (() => {
+                   try { return JSON.parse(localStorage.getItem("MMEEC_WEATHER") || "null"); } catch { return null; }
+               })();
+               if (!force && cached && Date.now() - cached.ts < TTL) return;
                setWeatherLoading(true);
                const result = { ts: Date.now(), temp: null, humidity: null, warnings: [], bulletin: "", error: null,
                                 wrnOk: false, wrnCheckedAt: null, wrnStale: false };
                // 직전 특보 상태 (조회 실패 시 그대로 유지하기 위한 보관용)
-               const prev = weather || (() => {
-                   try { return JSON.parse(localStorage.getItem("MMEEC_WEATHER") || "null"); } catch { return null; }
-               })();
+               const prev = cached;
 
                // 직접 호출 실패(CORS 등) 시 Apps Script 프록시 폴백
                const getJson = async (url) => {
@@ -1622,18 +1687,19 @@
                    const key = encodeURIComponent(cfg.kmaServiceKey);
                    const areaKw = cfg.kmaAreaKeyword || "울산";
                    const statusUrl = `${base}/getPwnStatus?serviceKey=${key}&dataType=JSON&numOfRows=10&pageNo=1`;
-                   let items = [];
+                   // (v2.5g) 지역변수 이름을 wrnItems로 변경 — 공사 목록 items와 이름이 겹쳐 있었다.
+                   let wrnItems = [];
                    try {
                        const j = await getJson(statusUrl);
                        let it = j?.response?.body?.items?.item || [];
                        if (it && !Array.isArray(it)) it = [it];
-                       items = it;
+                       wrnItems = it;
                    } catch (e1) {
                        console.warn("getPwnStatus 실패:", e1);
                        throw e1;
                    }
                    // t6(특보발효현황) 내용에서 줄 단위로 우리 지역 라인만 추출
-                   const t6 = items.map(m => m.t6 || "").join("\n");
+                   const t6 = wrnItems.map(m => m.t6 || "").join("\n");
                    const regionLines = t6.split("\n").filter(l => l.includes(areaKw));
                    const scope = regionLines.length ? regionLines.join(" ") : "";
                    // 특보 종류 + 등급(중대경보/경보/주의보) 추출
@@ -1672,7 +1738,8 @@
            }, []);
 
            // ═══════════════════════════════════════════════════
-           // (5번) 엑셀 다운로드 — 일반: 현재 세션만
+           // (5번) 엑셀 표 변환 — 최고관리자 전체 내려받기(masterExportAll)에서 사용
+           //  (v2.5g) 화면 어디에서도 부르지 않던 exportExcel 함수 제거
            // ═══════════════════════════════════════════════════
            const itemsToRows = (list) => list.map(it => ({
                "공장": it.factory || "", "사업장": it.company || "", "공사명": it.title || "",
@@ -1688,16 +1755,6 @@
                    .map(r => `${toHm24(r) || r.time} ${fmt1(r.value)}℃(${r.level})`).join(" | "),
            }));
 
-           const exportExcel = (list, label) => {
-               if (!list || list.length === 0) { showToast("내보낼 데이터가 없습니다."); return; }
-               try {
-                   const ws = XLSX.utils.json_to_sheet(itemsToRows(list));
-                   const wb = XLSX.utils.book_new();
-                   XLSX.utils.book_append_sheet(wb, ws, "진행기록");
-                   XLSX.writeFile(wb, `포켓보드_${label}_${getWorkdayKey()}.xlsx`);
-                   showToast("📊 엑셀 파일이 다운로드되었습니다.");
-               } catch (e) { console.error(e); showToast("엑셀 생성 실패"); }
-           };
 
            // ═══════════════════════════════════════════════════
            // (4번) 마스터 코드 (관리자 모드) — 서버측 RPC 검증
@@ -1723,7 +1780,6 @@
            const [masterCode, setMasterCode] = useState(() => {
                try {
                    const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
-                   const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
                    if (at > 0 && Date.now() - at < ADMIN_TTL) {
                        return localStorage.getItem("MMEEC_ADMIN_CODE") || "";
                    }
@@ -1736,7 +1792,6 @@
                // (23번) 30일 인증 캐시에 권한 레벨 저장 (1=관리자, 2=최고 관리자)
                try {
                    const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
-                   const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
                    if (at > 0 && Date.now() - at < ADMIN_TTL) return Number(localStorage.getItem("MMEEC_ADMIN_LV") || 2);
                } catch {}
                return 0;
@@ -1758,7 +1813,6 @@
            const [ctDept, setCtDept] = useState("");
 
            // (13번) 관리자 인증 상태 30일 유지 + 연락처 캐시 (본인 기기 전용)
-           const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
            const [adminAuthed, setAdminAuthed] = useState(() => {
                try {
                    const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
@@ -2269,7 +2323,7 @@
                                                         (v2.19) 다른 날짜를 조회 중이면 그 날짜 기준으로 표시하고 토글은 막는다 */}
                                                    {hasWorkOn(item, selectedDate) && (
                                                    <span
-                                                       onClick={(e) => { if (dateOffset === 0) toggleTodayOff(item, e); else e.stopPropagation(); }}
+                                                       onClick={(e) => { if (dateOffset === 0) toggleTodayOn(item, e); else e.stopPropagation(); }}
                                                        class={`text-sm px-2 py-0.5 rounded-md font-black tracking-wide select-none transition-all flex-shrink-0 whitespace-nowrap ${
                                                            dateOffset !== 0
                                                                ? "bg-sky-100 text-sky-600"

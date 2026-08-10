@@ -20,6 +20,12 @@
 /storage.js
   Cache-Control: max-age=3600, must-revalidate
 
+# (v2.5g) 서비스워커는 절대 캐시하지 않는다.
+#  이 파일이 캐시되면 버전을 올려도 폰이 옛 앱 화면을 계속 보여준다.
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
 /icon-192.png
   Cache-Control: max-age=31536000, immutable
 

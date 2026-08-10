@@ -13,7 +13,7 @@
  *             오래된 캐시는 activate 단계에서 자동 삭제된다.
  */
 
-const APP_VERSION = "2.5f";
+const APP_VERSION = "2.5g";
 const CACHE_NAME = `pocketboard-v${APP_VERSION}`;
 
 // 오프라인에도 화면이 뜨려면 반드시 있어야 하는 파일들
