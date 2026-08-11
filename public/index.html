@@ -1153,8 +1153,10 @@
            }, [items, isLoading]);
 
            // (v2.5g) 공사기간(시작~종료) 밖이면 목록 전체를 숨긴다.
+           //  기준은 "진짜 오늘"이 아니라 ◀▶로 보고 있는 날짜(selectedDate).
            //  기간 정보가 없으면(구버전 데이터·날짜컬럼 없는 엑셀) 안전하게 계속 보여준다.
-           const inPeriod = !periodStart || !periodEnd || (workday >= periodStart && workday <= periodEnd);
+           const selectedKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+           const inPeriod = !periodStart || !periodEnd || (selectedKey >= periodStart && selectedKey <= periodEnd);
            const filteredItems = useMemo(() => {
                if (!inPeriod) return [];
                return activeTab === "전체" ? items : items.filter(item => item.factory === activeTab);
