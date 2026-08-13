@@ -7,6 +7,11 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=()
 
+# 최신 버전 확인용 — 반드시 항상 서버에서 새로 받아야 함(캐시 금지)
+/version.json
+  Cache-Control: no-store, no-cache, must-revalidate
+  Content-Type: application/json; charset=utf-8
+
 /index.html
   Cache-Control: max-age=3600, must-revalidate
 

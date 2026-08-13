@@ -13,7 +13,7 @@
  *             오래된 캐시는 activate 단계에서 자동 삭제된다.
  */
 
-const APP_VERSION = "2.5h";
+const APP_VERSION = "2.52";
 const CACHE_NAME = `pocketboard-v${APP_VERSION}`;
 
 // 오프라인에도 화면이 뜨려면 반드시 있어야 하는 파일들
@@ -49,15 +49,17 @@ self.addEventListener("activate", (event) => {
 });
 
 // 캐시·네트워크 둘 다 실패했을 때 보여줄 최소 안내 화면.
-//  아무것도 안 돌려주거나 오류를 던지면 크롬이 자체 "ERR_FAILED" 화면을 띄우는데,
-//  이 상태는 재설치해도 똑같은 코드가 또 실패해서 계속 반복된다(2026-08-11 실제 발생).
-//  그러니 최소한 이 화면이라도 떠서, 사용자가 새로고침을 시도할 수 있게 한다.
-const FALLBACK_HTML = new Response(
-  "<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>" +
-  "<body style='font-family:sans-serif;text-align:center;padding:60px 20px;color:#334155'>" +
-  "<h2>일시적으로 연결할 수 없습니다</h2><p>인터넷 연결을 확인한 뒤<br>화면을 아래로 당기거나 새로고침 해주세요.</p></body>",
-  { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
-);
+//  반드시 호출할 때마다 새 Response를 만든다. 하나를 만들어두고 재사용하면
+//  body가 이미 소비된 상태라 두 번째 요청부터 서비스워커 자체가 오류를 내고,
+//  결국 크롬이 ERR_FAILED 화면을 띄운다.
+function makeFallback() {
+  return new Response(
+    "<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>" +
+    "<body style='font-family:sans-serif;text-align:center;padding:60px 20px;color:#334155'>" +
+    "<h2>일시적으로 연결할 수 없습니다</h2><p>인터넷 연결을 확인한 뒤<br>화면을 아래로 당기거나 새로고침 해주세요.</p></body>",
+    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
+  );
+}
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
@@ -70,6 +72,10 @@ self.addEventListener("fetch", (event) => {
   // 외부 API(Supabase·기상청·구글)는 캐시하지 않고 통과.
   // 안전 데이터라 오래된 값을 최신인 것처럼 보여주면 위험하다.
   if (url.origin !== self.location.origin) return;
+
+  // 최신 버전 확인용 파일은 절대 캐시하지 않는다.
+  //  캐시된 옛 버전 값을 읽으면 업데이트가 있어도 영원히 못 알아챈다.
+  if (url.pathname.endsWith("/version.json")) return;
 
   event.respondWith(
     (async () => {
@@ -98,12 +104,12 @@ self.addEventListener("fetch", (event) => {
           const shell = await caches.match("./index.html").catch(() => null);
           if (shell) return shell;
         }
-        return FALLBACK_HTML;
+        return makeFallback();
       } catch (e) {
         // 캐시 스토리지 접근 자체가 막혀있는 등 예상 못한 오류 — 절대 그냥 던지지 않는다.
         //  그대로 던지면 크롬이 ERR_FAILED 화면을 띄우고, 삭제 후 재설치해도 같은 코드가
         //  또 실패해 똑같은 오류가 무한 반복된다(2026-08-11 실제 발생 사례).
-        return fetch(req).catch(() => FALLBACK_HTML);
+        return fetch(req).catch(() => makeFallback());
       }
     })()
   );
