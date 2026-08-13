@@ -23,7 +23,6 @@ const APP_SHELL = [
   "./data.js",
   "./config.js",
   "./storage.js",
-  "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
 ];
@@ -71,6 +70,11 @@ self.addEventListener("fetch", (event) => {
   
   if (url.origin !== self.location.origin) return;
 
+  if (url.pathname.endsWith("/version.json")) {
+    event.respondWith(fetch(req, { cache: "no-store" }));
+    return;
+  }
+
   event.respondWith(
     (async () => {
       try {
@@ -103,7 +107,7 @@ self.addEventListener("fetch", (event) => {
         
         
         
-        return fetch(req).catch(() => FALLBACK_HTML);
+        return fetch(req).catch(() => createFallbackResponse());
       }
     })()
   );
