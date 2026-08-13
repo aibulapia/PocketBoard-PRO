@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.52</title>
+ <title>MMEEC 현장 점검 포켓보드 2.53</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.52";
+const APP_VERSION = "2.53";
 const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
 const COMPANY_PW_HASH = "9b8b07c4e3c66b4d87a577084b123623acb867927cf1e82799b8cf19477bc31c";
 async function sha256(text) {
@@ -2736,6 +2736,13 @@ function App() {
     class: "text-slate-600"
   }, "현장 안전 감독자 및 공장 관리자")), React.createElement("div", null, React.createElement("p", {
     class: "font-black text-slate-800 mb-1"
+  }, "💬 문의·불편사항"), React.createElement("a", {
+    href: "https://open.kakao.com/o/gieWPHIi",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    class: "text-sky-600 underline break-all active:opacity-60"
+  }, "카카오톡 문의방 열기")), React.createElement("div", null, React.createElement("p", {
+    class: "font-black text-slate-800 mb-1"
   }, "🔄 공사목록 업데이트"), React.createElement("p", {
     class: "text-slate-600"
   }, "주 2회 · 수/금 오후"))), React.createElement("div", {
@@ -3254,13 +3261,23 @@ function App() {
 const container = document.getElementById('root');
 const root = ReactDOM.createRoot(container);
 root.render(React.createElement(App, null));
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(e => {
-      console.warn("서비스워커 등록 실패(앱 동작에는 지장 없음):", e);
-    });
-  });
-}
+(async () => {
+  try {
+    if (!navigator.serviceWorker || !navigator.serviceWorker.getRegistrations) return;
+    const regs = await navigator.serviceWorker.getRegistrations();
+    if (!regs.length) return;
+    await Promise.all(regs.map(r => r.update().catch(() => {})));
+    await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+    if (window.caches && caches.keys) {
+      const names = await caches.keys();
+      await Promise.all(names.map(n => caches.delete(n).catch(() => {})));
+    }
+    if (!sessionStorage.getItem("MMEEC_SW_CLEANED")) {
+      sessionStorage.setItem("MMEEC_SW_CLEANED", "1");
+      location.reload(true);
+    }
+  } catch (e) {}
+})();
 (async () => {
   const RELOAD_FLAG = "MMEEC_UPDATE_RELOADED";
   try {
