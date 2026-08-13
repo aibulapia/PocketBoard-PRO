@@ -16,7 +16,7 @@
 -- 실행 위치: Supabase 대시보드 → SQL Editor
 -- ⚠️ 실행 전 아래 두 값을 반드시 본인 값으로 변경하세요!
 --    1) MASTER_CODE  : 'mmeecsafe'  (관리자 모드 암호)
---    2) BACKUP_TOKEN : 'backup-mmeecsafe-1895' (Apps Script 백업용)
+--    2) BACKUP_TOKEN : Apps Script 백업용 토큰 값
 --    변경 방법: 아래에서 Ctrl+F 로 찾아 바꾸기
 -- ============================================================
 
@@ -124,7 +124,9 @@ create or replace function public.backup_export(p_token text)
 returns table (session_id text, site_name text, items jsonb, updated_at timestamptz)
 language plpgsql security definer set search_path = public as $$
 begin
-  if p_token <> 'backup-mmeecsafe-1895' then
+  -- ⚠️ 이 파일을 실제로 실행하기 전에는 아래 'YOUR_BACKUP_TOKEN_HERE'를
+  --    실제 사용할 토큰 값으로 반드시 바꿔야 합니다.
+  if p_token <> 'YOUR_BACKUP_TOKEN_HERE' then
     raise exception 'unauthorized';
   end if;
   return query

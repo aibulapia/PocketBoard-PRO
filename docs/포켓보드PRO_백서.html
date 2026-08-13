@@ -5,23 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MMEEC 포켓보드 PRO — 백서 v2.24b</title>
 <style>
-
-
-
+/* ═══════════════════════════════════════════════
+   토큰 — 산업 안전표지·작업허가서에서 가져온 팔레트
+   ═══════════════════════════════════════════════ */
 :root{
-  --ink:#13181E;          
-  --steel:#2C353F;        
+  --ink:#13181E;          /* 강판 먹 */
+  --steel:#2C353F;        /* 설비 회청 */
   --steel-2:#4A5763;
-  --paper:#ECEEF1;        
+  --paper:#ECEEF1;        /* 도면지 회백 */
   --card:#FFFFFF;
   --line:#CBD2DA;
   --line-soft:#E2E6EB;
-  --hazard:#FFC400;       
-  --indigo:#33468F;       
+  --hazard:#FFC400;       /* 안전 라인 옐로 */
+  --indigo:#33468F;       /* 연장 남색 (앱과 동일 계열) */
   --ok:#1F7A55;
   --mute:#6B7684;
 
-  
+  /* KOSHA 폭염 단계 — 정보용으로만 사용 */
   --k-normal:#8A929C;
   --k-care:#3A9FD4;
   --k-warn:#E8B70C;
@@ -42,14 +42,14 @@ body{
   padding-bottom:env(safe-area-inset-bottom);
 }
 
-
+/* 위험구역 사선 띠 — 이 문서의 구분 장치 */
 .hazard-band{
   height:7px;
   background:repeating-linear-gradient(135deg,
     var(--hazard) 0 11px, var(--ink) 11px 22px);
 }
 
-
+/* ── 헤더 ── */
 header{background:var(--ink);color:#fff;padding:26px 20px 22px}
 .eyebrow{
   font-family:var(--mono);font-size:10.5px;letter-spacing:.19em;
@@ -68,7 +68,7 @@ h1 .pro{color:var(--hazard)}
 }
 .pill.live{border-color:var(--hazard);color:var(--ink);background:var(--hazard)}
 
-
+/* ── 탭 내비 (앱의 공장 탭과 같은 가로 스크롤 방식) ── */
 nav{
   position:sticky;top:0;z-index:50;background:var(--card);
   border-bottom:1px solid var(--line);
@@ -86,7 +86,7 @@ nav{
 .tabs a.on{color:var(--ink);border-bottom-color:var(--hazard)}
 .tabs a.on .n{color:var(--steel-2)}
 
-
+/* ── 레이아웃 ── */
 main{max-width:920px;margin:0 auto;padding:0 16px 72px}
 section{padding-top:34px;scroll-margin-top:56px}
 .sec-head{display:flex;align-items:baseline;gap:11px;margin-bottom:6px}
@@ -110,14 +110,14 @@ h3{
 .card h4{margin:0 0 8px;font-size:14.5px;font-weight:750}
 .card p:last-child{margin-bottom:0}
 
-
+/* ── 지표 ── */
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin:16px 0}
 @media(min-width:620px){.stats{grid-template-columns:repeat(4,1fr)}}
 .stat{background:var(--card);border:1px solid var(--line-soft);border-radius:3px;padding:13px 14px}
 .stat .v{font-family:var(--mono);font-size:26px;font-weight:700;letter-spacing:-.045em;display:block;line-height:1.1}
 .stat .l{font-size:11.5px;color:var(--mute);margin-top:3px;display:block;font-weight:500}
 
-
+/* ── 06시 다이얼 (대표 요소) ── */
 .dial-wrap{
   background:var(--steel);border-radius:3px;padding:24px 18px;margin:18px 0;
   display:grid;gap:20px;align-items:center;
@@ -141,7 +141,7 @@ h3{
 .legend b{color:#fff;font-weight:700;display:block;font-size:13.5px}
 .legend span{color:#95A0AD;font-size:12.5px}
 
-
+/* ── 표 ── */
 .tbl{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;background:var(--card)}
 .tbl th,.tbl td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line-soft);vertical-align:top}
 .tbl th{
@@ -154,10 +154,10 @@ h3{
 .scroll-x .tbl{margin:0;border:none}
 .scroll-x .tbl.wide{min-width:430px}
 
-
+/* 폭염 단계 색점 */
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px}
 
-
+/* ── 배지 ── */
 .badge{
   display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:650;
   padding:2px 7px;border-radius:2px;letter-spacing:.03em;
@@ -167,7 +167,7 @@ h3{
 .b-all{background:#E3EBE7;color:var(--ok)}
 .b-star{background:var(--hazard);color:var(--ink)}
 
-
+/* ── 버전 레일 ── */
 .rail{position:relative;margin:18px 0 0;padding-left:30px}
 .rail::before{
   content:"";position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--line);
@@ -184,7 +184,7 @@ h3{
 .v-item ul{margin:6px 0 0;padding-left:17px;color:var(--steel-2);font-size:13.5px}
 .v-item li{margin-bottom:2px}
 
-
+/* ── 기능 그리드 ── */
 .grid{display:grid;gap:9px;margin:14px 0}
 @media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
 .f{background:var(--card);border:1px solid var(--line-soft);border-radius:3px;padding:14px 15px}
@@ -192,7 +192,7 @@ h3{
 .f b{font-size:14px;font-weight:700}
 .f p{margin:0;font-size:13px;color:var(--steel-2);line-height:1.62}
 
-
+/* ── 코드 블록 ── */
 pre{
   background:var(--ink);color:#D7DDE4;padding:14px 15px;border-radius:3px;
   overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.72;margin:12px 0;
@@ -261,7 +261,7 @@ footer a{color:#C4CCD5}
 
 <main>
 
-
+<!-- ══ 1 ══ -->
 <section id="s1">
   <div class="sec-head"><span class="sec-num">01</span><h2>개요</h2></div>
   <p class="sec-lede">앱스토어에서 내려받지 않습니다. 주소만 열면 바로 쓰는 웹 앱입니다.</p>
@@ -302,7 +302,7 @@ footer a{color:#C4CCD5}
   </ul>
 </section>
 
-
+<!-- ══ 2 ══ -->
 <section id="s2">
   <div class="sec-head"><span class="sec-num">02</span><h2>권한 3단계</h2></div>
   <p class="sec-lede">아이디·비밀번호가 없습니다. 코드를 넣으면 그 기기의 권한이 30일간 올라갑니다.</p>
@@ -339,7 +339,7 @@ footer a{color:#C4CCD5}
   </div>
 </section>
 
-
+<!-- ══ 3 ══ -->
 <section id="s3">
   <div class="sec-head"><span class="sec-num">03</span><h2>화면 구성</h2></div>
   <p class="sec-lede">헤더 4줄 · 공사 카드 목록 · 아래에서 올라오는 입력 화면.</p>
@@ -395,7 +395,7 @@ footer a{color:#C4CCD5}
   </div>
 </section>
 
-
+<!-- ══ 4 ══ -->
 <section id="s4">
   <div class="sec-head"><span class="sec-num">04</span><h2>기능 총망라</h2></div>
   <p class="sec-lede">15개 기능군. 굵은 것이 매일 쓰는 핵심입니다.</p>
@@ -511,7 +511,7 @@ footer a{color:#C4CCD5}
   </div>
 </section>
 
-
+<!-- ══ 5 ══ 대표 요소 -->
 <section id="s5">
   <div class="sec-head"><span class="sec-num">05</span><h2>06시 일일 사이클</h2></div>
   <p class="sec-lede">이 앱의 심장. 하루는 06:00에 시작해 다음날 05:59에 끝납니다.</p>
@@ -528,13 +528,13 @@ footer a{color:#C4CCD5}
          aria-label="24시간 다이얼. 06시가 하루의 시작이며 위쪽에 표시됩니다.">
       <g transform="rotate(-90 100 100)">
         <circle class="track" cx="100" cy="100" r="70"></circle>
-        
+        <!-- 주간 06→17 (165°) -->
         <circle class="seg" data-seg="day" cx="100" cy="100" r="70"
                 stroke="#7C8894" stroke-dasharray="201.6 238.2" stroke-dashoffset="0"></circle>
-        
+        <!-- 종료 판정 17→18 (15°) -->
         <circle class="seg" data-seg="cut" cx="100" cy="100" r="70"
                 stroke="#FFC400" stroke-dasharray="18.3 421.5" stroke-dashoffset="-201.6"></circle>
-        
+        <!-- 연장 구간 18→06 (180°) -->
         <circle class="seg" data-seg="ext" cx="100" cy="100" r="70"
                 stroke="#33468F" stroke-dasharray="219.9 219.9" stroke-dashoffset="-219.9"></circle>
         <line class="now" id="hand" x1="100" y1="100" x2="100" y2="42"></line>
@@ -599,7 +599,7 @@ footer a{color:#C4CCD5}
   </div>
 </section>
 
-
+<!-- ══ 6 ══ -->
 <section id="s6">
   <div class="sec-head"><span class="sec-num">06</span><h2>시스템 구조</h2></div>
   <p class="sec-lede">모두 무료 요금제로 운영됩니다.</p>
@@ -648,7 +648,7 @@ footer a{color:#C4CCD5}
   </ul>
 </section>
 
-
+<!-- ══ 7 ══ -->
 <section id="s7">
   <div class="sec-head"><span class="sec-num">07</span><h2>버전 변화</h2></div>
   <p class="sec-lede">
@@ -764,7 +764,7 @@ footer a{color:#C4CCD5}
   </div>
 </section>
 
-
+<!-- ══ 8 ══ -->
 <section id="s8">
   <div class="sec-head"><span class="sec-num">08</span><h2>데이터 · 보안</h2></div>
   <p class="sec-lede">전화번호는 공개 파일에 절대 들어가지 않습니다.</p>
@@ -808,7 +808,7 @@ footer a{color:#C4CCD5}
   </div>
 </section>
 
-
+<!-- ══ 9 ══ -->
 <section id="s9">
   <div class="sec-head"><span class="sec-num">09</span><h2>앞으로의 계획</h2></div>
   <p class="sec-lede">사양은 확정, 착수 지시 대기 중입니다.</p>
@@ -880,14 +880,14 @@ footer a{color:#C4CCD5}
 (function(){
   "use strict";
 
-  
+  /* ── 06시 다이얼: 현재 시각 바늘 ── */
   function drawNow(){
     var hand = document.getElementById("hand");
     var label = document.getElementById("nowLabel");
     if(!hand || !label) return;
     var d = new Date();
     var h = d.getHours(), m = d.getMinutes();
-    
+    // 06시를 12시 방향(0°)에 두고 시계방향
     var deg = (((h + m/60) - 6 + 24) % 24) * 15;
     hand.setAttribute("transform", "rotate(" + deg + " 100 100)");
     label.textContent = String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
@@ -895,7 +895,7 @@ footer a{color:#C4CCD5}
   drawNow();
   setInterval(drawNow, 30000);
 
-  
+  /* ── 범례 ↔ 다이얼 강조 ── */
   var segs = document.querySelectorAll(".dial .seg");
   var legend = document.getElementById("legend");
   if(legend){
@@ -911,7 +911,7 @@ footer a{color:#C4CCD5}
     });
   }
 
-  
+  /* ── 현재 위치 탭 표시 ── */
   var links = Array.prototype.slice.call(document.querySelectorAll(".tabs a"));
   var tabsEl = document.getElementById("tabs");
   var secs = links.map(function(a){ return document.querySelector(a.getAttribute("href")); });
@@ -938,7 +938,7 @@ footer a{color:#C4CCD5}
     markActive("s1");
   }
 
-  
+  /* ── 맨 위로 ── */
   var btn = document.getElementById("topBtn");
   window.addEventListener("scroll", function(){
     btn.classList.toggle("show", window.scrollY > 640);

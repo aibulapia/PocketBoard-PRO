@@ -1,29 +1,29 @@
+/**
+ * MMEEC 포켓보드 PRO 2.5 — Apps Script 통합본 (v3)
+ * ─────────────────────────────────────────────────
+ *  기능 A) 체감온도 실시간 기록 (doPost, v2와 동일 + 토큰 검증)
+ *  기능 B) 매일 05:00 전체 진행기록 자동백업 (dailyBackup)
+ *
+ * 적용 방법:
+ *  1. 구글 시트 → 확장 프로그램 → Apps Script → 기존 코드 전체를 이 파일로 교체
+ *  2. 아래 상수 3개를 본인 값으로 수정
+ *     - SHARED_TOKEN  : config.js 의 sheetsToken 과 동일하게
+ *     - SUPABASE_URL / SUPABASE_KEY : config.js 값 그대로
+ *     - BACKUP_TOKEN  : supabase-master-v3.sql 에서 정한 백업 토큰과 동일하게
+ *  3. 상단 함수 선택에서 `createDailyTrigger` 선택 → 실행 (1회만)
+ *     → 매일 05시 자동백업 트리거가 등록됩니다 (권한 승인 팝업 허용)
+ *       ※ 앱은 06시에 전날 체감온도 기록을 삭제하므로, 백업은 그보다
+ *         이른 05시에 돌아야 전날 기록이 온전히 남습니다.
+ *  4. 배포 → 새 배포 → 웹 앱 → 재배포 (URL 바뀌면 config.js 갱신)
+ */
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// ══ 설정 (반드시 수정) ══════════════════════════════
 const SHARED_TOKEN = "MMEEC-2607-HEAT";
 const SUPABASE_URL = "https://ojmpeuuldpsfuilnneui.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4fsA55-lJq9glbcg9Lqd6A__XmIJwIa";
-const BACKUP_TOKEN = "backup-mmeecsafe-1895"; 
+const BACKUP_TOKEN = "YOUR_BACKUP_TOKEN_HERE"; // ← SQL(backup_export)에서 정한 값과 동일하게 채워넣을 것
 
-
+// ══ 기능 A: 체감온도 실시간 기록 ════════════════════
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
@@ -37,9 +37,9 @@ function doPost(e) {
   }
 }
 
-
-
-
+// ══ 기능 C: 기상청 API 프록시 (브라우저 CORS 우회) ══
+// 앱에서 직접 호출이 CORS로 막힐 때 이 경유로 자동 폴백됩니다.
+// 보안: apis.data.go.kr 로만 중계 허용
 function doGet(e) {
   try {
     const target = e && e.parameter && e.parameter.proxy;
@@ -60,14 +60,14 @@ function jsonOut(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-
+/** 06시 체계 기준 탭 이름 (새벽 06시 이전 = 전날) */
 function workdayTabName(now) {
   const t = new Date(now.getTime());
   if (t.getHours() < 6) t.setDate(t.getDate() - 1);
   const yy = String(t.getFullYear()).slice(2);
   const mm = String(t.getMonth() + 1).padStart(2, "0");
   const dd = String(t.getDate()).padStart(2, "0");
-  return yy + mm + "-" + dd; 
+  return yy + mm + "-" + dd; // 예: 2607-18
 }
 
 function recordHeatToSheet(data) {
@@ -118,25 +118,25 @@ function recordHeatToSheet(data) {
   }
 }
 
+// ══ 기능 B: 매일 05:00 전체 자동백업 ═══════════════
+//   (v2.22c) 06시 → 05시로 변경. 앱의 06시 일일리셋 때 전날 체감온도
+//   기록이 삭제되므로, 그 전에 백업이 끝나야 한다.
 
-
-
-
-
+/** 1회 실행: 매일 05시 트리거 등록 */
 function createDailyTrigger() {
-  
+  // 중복 방지: 기존 dailyBackup 트리거 제거
   ScriptApp.getProjectTriggers().forEach(t => {
     if (t.getHandlerFunction() === "dailyBackup") ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger("dailyBackup")
-    .timeBased().everyDays(1).atHour(5)   
+    .timeBased().everyDays(1).atHour(5)   // 05:00 ~ 06:00 사이 실행
     .create();
   Logger.log("매일 05시 자동백업 트리거 등록 완료");
 }
 
-
+/** 매일 05시 실행: 등록소의 전체 세션 진행기록을 시트에 백업 */
 function dailyBackup() {
-  
+  // Supabase RPC 호출 (backup_export)
   const res = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/rpc/backup_export", {
     method: "post",
     contentType: "application/json",
@@ -155,7 +155,7 @@ function dailyBackup() {
   if (sessions.length === 0) { Logger.log("백업할 세션 없음"); return; }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
+  // 직전 하루(06시 체계) 날짜 = 지금-6h 에서 하루 전
   const now = new Date();
   const wd = new Date(now.getTime() - 6 * 3600 * 1000);
   wd.setDate(wd.getDate() - 1);
@@ -172,7 +172,7 @@ function dailyBackup() {
     const tabName = "백업_" + dateTag + "_" + safeName;
 
     let sheet = ss.getSheetByName(tabName);
-    if (sheet) ss.deleteSheet(sheet); 
+    if (sheet) ss.deleteSheet(sheet); // 재실행 시 갱신
     sheet = ss.insertSheet(tabName);
 
     const rows = [HEADERS];
