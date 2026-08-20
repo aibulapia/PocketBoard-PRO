@@ -1,5 +1,5 @@
 # MMEEC 포켓보드 PRO
-v 2.53 (26.08/13)
+v 2.54 (26.08/19)
 
 ## 📁 폴더 구조 (2026-07 개편)
 
@@ -20,7 +20,7 @@ v 2.53 (26.08/13)
 
 주말공사 현장 점검 · 긴급공사 등록 · 체감온도 관리 PWA
 
-> **버전: 2.53** (26.08/13)
+> **버전: 2.54** (26.08/19)
 > 배포: Cloudflare Pages (https://pocketboardprov2.pages.dev/)
 > ⚠️ Private 저장소 — config.js에 서비스 키 포함
 > 전체 버전 이력은 [`CHANGELOG.md`](./CHANGELOG.md) 참고

@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.53</title>
+ <title>MMEEC 현장 점검 포켓보드 2.54</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.53";
+const APP_VERSION = "2.54";
 const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
 const COMPANY_PW_HASH = "9b8b07c4e3c66b4d87a577084b123623acb867927cf1e82799b8cf19477bc31c";
 async function sha256(text) {
@@ -319,22 +319,36 @@ const toHm24 = r => {
   return `${String(h).padStart(2, "0")}:${m[3]}`;
 };
 const normalizeFactoryName = rawName => {
-  if (!rawName) return "9.기타";
+  if (!rawName) return "9 기타";
   const name = rawName.toString().trim();
   if (name.includes("1공장") || name === "1") return "1공장";
   if (name.includes("2공장") || name === "2") return "2공장";
   if (name.includes("3공장") || name === "3") return "3공장";
   if (name.includes("4공장") || name === "4") return "4공장";
   if (name.includes("5공장") || name === "5") return "5공장";
-  if (name.includes("엔진")) return "6.엔진";
-  if (name.includes("변속기")) return "7.변속기";
-  if (name.includes("소재")) return "8.소재";
-  if (name.includes("기타")) return "9.기타";
-  if (name.includes("아산")) return "10.아산";
-  if (name.includes("남양")) return "11.남양";
-  if (name.includes("광명")) return "12.광명";
-  return "9.기타";
+  if (name.includes("엔진")) return "6 PT";
+  if (name.includes("변속기")) return "6 PT";
+  if (name.includes("소재")) return "7 소재";
+  if (name.includes("기타")) return "9 기타";
+  if (name.includes("아산")) return "8 아산";
+  if (name.includes("남양")) return "8 아산";
+  if (name.includes("광명")) return "8 아산";
+  if (name.includes("화성")) return "8 아산";
+  return "9 기타";
 };
+// 2026-08-19 v2.54: 공장 체계를 12개→9개로 개편(엔진+변속기→6 PT, 아산+남양+광명+화성→8 아산).
+// 이미 저장된 옛 데이터(factory: "6.엔진","11.남양" 등)는 원본을 절대 건드리지 않고,
+// 화면에 보여줄 때만 이 함수로 새 이름으로 바꿔서 표시한다 (원본은 서버에 그대로 남음).
+const LEGACY_FACTORY_MAP = {
+  "6.엔진": "6 PT",
+  "7.변속기": "6 PT",
+  "8.소재": "7 소재",
+  "9.기타": "9 기타",
+  "10.아산": "8 아산",
+  "11.남양": "8 아산",
+  "12.광명": "8 아산"
+};
+const factoryDisplay = f => LEGACY_FACTORY_MAP[f] || f;
 const warningSeverity = w => {
   if (w.endsWith("중대경보")) return 3;
   if (w.endsWith("경보")) return 2;
@@ -435,7 +449,7 @@ function App() {
         },
         body: JSON.stringify({
           token: cfg.sheetsToken || "",
-          factory: item.factory || "",
+          factory: factoryDisplay(item.factory) || "",
           company: item.company || item.location || "",
           title: item.title || "",
           grade: item.grade || "",
@@ -636,7 +650,11 @@ function App() {
       return it;
     });
     const before = out.length;
-    out = out.filter(it => !(it.endDate && it.endDate < wd));
+    out = out.filter(it => {
+      if (it.endDate && it.endDate < wd) return false;
+      if (it.isUrgent && periodEnd && wd > periodEnd) return false;
+      return true;
+    });
     if (out.length !== before) changed = true;
     return {
       list: changed ? out : list,
@@ -1037,7 +1055,7 @@ function App() {
     showToast(`${selectedExtras.length}건이 오늘 목록에 추가됐습니다.`);
   };
   const activeFactories = useMemo(() => {
-    const set = new Set(items.map(item => item.factory));
+    const set = new Set(items.map(item => factoryDisplay(item.factory)));
     const inData = SUPPORTED_FACTORIES.filter(f => set.has(f));
     const filtered = myFactories ? inData.filter(f => myFactories.includes(f)) : inData;
     return ["전체", ...filtered];
@@ -1119,7 +1137,7 @@ function App() {
   const inPeriod = !periodStart || !periodEnd || selectedKey >= periodStart && selectedKey <= periodEnd;
   const filteredItems = useMemo(() => {
     if (!inPeriod) return [];
-    return activeTab === "전체" ? items : items.filter(item => item.factory === activeTab);
+    return activeTab === "전체" ? items : items.filter(item => factoryDisplay(item.factory) === activeTab);
   }, [items, activeTab, inPeriod]);
   const GONGJEONG_ORDER = ["프레스", "차체", "도장", "의장"];
   const gongjeongRank = item => {
@@ -1167,7 +1185,7 @@ function App() {
   }, [filteredItems, dateOffset, selectedDate, after17]);
   const getSupervisorPool = factoryName => {
     const fixed = FIXED_SUPERVISORS[factoryName] || [];
-    const dynamicallyAssigned = items.filter(item => item.factory === factoryName && item.assignedSupervisor).map(item => item.assignedSupervisor.trim());
+    const dynamicallyAssigned = items.filter(item => factoryDisplay(item.factory) === factoryName && item.assignedSupervisor).map(item => item.assignedSupervisor.trim());
     return Array.from(new Set([...fixed, ...dynamicallyAssigned])).filter(Boolean);
   };
   const [cardHeatOpen, setCardHeatOpen] = useState(null);
@@ -1369,6 +1387,7 @@ function App() {
       setActiveTab(myFactories[0]);
     }
   }, [isLoading]);
+
   const openPwModal = target => {
     setPwTarget(target);
     setPwInput("");
@@ -1537,7 +1556,7 @@ function App() {
     return () => clearInterval(t);
   }, []);
   const itemsToRows = list => list.map(it => ({
-    "공장": it.factory || "",
+    "공장": factoryDisplay(it.factory) || "",
     "사업장": it.company || "",
     "공사명": it.title || "",
     "등급": it.grade || "",
@@ -1637,17 +1656,16 @@ function App() {
     "3공장": ["영업3"],
     "4공장": ["영업4"],
     "5공장": ["영업5"],
-    "6.엔진": ["PT설비", "PT집진1"],
-    "7.변속기": ["PT집진2"],
-    "8.소재": ["소재집진", "8.소재"],
-    "10.아산": ["아산"]
+    "6 PT": ["PT설비", "PT집진1", "PT집진2"],
+    "7 소재": ["소재집진", "8.소재"],
+    "8 아산": ["아산"]
   };
   const WIDE_DEPTS = ["프레스(전공장)", "차체로봇(전공장)", "차체기술(전공장)", "자동기(전공장)", "PT로봇(엔변)"];
   const ALL_DEPTS = [...new Set([...Object.values(FACTORY_DEPT_MAP).flat(), ...WIDE_DEPTS])];
   const findContact = item => {
     if (!adminAuthed || !item.assignedSupervisor) return null;
     const nm = item.assignedSupervisor.trim().replace(/2$/, "");
-    const fac = (item.factory || "").trim();
+    const fac = factoryDisplay((item.factory || "").trim());
     const deptCandidates = FACTORY_DEPT_MAP[fac] || [];
     const isMainFactory = /^[1-5]공장$/.test(fac);
     const inScope = contactBook.find(c => {
@@ -1658,7 +1676,7 @@ function App() {
       return false;
     });
     if (inScope) return inScope;
-    return contactBook.find(c => (c.name || "").trim().replace(/2$/, "") === nm && (c.factory || "").trim() === fac) || contactBook.find(c => (c.name || "").trim().replace(/2$/, "") === nm) || null;
+    return contactBook.find(c => (c.name || "").trim().replace(/2$/, "") === nm && factoryDisplay((c.factory || "").trim()) === fac) || contactBook.find(c => (c.name || "").trim().replace(/2$/, "") === nm) || null;
   };
   const rpc = async (fn, params) => {
     const cfg = window.APP_CONFIG || {};
@@ -2014,7 +2032,7 @@ function App() {
   })), "공사추가"), React.createElement("div", {
     class: "flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0"
   }, activeFactories.map(factory => {
-    const scope = factory === "전체" ? items : items.filter(i => i.factory === factory);
+    const scope = factory === "전체" ? items : items.filter(i => factoryDisplay(i.factory) === factory);
     const count = scope.length;
     const activeCount = scope.filter(isCardOpen).length;
     const isActive = activeTab === factory;
@@ -2112,7 +2130,7 @@ function App() {
       class: "text-base font-bold text-slate-400"
     }, "NO.", item.no), activeTab === "전체" && React.createElement("span", {
       class: "text-base bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold"
-    }, item.factory)), React.createElement("div", {
+    }, factoryDisplay(item.factory))), React.createElement("div", {
       class: "flex items-center gap-1.5 flex-shrink-0"
     }, hasWorkOn(item, selectedDate) && React.createElement("span", {
       onClick: e => {
@@ -2272,9 +2290,9 @@ function App() {
     class: "text-sm bg-rose-600 text-white px-2 py-0.5 rounded font-bold"
   }, "⚡ 긴급") : React.createElement("span", {
     class: "text-sm bg-slate-900 text-white px-2 py-0.5 rounded font-bold"
-  }, selectedItem.factory), React.createElement("span", {
+  }, factoryDisplay(selectedItem.factory)), React.createElement("span", {
     class: "text-sm text-slate-400 font-medium"
-  }, selectedItem.isUrgent ? `${selectedItem.factory} · 긴급공사` : `NO.${selectedItem.no} 공사 정보 기록`)), React.createElement("h3", {
+  }, selectedItem.isUrgent ? `${factoryDisplay(selectedItem.factory)} · 긴급공사` : `NO.${selectedItem.no} 공사 정보 기록`)), React.createElement("h3", {
     class: "text-lg font-bold text-slate-900 leading-snug"
   }, selectedItem.title), !selectedItem.isUrgent && React.createElement("p", {
     class: "text-sm text-slate-400 mt-1"
@@ -2376,12 +2394,12 @@ function App() {
     class: "text-rose-500"
   }, "*")), React.createElement("div", {
     class: "flex flex-wrap gap-1.5 max-h-[110px] overflow-y-auto p-0.5"
-  }, getSupervisorPool(selectedItem.factory).map(name => React.createElement("button", {
+  }, getSupervisorPool(factoryDisplay(selectedItem.factory)).map(name => React.createElement("button", {
     key: name,
     type: "button",
     onClick: () => setAssignedSupervisor(name),
     class: `px-3 py-2 text-sm font-semibold rounded-xl transition-all active:scale-95 min-h-[44px] ${assignedSupervisor === name ? "bg-amber-500 text-white shadow-xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`
-  }, name)), getSupervisorPool(selectedItem.factory).length === 0 && React.createElement("span", {
+  }, name)), getSupervisorPool(factoryDisplay(selectedItem.factory)).length === 0 && React.createElement("span", {
     class: "text-xs text-slate-400 italic"
   }, "등록된 추천 고정 감독자가 없습니다.")), React.createElement("input", {
     type: "text",
@@ -2627,7 +2645,7 @@ function App() {
       }, rows.map((r, i) => React.createElement("span", {
         key: i,
         class: "text-xs bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md"
-      }, r.factory || "미설정", " ", r.devices))));
+      }, factoryDisplay(r.factory) || "미설정", " ", r.devices))));
     })), React.createElement("p", {
       class: "text-[11px] text-slate-400 leading-relaxed"
     }, "기기 단위 집계입니다. 한 사람이 폰·태블릿을 함께 쓰면 2대로 집계되며, 개인을 식별하지 않습니다."));
@@ -2899,7 +2917,7 @@ function App() {
       class: `w-5 h-5 flex-shrink-0 rounded-md flex items-center justify-center text-xs font-black ${picked ? "bg-amber-500 text-white" : "bg-white border border-slate-300 text-transparent"}`
     }, "✓"), React.createElement("span", {
       class: "text-xs text-slate-500 font-bold flex-shrink-0"
-    }, item.factory, " · NO.", item.no)), React.createElement("p", {
+    }, factoryDisplay(item.factory), " · NO.", item.no)), React.createElement("p", {
       class: "text-sm font-bold text-slate-800 mt-1 leading-snug"
     }, item.title));
   })), React.createElement("div", {
