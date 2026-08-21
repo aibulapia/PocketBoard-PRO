@@ -858,7 +858,7 @@ function App() {
       }
       if (headerRowIndex === -1) {
         console.warn("[엑셀 파싱 실패] 상위 10행 원본:", rows.slice(0, 10));
-        showToast("올바른 공사 양식 행(NO, 공장...)을 찾을 수 없습니다. (개발자도구 콘솔 참고)");
+        showToast("엑셀 양식 오류입니다. 확인 바랍니다.");
         return;
       }
       const headers = rows[headerRowIndex].map(c => String(c ?? "").trim());
@@ -1012,7 +1012,7 @@ function App() {
         setSortedOrder(computeSortedOrder(cycled, selectedDate));
         setActiveTab("전체");
         const noDateCol = Object.keys(dateColMap).length === 0;
-        showToast(noDateCol ? `총 ${parsedList.length}건 업로드 — ⚠️ 요일 컬럼을 못 찾아 TODAY 표시가 안 됩니다` : `총 ${parsedList.length}건 업로드 (기존 입력 유지)`);
+        showToast(noDateCol ? `총 ${parsedList.length}건 업로드 — ⚠️ 날짜 정보를 못 찾아 TODAY 표시가 안 됩니다` : `총 ${parsedList.length}건 업로드 (기존 입력 유지)`);
       } else {
         showToast("추출된 공사 데이터가 없습니다.");
       }
@@ -1460,7 +1460,7 @@ function App() {
   const fetchWeather = async force => {
     const cfg = window.APP_CONFIG || {};
     if (!cfg.kmaServiceKey) {
-      showToast("기상청 API 키가 설정되지 않았습니다.");
+      showToast("기상청 연결 설정이 필요합니다.");
       return;
     }
     const TTL = 60 * 60 * 1000;
@@ -1797,7 +1797,7 @@ function App() {
       });
       const level = Number(lv) || 0;
       if (level < 1) {
-        showToast("마스터 코드가 올바르지 않습니다.");
+        showToast("마스터 코드 오류입니다.");
         setMasterBusy(false);
         return;
       }
@@ -1819,7 +1819,7 @@ function App() {
       setNoticeDraft(notice?.body || "");
     } catch (e) {
       console.error(e);
-      showToast("마스터 코드가 올바르지 않거나 서버 설정(supabase-master-v3.sql)이 미적용 상태입니다.");
+      showToast("마스터 코드 오류입니다.");
     } finally {
       setMasterBusy(false);
     }
@@ -2097,13 +2097,13 @@ function App() {
     "stroke-linejoin": "round"
   }))), !inPeriod ? React.createElement(React.Fragment, null, React.createElement("h3", {
     class: "text-sm font-bold text-slate-800"
-  }, "공사기간이 아닙니다"), React.createElement("p", {
+  }, "휴일 공사 기간이 아닙니다."), React.createElement("p", {
     class: "text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed"
-  }, sheetTitle ? `${sheetTitle} 기간이 아니라 목록이 표시되지 않습니다.` : "공사기간이 아니라 목록이 표시되지 않습니다.", " 날짜를 변경하면 예정된 공사를 확인할 수 있습니다.")) : React.createElement(React.Fragment, null, React.createElement("h3", {
+  }, "상단 날짜를 변경하면 예정된 공사를 확인할 수 있습니다.")) : React.createElement(React.Fragment, null, React.createElement("h3", {
     class: "text-sm font-bold text-slate-800"
   }, "로딩된 주말 공사 목록이 없습니다"), React.createElement("p", {
     class: "text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed"
-  }, masterLevel >= 2 ? "상단의 검은색 버튼을 눌러 관리 PC에서 가져온 주말공사 엑셀 내역 파일을 선택해주세요." : "관리자가 아직 엑셀 파일을 올리지 않았습니다. 관리자에게 문의해주세요."))) : React.createElement("div", {
+  }, masterLevel >= 2 ? "주말공사 엑셀 내역 파일을 선택해주세요." : "공사 목록이 확정되지 않았습니다. 매주 수요일 오후 업로드 됩니다. 추가 업데이트는 금요일 오후 입니다."))) : React.createElement("div", {
     class: `space-y-3.5 ${slideDir ? `slide-${slideDir}` : ""}`,
     onTouchStart: onListTouchStart,
     onTouchEnd: onListTouchEnd
