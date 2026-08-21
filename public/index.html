@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.54</title>
+ <title>MMEEC 현장 점검 포켓보드 2.54a</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.54";
+const APP_VERSION = "2.54a";
 const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
 const COMPANY_PW_HASH = "9b8b07c4e3c66b4d87a577084b123623acb867927cf1e82799b8cf19477bc31c";
 async function sha256(text) {
@@ -2099,7 +2099,7 @@ function App() {
     class: "text-sm font-bold text-slate-800"
   }, "공사기간이 아닙니다"), React.createElement("p", {
     class: "text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed"
-  }, sheetTitle ? `${sheetTitle} 기간(${periodStart}~${periodEnd})이 아니라 목록이 표시되지 않습니다.` : "공사기간이 아니라 목록이 표시되지 않습니다.", masterLevel >= 2 ? " 새 엑셀을 업로드해주세요." : " 관리자에게 문의해주세요.")) : React.createElement(React.Fragment, null, React.createElement("h3", {
+  }, sheetTitle ? `${sheetTitle} 기간이 아니라 목록이 표시되지 않습니다.` : "공사기간이 아니라 목록이 표시되지 않습니다.", " 날짜를 변경하면 예정된 공사를 확인할 수 있습니다.")) : React.createElement(React.Fragment, null, React.createElement("h3", {
     class: "text-sm font-bold text-slate-800"
   }, "로딩된 주말 공사 목록이 없습니다"), React.createElement("p", {
     class: "text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed"
@@ -2686,7 +2686,7 @@ function App() {
   }, "📢"), React.createElement("h2", {
     class: "text-lg font-black text-slate-900"
   }, "공지사항")), React.createElement("div", {
-    class: "bg-amber-50 border border-amber-200 rounded-2xl p-4 max-h-[50vh] overflow-y-auto"
+    class: "bg-amber-50 border border-amber-200 rounded-2xl p-4 max-h-[65vh] overflow-y-auto"
   }, React.createElement("p", {
     class: "text-sm text-slate-700 leading-relaxed whitespace-pre-wrap"
   }, notice.body)), React.createElement("button", {
@@ -2729,7 +2729,7 @@ function App() {
   }, "확인"))), showInfo && React.createElement("div", {
     class: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6"
   }, React.createElement("div", {
-    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
+    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto"
   }, React.createElement("div", {
     class: "text-center"
   }, React.createElement("div", {
@@ -2742,48 +2742,50 @@ function App() {
     class: "text-xl font-black text-slate-900"
   }, companyName, " ", appDisplayName), React.createElement("p", {
     class: "text-base text-slate-500 mt-1"
-  }, "Ver. ", APP_VERSION, masterLevel >= 2 ? " (마스터)" : masterLevel >= 1 ? " (관리자)" : "")), React.createElement("div", {
+  }, "Ver. ", APP_VERSION, masterLevel >= 2 ? " (마스터)" : masterLevel >= 1 ? " (관리자)" : ""), React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      setShowInfo(false);
+      setShowMaster(true);
+    },
+    class: "mt-2 text-sm text-slate-500 font-bold py-1.5 px-3 active:scale-95 transition-all"
+  }, "🔑 관리자(마스터) 모드")), React.createElement("div", {
     class: "bg-slate-50 rounded-2xl p-4 space-y-3 text-sm"
   }, React.createElement("div", null, React.createElement("p", {
     class: "font-black text-slate-800 mb-1"
   }, "📌 포켓보드?"), React.createElement("p", {
     class: "text-slate-600 leading-relaxed"
-  }, "휴일 공사 현장 안전관리 도구", React.createElement("br", null), "일별 공사 목록, 체감온도 측정,", React.createElement("br", null), "안전보고문 작성, 카톡 보고 공유", React.createElement("br", null), "즐겨찾기, Today 켜고 끄기", React.createElement("br", null), React.createElement("br", null), "관리자 모드 - 전화 연결 가능")), React.createElement("div", null, React.createElement("p", {
+  }, "휴일 공사 현장 안전관리 도구", React.createElement("br", null), "일별 공사 목록, 체감온도 측정,", React.createElement("br", null), "안전보고문 작성, 카톡 보고 공유", React.createElement("br", null), "즐겨찾기, Today 켜고 끄기")), React.createElement("div", null, React.createElement("p", {
+    class: "font-black text-slate-800 mb-1"
+  }, "🔄 공사목록 업데이트"), React.createElement("p", {
+    class: "text-slate-600"
+  }, "주 2회 · 수/금 오후")), React.createElement("div", null, React.createElement("p", {
     class: "font-black text-slate-800 mb-1"
   }, "👤 사용 대상"), React.createElement("p", {
     class: "text-slate-600"
   }, "현장 안전 감독자 및 공장 관리자")), React.createElement("div", null, React.createElement("p", {
+    class: "font-black text-slate-800 mb-1"
+  }, "🔑 관리자 기능"), React.createElement("p", {
+    class: "text-slate-600"
+  }, "전화 연결 가능")), React.createElement("div", null, React.createElement("p", {
     class: "font-black text-slate-800 mb-1"
   }, "💬 문의·불편사항"), React.createElement("a", {
     href: "https://vvd.im/pT",
     target: "_blank",
     rel: "noopener noreferrer",
     class: "text-sky-600 underline break-all active:opacity-60"
-  }, "익명 의견/건의 남기기")), React.createElement("div", null, React.createElement("p", {
-    class: "font-black text-slate-800 mb-1"
-  }, "🔄 공사목록 업데이트"), React.createElement("p", {
-    class: "text-slate-600"
-  }, "주 2회 · 수/금 오후"))), React.createElement("div", {
-    class: "bg-slate-50 rounded-2xl p-4 space-y-2 text-base"
-  }, React.createElement("div", {
-    class: "flex justify-between"
-  }, React.createElement("span", {
-    class: "text-slate-500"
-  }, "만든이"), React.createElement("span", {
-    class: "font-semibold text-slate-800"
-  }, "aibulapia@gmail.com"))), React.createElement("p", {
+  }, "익명 의견/건의 남기기"))), React.createElement("div", {
+    class: "bg-slate-50 rounded-2xl p-4 text-base"
+  }, React.createElement("p", {
+    class: "text-slate-500 mb-0.5"
+  }, "만든이"), React.createElement("p", {
+    class: "font-semibold text-slate-800 break-all"
+  }, "aibulapia@gmail.com")), React.createElement("p", {
     class: "text-xs text-slate-400 text-center leading-relaxed"
   }, "제작자의 동의 없이 상기 페이지의 내용 및", React.createElement("br", null), "무단 복제를 엄금합니다."), React.createElement("button", {
     onClick: () => setShowInfo(false),
     class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all"
-  }, "확인"), React.createElement("button", {
-    type: "button",
-    onClick: () => {
-      setShowInfo(false);
-      setShowMaster(true);
-    },
-    class: "w-full text-xs text-slate-400 font-semibold py-2 active:scale-95 transition-all"
-  }, "🔑 관리자(마스터) 모드"))), showPwModal && React.createElement("div", {
+  }, "확인"))), showPwModal && React.createElement("div", {
     class: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6"
   }, React.createElement("div", {
     class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
