@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.54a</title>
+ <title>MMEEC 현장 점검 포켓보드 2.54b</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.54a";
+const APP_VERSION = "2.54b";
 const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
 const COMPANY_PW_HASH = "9b8b07c4e3c66b4d87a577084b123623acb867927cf1e82799b8cf19477bc31c";
 async function sha256(text) {
@@ -1601,6 +1601,7 @@ function App() {
   const [showAccess, setShowAccess] = useState(false);
   const [accessCode, setAccessCode] = useState("");
   const [accessStats, setAccessStats] = useState(null);
+  const [accessCombos, setAccessCombos] = useState(null);
   const [accessBusy, setAccessBusy] = useState(false);
   const [accessErr, setAccessErr] = useState("");
   const [masterCode, setMasterCode] = useState(() => {
@@ -1731,9 +1732,11 @@ function App() {
           localStorage.setItem("MMEEC_DEVICE_ID", dev);
         }
         const my = myFactories && myFactories.length ? myFactories[0] : "";
+        const myAll = myFactories && myFactories.length ? myFactories.map(f => factoryDisplay(f)).join(",") : "";
         await rpc("log_access", {
           p_device: dev,
-          p_factory: my
+          p_factory: my,
+          p_factories: myAll
         });
       } catch (e) {}
     })();
@@ -1748,6 +1751,14 @@ function App() {
         p_code: code
       });
       setAccessStats(Array.isArray(rows) ? rows : []);
+      try {
+        const combos = await rpc("master_factory_combos", {
+          p_code: code
+        });
+        setAccessCombos(Array.isArray(combos) ? combos : []);
+      } catch (e2) {
+        setAccessCombos([]);
+      }
       setAccessCode("");
     } catch (e) {
       setAccessErr("코드 오류입니다.");
@@ -1759,6 +1770,7 @@ function App() {
     setShowAccess(false);
     setAccessCode("");
     setAccessStats(null);
+    setAccessCombos(null);
     setAccessErr("");
   };
   const dismissNotice = () => {
@@ -2626,7 +2638,32 @@ function App() {
       class: "text-3xl font-black text-sky-600 mt-1"
     }, todayTotal, React.createElement("span", {
       class: "text-base font-bold ml-1"
-    }, "대"))), React.createElement("div", {
+    }, "대"))), (() => {
+      const list = Array.isArray(accessCombos) ? accessCombos : [];
+      if (list.length === 0) return null;
+      const multi = list.filter(c => Number(c.cnt || 0) > 1);
+      const multiDevices = multi.reduce((s, c) => s + Number(c.devices || 0), 0);
+      return React.createElement("div", {
+        class: "bg-violet-50 rounded-2xl p-3"
+      }, React.createElement("div", {
+        class: "flex items-center justify-between mb-2"
+      }, React.createElement("span", {
+        class: "text-xs text-violet-700 font-bold"
+      }, "복수 공장 설정"), React.createElement("span", {
+        class: "text-sm font-black text-violet-700"
+      }, multiDevices, "대")), multi.length === 0 ? React.createElement("p", {
+        class: "text-xs text-slate-400"
+      }, "복수로 설정한 기기가 없습니다.") : React.createElement("div", {
+        class: "space-y-1"
+      }, multi.map((c, i) => React.createElement("div", {
+        key: i,
+        class: "flex items-center justify-between text-xs"
+      }, React.createElement("span", {
+        class: "text-slate-600 break-all pr-2"
+      }, String(c.combo || "").split(",").join(" · ")), React.createElement("span", {
+        class: "text-slate-800 font-bold shrink-0"
+      }, c.devices, "대")))));
+    })(), React.createElement("div", {
       class: "space-y-2"
     }, days.map(d => {
       const rows = byDay[d];
