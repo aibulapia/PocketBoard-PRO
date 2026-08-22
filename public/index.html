@@ -1750,7 +1750,7 @@ function App() {
       setAccessStats(Array.isArray(rows) ? rows : []);
       setAccessCode("");
     } catch (e) {
-      setAccessErr("코드가 올바르지 않거나 서버 설정(supabase-access-v1.sql)이 미적용 상태입니다.");
+      setAccessErr("코드 오류입니다.");
     } finally {
       setAccessBusy(false);
     }
