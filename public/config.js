@@ -1,7 +1,7 @@
 window.APP_CONFIG = {
   supabaseUrl: "https://ojmpeuuldpsfuilnneui.supabase.co",
   supabaseKey: "sb_publishable_4fsA55-lJq9glbcg9Lqd6A__XmIJwIa",
-  sheetsWebhookUrl: "https://script.google.com/macros/s/AKfycbxPZQ-RW9iDpZaiiT5FaceGlo0v1tbvQMgupstSjTwZAc37Z0eepChi0nAlqgKZKN8n/exec",
+  sheetsWebhookUrl: "https://script.google.com/macros/s/AKfycbzideNJH2kzVXokG-y1h-lAdKFW58oGBr4LGdv7PrOv6l3oTK4XbfW_SHB-uhGJ9Og0/exec",
   // Apps Script 측에서 검증할 공유 토큰 (apps-script-v3.gs 참고)
   sheetsToken: "MMEEC-2607-HEAT",
 

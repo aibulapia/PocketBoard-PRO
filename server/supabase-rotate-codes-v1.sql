@@ -14,6 +14,11 @@
 -- [권장] 회사명 기반(mmeec…)은 추측이 쉬움.
 --        영문+숫자 섞어 12자 이상으로 정할 것.
 --
+-- [2026-08-24 추가] NEW_ADMIN_LV2(최고관리자=마스터=레벨3)를 바꾸면
+-- "초기화"·"회사명 수정" 재확인 코드(admin_confirm_check)도 자동으로
+-- 같이 바뀝니다. 그 함수가 이 master_level을 그대로 참조하기 때문에
+-- 별도로 손댈 것 없습니다.
+--
 -- ⚠️ 이 파일은 서버 설정용입니다. public/ 폴더에 넣지 마세요.
 -- ⚠️ 실제 값을 적어 저장했다면 저장소에 커밋하지 마세요.
 -- ============================================================
@@ -28,8 +33,8 @@
 create or replace function public.master_level(p_code text)
 returns int language sql immutable as $$
   select case
-    when p_code = 'NEW_ADMIN_LV2' then 2
-    when p_code = 'NEW_ADMIN_LV1' then 1
+    when p_code = '2046022' then 2
+    when p_code = '0909' then 1
     else 0
   end
 $$;
@@ -61,7 +66,7 @@ create or replace function public.backup_export(p_token text)
 returns table (session_id text, site_name text, items jsonb, updated_at timestamptz)
 language plpgsql security definer set search_path = public as $$
 begin
-  if p_token <> 'NEW_BACKUP_TOKEN' then
+  if p_token <> 'kfday' then
     raise exception 'unauthorized';
   end if;
   return query

@@ -21,7 +21,7 @@
 const SHARED_TOKEN = "MMEEC-2607-HEAT";
 const SUPABASE_URL = "https://ojmpeuuldpsfuilnneui.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4fsA55-lJq9glbcg9Lqd6A__XmIJwIa";
-const BACKUP_TOKEN = "YOUR_BACKUP_TOKEN_HERE"; // ← SQL(backup_export)에서 정한 값과 동일하게 채워넣을 것
+const BACKUP_TOKEN = "kfday"; // ← SQL(backup_export)에서 정한 값과 동일하게 채워넣을 것
 
 // ══ 기능 A: 체감온도 실시간 기록 ════════════════════
 function doPost(e) {

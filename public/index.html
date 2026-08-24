@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.54c</title>
+ <title>MMEEC 현장 점검 포켓보드 2.55</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,9 +157,10 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.54c";
-const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
-const COMPANY_PW_HASH = "9b8b07c4e3c66b4d87a577084b123623acb867927cf1e82799b8cf19477bc31c";
+const APP_VERSION = "2.55";
+// 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
+// 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
+// (server/supabase-admin-confirm-code-v1.sql 참고).
 async function sha256(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -349,6 +350,30 @@ const LEGACY_FACTORY_MAP = {
   "12.광명": "8 아산"
 };
 const factoryDisplay = f => LEGACY_FACTORY_MAP[f] || f;
+// 2026-08-24 v2.54c: 접속현황의 "복수 공장 설정" 조합 표시용 축약자.
+// 1~5공장은 숫자, 6~9는 구별되는 글자(PT→P, 소재→소, 아산→아, 기타→기)로 줄여
+// "1234567890" 처럼 붙여써도 한눈에 구분되게 한다.
+const FACTORY_ABBR = {
+  "1공장": "1",
+  "2공장": "2",
+  "3공장": "3",
+  "4공장": "4",
+  "5공장": "5",
+  "6 PT": "P",
+  "7 소재": "소",
+  "8 아산": "아",
+  "9 기타": "기"
+};
+const abbrFactoryCombo = combo => (combo || "").split(",").map(f => FACTORY_ABBR[f.trim()] || f.trim().charAt(0)).join("");
+// 2026-08-24 v2.55: 공지사항 등 텍스트 안의 http(s):// 주소를 자동으로
+// 누를 수 있는 링크로 바꿔준다. 지금까지는 평문 그대로 표시돼 링크가 안 눌렸음.
+const linkifyText = text => String(text || "").split(/(https?:\/\/[^\s]+)/g).map((part, i) => /^https?:\/\//.test(part) ? React.createElement("a", {
+  key: i,
+  href: part,
+  target: "_blank",
+  rel: "noopener noreferrer",
+  class: "text-sky-600 underline break-all"
+}, part) : part);
 const warningSeverity = w => {
   if (w.endsWith("중대경보")) return 3;
   if (w.endsWith("경보")) return 2;
@@ -1417,9 +1442,15 @@ function App() {
     setShowPwModal(true);
   };
   const confirmPw = async () => {
-    const inputHash = await sha256(pwInput);
-    const expected = pwTarget === "reset" ? RESET_PW_HASH : COMPANY_PW_HASH;
-    if (inputHash !== expected) {
+    try {
+      const ok = await rpc("admin_confirm_check", {
+        p_code: pwInput
+      });
+      if (!ok) {
+        setPwError(true);
+        return;
+      }
+    } catch (e) {
       setPwError(true);
       return;
     }
@@ -1432,6 +1463,10 @@ function App() {
     }
   };
   const toggleFilterFactory = f => {
+    if (masterLevel < 1) {
+      setFilterDraft([f]);
+      return;
+    }
     setFilterDraft(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
   };
   const saveFactoryFilter = () => {
@@ -1624,6 +1659,9 @@ function App() {
   const [accessCode, setAccessCode] = useState("");
   const [accessStats, setAccessStats] = useState(null);
   const [accessCombos, setAccessCombos] = useState(null);
+  const [accessComboOpenDays, setAccessComboOpenDays] = useState({});
+  const [accessRoleStats, setAccessRoleStats] = useState(null);
+  const [accessRoleOpenDays, setAccessRoleOpenDays] = useState({});
   const [accessBusy, setAccessBusy] = useState(false);
   const [accessErr, setAccessErr] = useState("");
   const [masterCode, setMasterCode] = useState(() => {
@@ -1649,6 +1687,13 @@ function App() {
   useEffect(() => {
     document.title = `MMEEC 현장 점검 ${appDisplayName} ${APP_VERSION}`;
   }, [appDisplayName]);
+  useEffect(() => {
+    if (masterLevel < 1 && myFactories && myFactories.length > 1) {
+      const trimmed = [myFactories[0]];
+      setMyFactories(trimmed);
+      localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(trimmed));
+    }
+  }, [masterLevel, myFactories]);
   const [masterContacts, setMasterContacts] = useState(null);
   const [masterBusy, setMasterBusy] = useState(false);
   const [ctName, setCtName] = useState("");
@@ -1758,7 +1803,8 @@ function App() {
         await rpc("log_access", {
           p_device: dev,
           p_factory: my,
-          p_factories: myAll
+          p_factories: myAll,
+          p_role: masterLevel
         });
       } catch (e) {}
     })();
@@ -1774,12 +1820,20 @@ function App() {
       });
       setAccessStats(Array.isArray(rows) ? rows : []);
       try {
-        const combos = await rpc("master_factory_combos", {
+        const combos = await rpc("master_factory_combos_by_day", {
           p_code: code
         });
         setAccessCombos(Array.isArray(combos) ? combos : []);
       } catch (e2) {
         setAccessCombos([]);
+      }
+      try {
+        const roleRows = await rpc("master_factory_role_stats", {
+          p_code: code
+        });
+        setAccessRoleStats(Array.isArray(roleRows) ? roleRows : []);
+      } catch (e3) {
+        setAccessRoleStats([]);
       }
       setAccessCode("");
     } catch (e) {
@@ -1793,6 +1847,9 @@ function App() {
     setAccessCode("");
     setAccessStats(null);
     setAccessCombos(null);
+    setAccessComboOpenDays({});
+    setAccessRoleStats(null);
+    setAccessRoleOpenDays({});
     setAccessErr("");
   };
   const dismissNotice = () => {
@@ -2065,7 +2122,7 @@ function App() {
     "stroke-linejoin": "round"
   })), "공사추가"), React.createElement("div", {
     class: "flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0"
-  }, activeFactories.map(factory => {
+  }, (masterLevel < 1 ? activeFactories.filter(f => f !== "전체") : activeFactories).map(factory => {
     const scope = factory === "전체" ? items : items.filter(i => factoryDisplay(i.factory) === factory);
     const count = scope.length;
     const activeCount = scope.filter(isCardOpen).length;
@@ -2133,7 +2190,7 @@ function App() {
     class: "text-sm font-bold text-slate-800"
   }, "휴일 공사 기간이 아닙니다."), React.createElement("p", {
     class: "text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed"
-  }, "상단 날짜를 변경하면 예정된 공사를 확인할 수 있습니다.")) : React.createElement(React.Fragment, null, React.createElement("h3", {
+  }, "상단 날짜를 변경하면 예정된 공사를 확인할 수 있습니다.", React.createElement("br", null), "(공사 목록 업데이트 매주 수/금요일 오후)")) : React.createElement(React.Fragment, null, React.createElement("h3", {
     class: "text-sm font-bold text-slate-800"
   }, "로딩된 주말 공사 목록이 없습니다"), React.createElement("p", {
     class: "text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed"
@@ -2663,28 +2720,96 @@ function App() {
     }, "대"))), (() => {
       const list = Array.isArray(accessCombos) ? accessCombos : [];
       if (list.length === 0) return null;
-      const multi = list.filter(c => Number(c.cnt || 0) > 1);
-      const multiDevices = multi.reduce((s, c) => s + Number(c.devices || 0), 0);
+      const byDay3 = {};
+      list.forEach(r => {
+        if (!byDay3[r.day]) byDay3[r.day] = [];
+        byDay3[r.day].push(r);
+      });
+      const days3 = Object.keys(byDay3).sort((a, b) => b.localeCompare(a));
       return React.createElement("div", {
         class: "bg-violet-50 rounded-2xl p-3"
-      }, React.createElement("div", {
-        class: "flex items-center justify-between mb-2"
-      }, React.createElement("span", {
-        class: "text-xs text-violet-700 font-bold"
-      }, "복수 공장 설정"), React.createElement("span", {
-        class: "text-sm font-black text-violet-700"
-      }, multiDevices, "대")), multi.length === 0 ? React.createElement("p", {
-        class: "text-xs text-slate-400"
-      }, "복수로 설정한 기기가 없습니다.") : React.createElement("div", {
+      }, React.createElement("p", {
+        class: "text-xs text-violet-700 font-bold mb-2"
+      }, "복수 공장 설정"), React.createElement("div", {
         class: "space-y-1"
-      }, multi.map((c, i) => React.createElement("div", {
-        key: i,
-        class: "flex items-center justify-between text-xs"
-      }, React.createElement("span", {
-        class: "text-slate-600 break-all pr-2"
-      }, String(c.combo || "").split(",").join(" · ")), React.createElement("span", {
-        class: "text-slate-800 font-bold shrink-0"
-      }, c.devices, "대")))));
+      }, days3.map(day => {
+        const rows = byDay3[day];
+        const dayDevices = rows.reduce((s, r) => s + Number(r.devices || 0), 0);
+        const open = !!accessComboOpenDays[day];
+        return React.createElement("div", {
+          key: day,
+          class: "bg-white rounded-lg"
+        }, React.createElement("button", {
+          type: "button",
+          onClick: () => setAccessComboOpenDays(prev => Object.assign({}, prev, {
+            [day]: !prev[day]
+          })),
+          class: "w-full flex items-center justify-between px-2 py-1.5 text-xs"
+        }, React.createElement("span", {
+          class: "font-bold text-slate-700"
+        }, (open ? "▾ " : "▸ ") + day.slice(5).replace("-", "/") + (day === todayKey ? " (오늘)" : "")), React.createElement("span", {
+          class: "font-black text-slate-900"
+        }, dayDevices, "대")), open && React.createElement("div", {
+          class: "px-2 pb-2 space-y-1 border-t border-slate-100 pt-1"
+        }, rows.map((r, i) => React.createElement("div", {
+          key: i,
+          class: "flex items-center justify-between text-xs"
+        }, React.createElement("span", {
+          class: "text-slate-600 font-mono tracking-wider"
+        }, abbrFactoryCombo(r.combo)), React.createElement("span", {
+          class: "text-slate-800 font-bold shrink-0"
+        }, r.devices, "대")))));
+      })));
+    })(), (() => {
+      const list = Array.isArray(accessRoleStats) ? accessRoleStats : [];
+      if (list.length === 0) return null;
+      const byDay2 = {};
+      list.forEach(r => {
+        if (!byDay2[r.day]) byDay2[r.day] = [];
+        byDay2[r.day].push(r);
+      });
+      const days2 = Object.keys(byDay2).sort((a, b) => b.localeCompare(a));
+      const roleLabel = lv => Number(lv) >= 2 ? "마스터" : Number(lv) >= 1 ? "관리자" : "감독자";
+      return React.createElement("div", {
+        class: "bg-emerald-50 rounded-2xl p-3"
+      }, React.createElement("p", {
+        class: "text-xs text-emerald-700 font-bold mb-2"
+      }, "공장별 접속 현황"), React.createElement("div", {
+        class: "space-y-1"
+      }, days2.map(day => {
+        const rows = byDay2[day];
+        const dayTotal = rows.reduce((s, r) => s + Number(r.devices || 0), 0);
+        const open = !!accessRoleOpenDays[day];
+        const byFactory = {};
+        rows.forEach(r => {
+          const f = factoryDisplay(r.factory) || "미설정";
+          if (!byFactory[f]) byFactory[f] = [];
+          byFactory[f].push(r);
+        });
+        return React.createElement("div", {
+          key: day,
+          class: "bg-white rounded-lg"
+        }, React.createElement("button", {
+          type: "button",
+          onClick: () => setAccessRoleOpenDays(prev => Object.assign({}, prev, {
+            [day]: !prev[day]
+          })),
+          class: "w-full flex items-center justify-between px-2 py-1.5 text-xs"
+        }, React.createElement("span", {
+          class: "font-bold text-slate-700"
+        }, (open ? "▾ " : "▸ ") + day.slice(5).replace("-", "/") + (day === todayKey ? " (오늘)" : "")), React.createElement("span", {
+          class: "font-black text-slate-900"
+        }, dayTotal, "대")), open && React.createElement("div", {
+          class: "px-2 pb-2 space-y-1 border-t border-slate-100 pt-1"
+        }, Object.keys(byFactory).map(f => React.createElement("div", {
+          key: f,
+          class: "flex items-center justify-between text-xs"
+        }, React.createElement("span", {
+          class: "text-slate-600"
+        }, f), React.createElement("span", {
+          class: "text-slate-800 font-medium"
+        }, byFactory[f].map(r => `${roleLabel(r.role)} ${r.devices}대`).join("  "))))));
+      })));
     })(), React.createElement("div", {
       class: "space-y-2"
     }, days.map(d => {
@@ -2748,7 +2873,7 @@ function App() {
     class: "bg-amber-50 border border-amber-200 rounded-2xl p-4 max-h-[65vh] overflow-y-auto"
   }, React.createElement("p", {
     class: "text-sm text-slate-700 leading-relaxed whitespace-pre-wrap"
-  }, notice.body)), React.createElement("button", {
+  }, linkifyText(notice.body))), React.createElement("button", {
     onClick: dismissNotice,
     class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all"
   }, "확인"))), showHelp && React.createElement("div", {
