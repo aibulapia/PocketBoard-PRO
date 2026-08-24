@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.54b</title>
+ <title>MMEEC 현장 점검 포켓보드 2.54c</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.54b";
+const APP_VERSION = "2.54c";
 const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
 const COMPANY_PW_HASH = "9b8b07c4e3c66b4d87a577084b123623acb867927cf1e82799b8cf19477bc31c";
 async function sha256(text) {
@@ -663,11 +663,33 @@ function App() {
   };
   useEffect(() => {
     if (isLoading || items.length === 0) return;
-    const {
-      list,
-      changed
-    } = applyDailyCycle(items);
-    if (changed) persistItems(list);
+    let cancelled = false;
+    (async () => {
+      // 2026-08-23 버그수정: 화면을 오래 켜둔 기기가 낡은 기억(오래된 dayKey)을
+      // 기준으로 "새 날짜가 됐다"고 착각해 다른 사람이 방금 한 체크를 되돌리고,
+      // 그 되돌림이 최신 시각으로 저장돼 진짜 체크를 덮어쓰는 사고가 있었다.
+      // 자동정리를 실행하기 전에 서버 최신본을 한 번 받아와 그걸 기준으로 판단하면
+      // 낡은 스냅샷 때문에 오판하는 일이 없어진다. 실패하면(오프라인 등) 기존처럼
+      // 화면에 있는 것을 그대로 기준으로 삼는다.
+      let base = items;
+      if (MMEECStorage.isCloudEnabled()) {
+        try {
+          const fresh = await MMEECStorage.load();
+          if (!cancelled && fresh && Array.isArray(fresh.items) && fresh.items.length) {
+            base = fresh.items;
+          }
+        } catch (e) {}
+      }
+      if (cancelled) return;
+      const {
+        list,
+        changed
+      } = applyDailyCycle(base);
+      if (changed) persistItems(list);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isLoading, workday, items.length]);
   const toggleTodayOff = (item, e) => {
     if (e) e.stopPropagation();
@@ -2786,13 +2808,13 @@ function App() {
       setShowMaster(true);
     },
     class: "mt-2 text-sm text-slate-500 font-bold py-1.5 px-3 active:scale-95 transition-all"
-  }, "🔑 관리자(마스터) 모드")), React.createElement("div", {
+  }, "🔑 관리자 모드 활성")), React.createElement("div", {
     class: "bg-slate-50 rounded-2xl p-4 space-y-3 text-sm"
   }, React.createElement("div", null, React.createElement("p", {
     class: "font-black text-slate-800 mb-1"
   }, "📌 포켓보드?"), React.createElement("p", {
     class: "text-slate-600 leading-relaxed"
-  }, "휴일 공사 현장 안전관리 도구", React.createElement("br", null), "일별 공사 목록, 체감온도 측정,", React.createElement("br", null), "안전보고문 작성, 카톡 보고 공유", React.createElement("br", null), "즐겨찾기, Today 켜고 끄기")), React.createElement("div", null, React.createElement("p", {
+  }, "휴일 공사 현장 안전관리 도구", React.createElement("br", null), "일별 공사 목록, 체감온도 측정,", React.createElement("br", null), "안전보고문 작성(5공장), 카톡 보고 공유", React.createElement("br", null), "긴급공사 등록, 기상 정보 확인", React.createElement("br", null), "날짜 넘겨 예정 공사 미리보기", React.createElement("br", null), "즐겨찾기, Today 켜고 끄기")), React.createElement("div", null, React.createElement("p", {
     class: "font-black text-slate-800 mb-1"
   }, "🔄 공사목록 업데이트"), React.createElement("p", {
     class: "text-slate-600"
