@@ -33,8 +33,8 @@
 create or replace function public.master_level(p_code text)
 returns int language sql immutable as $$
   select case
-    when p_code = '2046022' then 2
-    when p_code = '0909' then 1
+    when p_code = 'NEW_ADMIN_LV2' then 2
+    when p_code = 'NEW_ADMIN_LV1' then 1
     else 0
   end
 $$;
@@ -66,7 +66,7 @@ create or replace function public.backup_export(p_token text)
 returns table (session_id text, site_name text, items jsonb, updated_at timestamptz)
 language plpgsql security definer set search_path = public as $$
 begin
-  if p_token <> 'kfday' then
+  if p_token <> 'NEW_BACKUP_TOKEN' then
     raise exception 'unauthorized';
   end if;
   return query

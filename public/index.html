@@ -1659,16 +1659,14 @@ function App() {
   const [accessCode, setAccessCode] = useState("");
   const [accessStats, setAccessStats] = useState(null);
   const [accessCombos, setAccessCombos] = useState(null);
-  const [accessComboOpenDays, setAccessComboOpenDays] = useState({});
   const [accessRoleStats, setAccessRoleStats] = useState(null);
-  const [accessRoleOpenDays, setAccessRoleOpenDays] = useState({});
   const [accessBusy, setAccessBusy] = useState(false);
   const [accessErr, setAccessErr] = useState("");
   const [masterCode, setMasterCode] = useState(() => {
     try {
+      // 2026-08-26 v2.55: 인증 유효기간(30일) 해제 — 한 번 로그인하면 이 기기에서 계속 유지
       const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
-      const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
-      if (at > 0 && Date.now() - at < ADMIN_TTL) {
+      if (at > 0) {
         return localStorage.getItem("MMEEC_ADMIN_CODE") || "";
       }
     } catch {}
@@ -1677,8 +1675,7 @@ function App() {
   const [masterLevel, setMasterLevel] = useState(() => {
     try {
       const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
-      const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
-      if (at > 0 && Date.now() - at < ADMIN_TTL) return Number(localStorage.getItem("MMEEC_ADMIN_LV") || 2);
+      if (at > 0) return Number(localStorage.getItem("MMEEC_ADMIN_LV") || 2);
     } catch {}
     return 0;
   });
@@ -1700,11 +1697,10 @@ function App() {
   const [ctPhone, setCtPhone] = useState("");
   const [ctFactory, setCtFactory] = useState("");
   const [ctDept, setCtDept] = useState("");
-  const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
   const [adminAuthed, setAdminAuthed] = useState(() => {
     try {
       const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
-      return at > 0 && Date.now() - at < ADMIN_TTL;
+      return at > 0;
     } catch {
       return false;
     }
@@ -1712,7 +1708,7 @@ function App() {
   const [contactBook, setContactBook] = useState(() => {
     try {
       const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
-      if (at > 0 && Date.now() - at < ADMIN_TTL) {
+      if (at > 0) {
         return JSON.parse(localStorage.getItem("MMEEC_CONTACTS") || "[]");
       }
     } catch {}
@@ -1847,9 +1843,7 @@ function App() {
     setAccessCode("");
     setAccessStats(null);
     setAccessCombos(null);
-    setAccessComboOpenDays({});
     setAccessRoleStats(null);
-    setAccessRoleOpenDays({});
     setAccessErr("");
   };
   const dismissNotice = () => {
@@ -2735,21 +2729,16 @@ function App() {
       }, days3.map(day => {
         const rows = byDay3[day];
         const dayDevices = rows.reduce((s, r) => s + Number(r.devices || 0), 0);
-        const open = !!accessComboOpenDays[day];
         return React.createElement("div", {
           key: day,
           class: "bg-white rounded-lg"
-        }, React.createElement("button", {
-          type: "button",
-          onClick: () => setAccessComboOpenDays(prev => Object.assign({}, prev, {
-            [day]: !prev[day]
-          })),
+        }, React.createElement("div", {
           class: "w-full flex items-center justify-between px-2 py-1.5 text-xs"
         }, React.createElement("span", {
           class: "font-bold text-slate-700"
-        }, (open ? "▾ " : "▸ ") + day.slice(5).replace("-", "/") + (day === todayKey ? " (오늘)" : "")), React.createElement("span", {
+        }, day.slice(5).replace("-", "/") + (day === todayKey ? " (오늘)" : "")), React.createElement("span", {
           class: "font-black text-slate-900"
-        }, dayDevices, "대")), open && React.createElement("div", {
+        }, dayDevices, "대")), React.createElement("div", {
           class: "px-2 pb-2 space-y-1 border-t border-slate-100 pt-1"
         }, rows.map((r, i) => React.createElement("div", {
           key: i,
@@ -2779,7 +2768,6 @@ function App() {
       }, days2.map(day => {
         const rows = byDay2[day];
         const dayTotal = rows.reduce((s, r) => s + Number(r.devices || 0), 0);
-        const open = !!accessRoleOpenDays[day];
         const byFactory = {};
         rows.forEach(r => {
           const f = factoryDisplay(r.factory) || "미설정";
@@ -2789,17 +2777,13 @@ function App() {
         return React.createElement("div", {
           key: day,
           class: "bg-white rounded-lg"
-        }, React.createElement("button", {
-          type: "button",
-          onClick: () => setAccessRoleOpenDays(prev => Object.assign({}, prev, {
-            [day]: !prev[day]
-          })),
+        }, React.createElement("div", {
           class: "w-full flex items-center justify-between px-2 py-1.5 text-xs"
         }, React.createElement("span", {
           class: "font-bold text-slate-700"
-        }, (open ? "▾ " : "▸ ") + day.slice(5).replace("-", "/") + (day === todayKey ? " (오늘)" : "")), React.createElement("span", {
+        }, day.slice(5).replace("-", "/") + (day === todayKey ? " (오늘)" : "")), React.createElement("span", {
           class: "font-black text-slate-900"
-        }, dayTotal, "대")), open && React.createElement("div", {
+        }, dayTotal, "대")), React.createElement("div", {
           class: "px-2 pb-2 space-y-1 border-t border-slate-100 pt-1"
         }, Object.keys(byFactory).map(f => React.createElement("div", {
           key: f,
