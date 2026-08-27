@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.54a</title>
+ <title>MMEEC 현장 점검 포켓보드 2.55</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,9 +157,10 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.54a";
-const RESET_PW_HASH = "5932cb6e58ef979208d6b91fcfe0d47c278d78451e733978d35f8b14db88c305";
-const COMPANY_PW_HASH = "9b8b07c4e3c66b4d87a577084b123623acb867927cf1e82799b8cf19477bc31c";
+const APP_VERSION = "2.55";
+// 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
+// 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
+// (server/supabase-admin-confirm-code-v1.sql 참고).
 async function sha256(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -349,6 +350,30 @@ const LEGACY_FACTORY_MAP = {
   "12.광명": "8 아산"
 };
 const factoryDisplay = f => LEGACY_FACTORY_MAP[f] || f;
+// 2026-08-24 v2.54c: 접속현황의 "복수 공장 설정" 조합 표시용 축약자.
+// 1~5공장은 숫자, 6~9는 구별되는 글자(PT→P, 소재→소, 아산→아, 기타→기)로 줄여
+// "1234567890" 처럼 붙여써도 한눈에 구분되게 한다.
+const FACTORY_ABBR = {
+  "1공장": "1",
+  "2공장": "2",
+  "3공장": "3",
+  "4공장": "4",
+  "5공장": "5",
+  "6 PT": "P",
+  "7 소재": "소",
+  "8 아산": "아",
+  "9 기타": "기"
+};
+const abbrFactoryCombo = combo => (combo || "").split(",").map(f => FACTORY_ABBR[f.trim()] || f.trim().charAt(0)).join("");
+// 2026-08-24 v2.55: 공지사항 등 텍스트 안의 http(s):// 주소를 자동으로
+// 누를 수 있는 링크로 바꿔준다. 지금까지는 평문 그대로 표시돼 링크가 안 눌렸음.
+const linkifyText = text => String(text || "").split(/(https?:\/\/[^\s]+)/g).map((part, i) => /^https?:\/\//.test(part) ? React.createElement("a", {
+  key: i,
+  href: part,
+  target: "_blank",
+  rel: "noopener noreferrer",
+  class: "text-sky-600 underline break-all"
+}, part) : part);
 const warningSeverity = w => {
   if (w.endsWith("중대경보")) return 3;
   if (w.endsWith("경보")) return 2;
@@ -663,11 +688,33 @@ function App() {
   };
   useEffect(() => {
     if (isLoading || items.length === 0) return;
-    const {
-      list,
-      changed
-    } = applyDailyCycle(items);
-    if (changed) persistItems(list);
+    let cancelled = false;
+    (async () => {
+      // 2026-08-23 버그수정: 화면을 오래 켜둔 기기가 낡은 기억(오래된 dayKey)을
+      // 기준으로 "새 날짜가 됐다"고 착각해 다른 사람이 방금 한 체크를 되돌리고,
+      // 그 되돌림이 최신 시각으로 저장돼 진짜 체크를 덮어쓰는 사고가 있었다.
+      // 자동정리를 실행하기 전에 서버 최신본을 한 번 받아와 그걸 기준으로 판단하면
+      // 낡은 스냅샷 때문에 오판하는 일이 없어진다. 실패하면(오프라인 등) 기존처럼
+      // 화면에 있는 것을 그대로 기준으로 삼는다.
+      let base = items;
+      if (MMEECStorage.isCloudEnabled()) {
+        try {
+          const fresh = await MMEECStorage.load();
+          if (!cancelled && fresh && Array.isArray(fresh.items) && fresh.items.length) {
+            base = fresh.items;
+          }
+        } catch (e) {}
+      }
+      if (cancelled) return;
+      const {
+        list,
+        changed
+      } = applyDailyCycle(base);
+      if (changed) persistItems(list);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isLoading, workday, items.length]);
   const toggleTodayOff = (item, e) => {
     if (e) e.stopPropagation();
@@ -858,7 +905,7 @@ function App() {
       }
       if (headerRowIndex === -1) {
         console.warn("[엑셀 파싱 실패] 상위 10행 원본:", rows.slice(0, 10));
-        showToast("올바른 공사 양식 행(NO, 공장...)을 찾을 수 없습니다. (개발자도구 콘솔 참고)");
+        showToast("엑셀 양식 오류입니다. 확인 바랍니다.");
         return;
       }
       const headers = rows[headerRowIndex].map(c => String(c ?? "").trim());
@@ -1012,7 +1059,7 @@ function App() {
         setSortedOrder(computeSortedOrder(cycled, selectedDate));
         setActiveTab("전체");
         const noDateCol = Object.keys(dateColMap).length === 0;
-        showToast(noDateCol ? `총 ${parsedList.length}건 업로드 — ⚠️ 요일 컬럼을 못 찾아 TODAY 표시가 안 됩니다` : `총 ${parsedList.length}건 업로드 (기존 입력 유지)`);
+        showToast(noDateCol ? `총 ${parsedList.length}건 업로드 — ⚠️ 날짜 정보를 못 찾아 TODAY 표시가 안 됩니다` : `총 ${parsedList.length}건 업로드 (기존 입력 유지)`);
       } else {
         showToast("추출된 공사 데이터가 없습니다.");
       }
@@ -1395,9 +1442,15 @@ function App() {
     setShowPwModal(true);
   };
   const confirmPw = async () => {
-    const inputHash = await sha256(pwInput);
-    const expected = pwTarget === "reset" ? RESET_PW_HASH : COMPANY_PW_HASH;
-    if (inputHash !== expected) {
+    try {
+      const ok = await rpc("admin_confirm_check", {
+        p_code: pwInput
+      });
+      if (!ok) {
+        setPwError(true);
+        return;
+      }
+    } catch (e) {
       setPwError(true);
       return;
     }
@@ -1410,6 +1463,10 @@ function App() {
     }
   };
   const toggleFilterFactory = f => {
+    if (masterLevel < 1) {
+      setFilterDraft([f]);
+      return;
+    }
     setFilterDraft(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
   };
   const saveFactoryFilter = () => {
@@ -1460,7 +1517,7 @@ function App() {
   const fetchWeather = async force => {
     const cfg = window.APP_CONFIG || {};
     if (!cfg.kmaServiceKey) {
-      showToast("기상청 API 키가 설정되지 않았습니다.");
+      showToast("기상청 연결 설정이 필요합니다.");
       return;
     }
     const TTL = 60 * 60 * 1000;
@@ -1601,13 +1658,15 @@ function App() {
   const [showAccess, setShowAccess] = useState(false);
   const [accessCode, setAccessCode] = useState("");
   const [accessStats, setAccessStats] = useState(null);
+  const [accessCombos, setAccessCombos] = useState(null);
+  const [accessRoleStats, setAccessRoleStats] = useState(null);
   const [accessBusy, setAccessBusy] = useState(false);
   const [accessErr, setAccessErr] = useState("");
   const [masterCode, setMasterCode] = useState(() => {
     try {
+      // 2026-08-26 v2.55: 인증 유효기간(30일) 해제 — 한 번 로그인하면 이 기기에서 계속 유지
       const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
-      const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
-      if (at > 0 && Date.now() - at < ADMIN_TTL) {
+      if (at > 0) {
         return localStorage.getItem("MMEEC_ADMIN_CODE") || "";
       }
     } catch {}
@@ -1616,8 +1675,7 @@ function App() {
   const [masterLevel, setMasterLevel] = useState(() => {
     try {
       const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
-      const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
-      if (at > 0 && Date.now() - at < ADMIN_TTL) return Number(localStorage.getItem("MMEEC_ADMIN_LV") || 2);
+      if (at > 0) return Number(localStorage.getItem("MMEEC_ADMIN_LV") || 2);
     } catch {}
     return 0;
   });
@@ -1626,17 +1684,23 @@ function App() {
   useEffect(() => {
     document.title = `MMEEC 현장 점검 ${appDisplayName} ${APP_VERSION}`;
   }, [appDisplayName]);
+  useEffect(() => {
+    if (masterLevel < 1 && myFactories && myFactories.length > 1) {
+      const trimmed = [myFactories[0]];
+      setMyFactories(trimmed);
+      localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(trimmed));
+    }
+  }, [masterLevel, myFactories]);
   const [masterContacts, setMasterContacts] = useState(null);
   const [masterBusy, setMasterBusy] = useState(false);
   const [ctName, setCtName] = useState("");
   const [ctPhone, setCtPhone] = useState("");
   const [ctFactory, setCtFactory] = useState("");
   const [ctDept, setCtDept] = useState("");
-  const ADMIN_TTL = 30 * 24 * 60 * 60 * 1000;
   const [adminAuthed, setAdminAuthed] = useState(() => {
     try {
       const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
-      return at > 0 && Date.now() - at < ADMIN_TTL;
+      return at > 0;
     } catch {
       return false;
     }
@@ -1644,7 +1708,7 @@ function App() {
   const [contactBook, setContactBook] = useState(() => {
     try {
       const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
-      if (at > 0 && Date.now() - at < ADMIN_TTL) {
+      if (at > 0) {
         return JSON.parse(localStorage.getItem("MMEEC_CONTACTS") || "[]");
       }
     } catch {}
@@ -1731,9 +1795,12 @@ function App() {
           localStorage.setItem("MMEEC_DEVICE_ID", dev);
         }
         const my = myFactories && myFactories.length ? myFactories[0] : "";
+        const myAll = myFactories && myFactories.length ? myFactories.map(f => factoryDisplay(f)).join(",") : "";
         await rpc("log_access", {
           p_device: dev,
-          p_factory: my
+          p_factory: my,
+          p_factories: myAll,
+          p_role: masterLevel
         });
       } catch (e) {}
     })();
@@ -1748,9 +1815,25 @@ function App() {
         p_code: code
       });
       setAccessStats(Array.isArray(rows) ? rows : []);
+      try {
+        const combos = await rpc("master_factory_combos_by_day", {
+          p_code: code
+        });
+        setAccessCombos(Array.isArray(combos) ? combos : []);
+      } catch (e2) {
+        setAccessCombos([]);
+      }
+      try {
+        const roleRows = await rpc("master_factory_role_stats", {
+          p_code: code
+        });
+        setAccessRoleStats(Array.isArray(roleRows) ? roleRows : []);
+      } catch (e3) {
+        setAccessRoleStats([]);
+      }
       setAccessCode("");
     } catch (e) {
-      setAccessErr("코드가 올바르지 않거나 서버 설정(supabase-access-v1.sql)이 미적용 상태입니다.");
+      setAccessErr("코드 오류입니다.");
     } finally {
       setAccessBusy(false);
     }
@@ -1759,6 +1842,8 @@ function App() {
     setShowAccess(false);
     setAccessCode("");
     setAccessStats(null);
+    setAccessCombos(null);
+    setAccessRoleStats(null);
     setAccessErr("");
   };
   const dismissNotice = () => {
@@ -1797,7 +1882,7 @@ function App() {
       });
       const level = Number(lv) || 0;
       if (level < 1) {
-        showToast("마스터 코드가 올바르지 않습니다.");
+        showToast("마스터 코드 오류입니다.");
         setMasterBusy(false);
         return;
       }
@@ -1819,7 +1904,7 @@ function App() {
       setNoticeDraft(notice?.body || "");
     } catch (e) {
       console.error(e);
-      showToast("마스터 코드가 올바르지 않거나 서버 설정(supabase-master-v3.sql)이 미적용 상태입니다.");
+      showToast("마스터 코드 오류입니다.");
     } finally {
       setMasterBusy(false);
     }
@@ -2031,7 +2116,7 @@ function App() {
     "stroke-linejoin": "round"
   })), "공사추가"), React.createElement("div", {
     class: "flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0"
-  }, activeFactories.map(factory => {
+  }, (masterLevel < 1 ? activeFactories.filter(f => f !== "전체") : activeFactories).map(factory => {
     const scope = factory === "전체" ? items : items.filter(i => factoryDisplay(i.factory) === factory);
     const count = scope.length;
     const activeCount = scope.filter(isCardOpen).length;
@@ -2099,11 +2184,11 @@ function App() {
     class: "text-sm font-bold text-slate-800"
   }, "휴일 공사 기간이 아닙니다."), React.createElement("p", {
     class: "text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed"
-  }, "상단 날짜를 변경하면 예정된 공사를 확인할 수 있습니다.")) : React.createElement(React.Fragment, null, React.createElement("h3", {
+  }, "상단 날짜를 변경하면 예정된 공사를 확인할 수 있습니다.", React.createElement("br", null), "(공사 목록 업데이트 매주 수/금요일 오후)")) : React.createElement(React.Fragment, null, React.createElement("h3", {
     class: "text-sm font-bold text-slate-800"
   }, "로딩된 주말 공사 목록이 없습니다"), React.createElement("p", {
     class: "text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed"
-  }, masterLevel >= 2 ? "상단의 검은색 버튼을 눌러 관리 PC에서 가져온 주말공사 엑셀 내역 파일을 선택해주세요." : "관리자가 아직 엑셀 파일을 올리지 않았습니다. 관리자에게 문의해주세요."))) : React.createElement("div", {
+  }, masterLevel >= 2 ? "주말공사 엑셀 내역 파일을 선택해주세요." : "공사 목록이 확정되지 않았습니다. 매주 수요일 오후 업로드 됩니다. 추가 업데이트는 금요일 오후 입니다."))) : React.createElement("div", {
     class: `space-y-3.5 ${slideDir ? `slide-${slideDir}` : ""}`,
     onTouchStart: onListTouchStart,
     onTouchEnd: onListTouchEnd
@@ -2584,7 +2669,7 @@ function App() {
     onKeyDown: e => {
       if (e.key === "Enter") loadAccessStats();
     },
-    placeholder: "관리자 코드",
+    placeholder: "마스터 코드",
     class: "w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-base text-center focus:outline-none focus:border-amber-500 focus:bg-white transition-all"
   }), accessErr && React.createElement("p", {
     class: "text-xs text-rose-500 text-center leading-relaxed"
@@ -2626,7 +2711,90 @@ function App() {
       class: "text-3xl font-black text-sky-600 mt-1"
     }, todayTotal, React.createElement("span", {
       class: "text-base font-bold ml-1"
-    }, "대"))), React.createElement("div", {
+    }, "대"))), (() => {
+      const list = Array.isArray(accessCombos) ? accessCombos : [];
+      if (list.length === 0) return null;
+      const byDay3 = {};
+      list.forEach(r => {
+        if (!byDay3[r.day]) byDay3[r.day] = [];
+        byDay3[r.day].push(r);
+      });
+      const days3 = Object.keys(byDay3).sort((a, b) => b.localeCompare(a));
+      return React.createElement("div", {
+        class: "bg-violet-50 rounded-2xl p-3"
+      }, React.createElement("p", {
+        class: "text-xs text-violet-700 font-bold mb-2"
+      }, "복수 공장 설정"), React.createElement("div", {
+        class: "space-y-1"
+      }, days3.map(day => {
+        const rows = byDay3[day];
+        const dayDevices = rows.reduce((s, r) => s + Number(r.devices || 0), 0);
+        return React.createElement("div", {
+          key: day,
+          class: "bg-white rounded-lg"
+        }, React.createElement("div", {
+          class: "w-full flex items-center justify-between px-2 py-1.5 text-xs"
+        }, React.createElement("span", {
+          class: "font-bold text-slate-700"
+        }, day.slice(5).replace("-", "/") + (day === todayKey ? " (오늘)" : "")), React.createElement("span", {
+          class: "font-black text-slate-900"
+        }, dayDevices, "대")), React.createElement("div", {
+          class: "px-2 pb-2 space-y-1 border-t border-slate-100 pt-1"
+        }, rows.map((r, i) => React.createElement("div", {
+          key: i,
+          class: "flex items-center justify-between text-xs"
+        }, React.createElement("span", {
+          class: "text-slate-600 font-mono tracking-wider"
+        }, abbrFactoryCombo(r.combo)), React.createElement("span", {
+          class: "text-slate-800 font-bold shrink-0"
+        }, r.devices, "대")))));
+      })));
+    })(), (() => {
+      const list = Array.isArray(accessRoleStats) ? accessRoleStats : [];
+      if (list.length === 0) return null;
+      const byDay2 = {};
+      list.forEach(r => {
+        if (!byDay2[r.day]) byDay2[r.day] = [];
+        byDay2[r.day].push(r);
+      });
+      const days2 = Object.keys(byDay2).sort((a, b) => b.localeCompare(a));
+      const roleLabel = lv => Number(lv) >= 2 ? "마스터" : Number(lv) >= 1 ? "관리자" : "감독자";
+      return React.createElement("div", {
+        class: "bg-emerald-50 rounded-2xl p-3"
+      }, React.createElement("p", {
+        class: "text-xs text-emerald-700 font-bold mb-2"
+      }, "공장별 접속 현황"), React.createElement("div", {
+        class: "space-y-1"
+      }, days2.map(day => {
+        const rows = byDay2[day];
+        const dayTotal = rows.reduce((s, r) => s + Number(r.devices || 0), 0);
+        const byFactory = {};
+        rows.forEach(r => {
+          const f = factoryDisplay(r.factory) || "미설정";
+          if (!byFactory[f]) byFactory[f] = [];
+          byFactory[f].push(r);
+        });
+        return React.createElement("div", {
+          key: day,
+          class: "bg-white rounded-lg"
+        }, React.createElement("div", {
+          class: "w-full flex items-center justify-between px-2 py-1.5 text-xs"
+        }, React.createElement("span", {
+          class: "font-bold text-slate-700"
+        }, day.slice(5).replace("-", "/") + (day === todayKey ? " (오늘)" : "")), React.createElement("span", {
+          class: "font-black text-slate-900"
+        }, dayTotal, "대")), React.createElement("div", {
+          class: "px-2 pb-2 space-y-1 border-t border-slate-100 pt-1"
+        }, Object.keys(byFactory).map(f => React.createElement("div", {
+          key: f,
+          class: "flex items-center justify-between text-xs"
+        }, React.createElement("span", {
+          class: "text-slate-600"
+        }, f), React.createElement("span", {
+          class: "text-slate-800 font-medium"
+        }, byFactory[f].map(r => `${roleLabel(r.role)} ${r.devices}대`).join("  "))))));
+      })));
+    })(), React.createElement("div", {
       class: "space-y-2"
     }, days.map(d => {
       const rows = byDay[d];
@@ -2689,7 +2857,7 @@ function App() {
     class: "bg-amber-50 border border-amber-200 rounded-2xl p-4 max-h-[65vh] overflow-y-auto"
   }, React.createElement("p", {
     class: "text-sm text-slate-700 leading-relaxed whitespace-pre-wrap"
-  }, notice.body)), React.createElement("button", {
+  }, linkifyText(notice.body))), React.createElement("button", {
     onClick: dismissNotice,
     class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all"
   }, "확인"))), showHelp && React.createElement("div", {
@@ -2749,13 +2917,13 @@ function App() {
       setShowMaster(true);
     },
     class: "mt-2 text-sm text-slate-500 font-bold py-1.5 px-3 active:scale-95 transition-all"
-  }, "🔑 관리자(마스터) 모드")), React.createElement("div", {
+  }, "🔑 관리자 모드 활성")), React.createElement("div", {
     class: "bg-slate-50 rounded-2xl p-4 space-y-3 text-sm"
   }, React.createElement("div", null, React.createElement("p", {
     class: "font-black text-slate-800 mb-1"
   }, "📌 포켓보드?"), React.createElement("p", {
     class: "text-slate-600 leading-relaxed"
-  }, "휴일 공사 현장 안전관리 도구", React.createElement("br", null), "일별 공사 목록, 체감온도 측정,", React.createElement("br", null), "안전보고문 작성, 카톡 보고 공유", React.createElement("br", null), "즐겨찾기, Today 켜고 끄기")), React.createElement("div", null, React.createElement("p", {
+  }, "휴일 공사 현장 안전관리 도구", React.createElement("br", null), "일별 공사 목록, 체감온도 측정,", React.createElement("br", null), "안전보고문 작성(5공장), 카톡 보고 공유", React.createElement("br", null), "긴급공사 등록, 기상 정보 확인", React.createElement("br", null), "날짜 넘겨 예정 공사 미리보기", React.createElement("br", null), "즐겨찾기, Today 켜고 끄기")), React.createElement("div", null, React.createElement("p", {
     class: "font-black text-slate-800 mb-1"
   }, "🔄 공사목록 업데이트"), React.createElement("p", {
     class: "text-slate-600"
@@ -2795,8 +2963,8 @@ function App() {
     class: "text-base text-slate-500 text-center"
   }, "암호를 입력해주세요."), React.createElement("input", {
     type: "password",
-    inputMode: "numeric",
-    maxLength: "4",
+    // inputMode: "numeric",→ 제거 (영문·숫자 다 입력 가능하게)
+    maxLength: "32",
     value: pwInput,
     onChange: e => {
       setPwInput(e.target.value);
