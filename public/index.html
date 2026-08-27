@@ -835,7 +835,6 @@ function App() {
         const data = await MMEECStorage.load();
         if (!mounted) return;
         setItems(data.items || []);
-        setSortedOrder(computeSortedOrder(data.items || [], selectedDate));
         console.log("[포켓보드 v" + APP_VERSION + "] 로드:", (data.items || []).length + "건", "| workday:", getWorkdayKey(), "| dow:", getWorkdayDow(), "| data.js:", Object.keys(window.APP_DATA || {}).length > 0 ? "OK" : "누락!");
         setSessionId(data.sessionId);
         if (data.meta?.sheetTitle) setSheetTitle(data.meta.sheetTitle);
@@ -1056,7 +1055,6 @@ function App() {
           periodStart: range.start,
           periodEnd: range.end
         });
-        setSortedOrder(computeSortedOrder(cycled, selectedDate));
         setActiveTab("전체");
         const noDateCol = Object.keys(dateColMap).length === 0;
         showToast(noDateCol ? `총 ${parsedList.length}건 업로드 — ⚠️ 날짜 정보를 못 찾아 TODAY 표시가 안 됩니다` : `총 ${parsedList.length}건 업로드 (기존 입력 유지)`);
@@ -1186,46 +1184,39 @@ function App() {
     if (!inPeriod) return [];
     return activeTab === "전체" ? items : items.filter(item => factoryDisplay(item.factory) === activeTab);
   }, [items, activeTab, inPeriod]);
-  const GONGJEONG_ORDER = ["프레스", "차체", "도장", "의장"];
-  const gongjeongRank = item => {
-    const t = item.title || "";
-    const i = GONGJEONG_ORDER.findIndex(g => t.includes(g));
-    return i < 0 ? GONGJEONG_ORDER.length : i;
+  // 2026-08-27 v2.55: 정렬 기준 개편 (탭에 따라 다르게 적용)
+  //  · "전체" 탭      : 엑셀 순서 그대로만. TODAY·공사중·즐겨찾기는 순서를 바꾸지 않고 배지로만 표시
+  //  · 개별 공장 탭   : 사업장순(공정 기준) → 오늘 작업 → 즐겨찾기 → 엑셀 순서
+  //  (이전에는 공사명에 "프레스/차체/도장/의장"이 들어갔는지로 정렬해서
+  //   엑셀 순서가 뒤섞여 보이던 문제가 있었음)
+  const SAUPJANG_ORDER = ["프레스", "차체", "도장", "의장", "엔진", "변속기", "실린더", "PDI"];
+  const saupjangRank = item => {
+    const c = item.company || "";
+    const i = SAUPJANG_ORDER.findIndex(g => c.includes(g));
+    return i < 0 ? SAUPJANG_ORDER.length : i;
   };
-  const computeSortedOrder = (list, date) => {
-    return (list || []).map((item, idx) => ({
-      item,
-      idx
-    })).sort((a, b) => {
-      const ta = hasWorkOn(a.item, date) ? 0 : 1;
-      const tb = hasWorkOn(b.item, date) ? 0 : 1;
-      if (ta !== tb) return ta - tb;
-      const fa = bookmarkIds.includes(a.item.id) ? 0 : 1;
-      const fb = bookmarkIds.includes(b.item.id) ? 0 : 1;
-      if (fa !== fb) return fa - fb;
-      const ga = gongjeongRank(a.item),
-        gb = gongjeongRank(b.item);
-      if (ga !== gb) return ga - gb;
-      return a.idx - b.idx;
-    }).map(x => x.item.id);
-  };
-  const [sortedOrder, setSortedOrder] = useState([]);
   const selectedDateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
-  useEffect(() => {
-    setSortedOrder(computeSortedOrder(items, selectedDate));
-  }, [selectedDateKey]);
   const displayItems = useMemo(() => {
-    const rank = new Map(sortedOrder.map((id, i) => [id, i]));
-    return filteredItems.map((item, idx) => ({
+    const base = filteredItems.map((item, idx) => ({
       item,
       idx
-    })).sort((a, b) => {
-      const ra = rank.has(a.item.id) ? rank.get(a.item.id) : Number.MAX_SAFE_INTEGER;
-      const rb = rank.has(b.item.id) ? rank.get(b.item.id) : Number.MAX_SAFE_INTEGER;
-      if (ra !== rb) return ra - rb;
+    }));
+    // "전체" 탭: 엑셀에 적힌 순서 그대로 (다른 정렬 일절 없음)
+    if (activeTab === "전체") return base.map(x => x.item);
+    // 개별 공장 탭: 사업장순 → 오늘 작업 → 즐겨찾기 → 엑셀 순서
+    return base.sort((a, b) => {
+      const sa = saupjangRank(a.item),
+        sb = saupjangRank(b.item);
+      if (sa !== sb) return sa - sb;
+      const ta = hasWorkOn(a.item, selectedDate) ? 0 : 1;
+      const tb = hasWorkOn(b.item, selectedDate) ? 0 : 1;
+      if (ta !== tb) return ta - tb;
+      const ba = bookmarkIds.includes(a.item.id) ? 0 : 1;
+      const bb = bookmarkIds.includes(b.item.id) ? 0 : 1;
+      if (ba !== bb) return ba - bb;
       return a.idx - b.idx;
     }).map(x => x.item);
-  }, [filteredItems, sortedOrder]);
+  }, [filteredItems, activeTab, bookmarkIds, selectedDateKey]);
   const scheduledCount = useMemo(() => {
     const viewingToday = dateOffset === 0;
     return filteredItems.filter(item => hasWorkOn(item, selectedDate) || viewingToday && isOngoingItem(item)).length;
