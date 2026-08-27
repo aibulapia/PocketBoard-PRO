@@ -2963,16 +2963,15 @@ function App() {
     class: "text-base text-slate-500 text-center"
   }, "암호를 입력해주세요."), React.createElement("input", {
     type: "password",
-    inputMode: "numeric",
-    maxLength: "4",
+    maxLength: "32",
     value: pwInput,
     onChange: e => {
       setPwInput(e.target.value);
       setPwError(false);
     },
     onKeyDown: e => e.key === "Enter" && confirmPw(),
-    placeholder: "●●●●",
-    class: `w-full text-center text-2xl tracking-[0.5em] border-2 rounded-2xl py-3 focus:outline-none transition-all ${pwError ? "border-rose-400 bg-rose-50" : "border-slate-200 focus:border-amber-400"}`,
+    placeholder: "마스터 코드",
+    class: `w-full text-center text-xl tracking-widest border-2 rounded-2xl py-3 focus:outline-none transition-all ${pwError ? "border-rose-400 bg-rose-50" : "border-slate-200 focus:border-amber-400"}`,
     autoFocus: true
   }), pwError && React.createElement("p", {
     class: "text-sm text-rose-500 text-center font-semibold"
