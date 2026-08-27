@@ -1,0 +1,3499 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+ <meta name="mobile-web-app-capable" content="yes">
+ <meta name="apple-mobile-web-app-capable" content="yes">
+ <meta name="apple-mobile-web-app-status-bar-style" content="default">
+ <meta name="theme-color" content="#f59e0b">
+ <link rel="manifest" href="manifest.json">
+ <title>MMEEC 현장 점검 포켓보드 2.55</title>
+ <link rel="apple-touch-icon" href="icon-192.png">
+ <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+ <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+ <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+ <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+ <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+ <style>
+       body {
+           font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+           -webkit-tap-highlight-color: transparent;
+           padding-bottom: env(safe-area-inset-bottom);
+       }
+       .safe-bottom { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+       
+       .no-scrollbar::-webkit-scrollbar { display: none; }
+       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+       
+       @keyframes slideFromRight { from { transform: translateX(28px); opacity: .35; } to { transform: translateX(0); opacity: 1; } }
+       @keyframes slideFromLeft  { from { transform: translateX(-28px); opacity: .35; } to { transform: translateX(0); opacity: 1; } }
+       .slide-left  { animation: slideFromRight .24s ease-out; }
+       .slide-right { animation: slideFromLeft .24s ease-out; }
+       @media (prefers-reduced-motion: reduce) {
+           .slide-left, .slide-right { animation: none; }
+       }
+
+       
+       .dark { color-scheme: dark; }
+       
+
+       
+       .dark .bg-white          { background-color: #1e293b; }
+       .dark .bg-white\/70      { background-color: rgba(30,41,59,.85); }
+       .dark .bg-slate-50       { background-color: #0f172a; }
+       .dark .bg-slate-100      { background-color: #1e293b; }
+       .dark .bg-slate-200      { background-color: #334155; }
+       .dark .bg-slate-800      { background-color: #0f172a; }
+       .dark .bg-slate-900      { background-color: #020617; }
+       .dark .bg-slate-900\/95  { background-color: rgba(2,6,23,.95); }
+       .dark .bg-black\/50      { background-color: rgba(0,0,0,.6); }
+       .dark .bg-black\/60      { background-color: rgba(0,0,0,.7); }
+
+       
+       .dark .text-slate-900    { color: #f1f5f9; }
+       .dark .text-slate-800    { color: #e2e8f0; }
+       .dark .text-slate-700    { color: #cbd5e1; }
+       .dark .text-slate-600    { color: #94a3b8; }
+       .dark .text-slate-500    { color: #94a3b8; }
+       .dark .text-slate-400    { color: #64748b; }
+       .dark .text-slate-300    { color: #64748b; }
+
+       
+       .dark .border-slate-100  { border-color: #334155; }
+       .dark .border-slate-200  { border-color: #334155; }
+       .dark .border-slate-200\/50 { border-color: rgba(51,65,85,.5); }
+       .dark .border-slate-300  { border-color: #475569; }
+       .dark .border-slate-700  { border-color: #334155; }
+
+       
+       .dark .bg-amber-50, .dark .bg-amber-50\/50 { background-color: rgba(180,131,25,.18); }
+       .dark .bg-amber-100       { background-color: rgba(180,131,25,.28); }
+       .dark .bg-rose-50, .dark .bg-rose-50\/50   { background-color: rgba(190,45,70,.18); }
+       .dark .bg-sky-50          { background-color: rgba(14,116,166,.22); }
+       .dark .border-amber-100, .dark .border-amber-100\/50, .dark .border-amber-200 { border-color: rgba(180,131,25,.35); }
+       .dark .border-rose-100    { border-color: rgba(190,45,70,.35); }
+       .dark .border-sky-200, .dark .border-sky-300 { border-color: rgba(14,116,166,.4); }
+
+       
+       .dark .text-amber-700     { color: #fbbf24; }
+       .dark .text-amber-600     { color: #fbbf24; }
+       .dark .text-sky-700       { color: #7dd3fc; }
+       .dark .text-sky-800       { color: #7dd3fc; }
+       .dark .text-rose-700      { color: #fda4af; }
+       .dark .text-emerald-600   { color: #34d399; }
+       .dark .text-blue-600      { color: #60a5fa; }
+
+       
+       .dark ::selection { background-color: rgba(245,158,11,.35); }
+       .dark input, .dark textarea { color-scheme: dark; }
+
+       
+       .dark input, .dark textarea, .dark select { color: #f1f5f9; }
+       .dark input::placeholder, .dark textarea::placeholder { color: #64748b; }
+
+       
+       .dark .text-amber-800     { color: #fcd34d; }
+       .dark .text-amber-500     { color: #fbbf24; }
+       .dark .text-amber-400     { color: #fcd34d; }
+       .dark .text-purple-700    { color: #c4b5fd; }
+       .dark .text-rose-500      { color: #fda4af; }
+       .dark .text-rose-400      { color: #fda4af; }
+       .dark .text-sky-600       { color: #7dd3fc; }
+       .dark .text-sky-500       { color: #7dd3fc; }
+       .dark .text-sky-400       { color: #7dd3fc; }
+
+       
+       .dark .keep-light.bg-amber-100  { background-color: #fef3c7; }
+       .dark .keep-light.bg-purple-100 { background-color: #f3e8ff; }
+       .dark .keep-light.text-amber-800  { color: #92400e; }
+       .dark .keep-light.text-purple-700 { color: #6b21a8; }
+
+       
+       .dark .bg-linear-to-br.from-amber-50\/20.to-white {
+           background-image: none;
+           background-color: #1e293b;
+       }
+ </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-amber-100">
+
+ <div id="root"></div>
+
+ <script src="config.js"></script>
+ <script src="data.js"></script>
+ <script src="storage.js"></script>
+ <script>
+(function () {
+  try {
+    const ua = navigator.userAgent || "";
+    if (!/KAKAOTALK/i.test(ua)) return;
+    const url = location.href;
+    if (/android/i.test(ua)) {
+      location.href = "kakaotalk://web/openExternal?url=" + encodeURIComponent(url);
+      setTimeout(() => {
+        location.href = "intent://" + url.replace(/^https?:\/\//, "") + "#Intent;scheme=https;package=com.android.chrome;end";
+      }, 800);
+    } else {
+      window.__KAKAO_IOS__ = true;
+    }
+  } catch (e) {}
+})();
+</script>
+ <script>
+Babel.registerPreset('react-classic', {
+  presets: [[Babel.availablePresets['react'], {
+    runtime: 'classic'
+  }]]
+});
+</script>
+ <script type="text/babel" data-presets="react-classic">
+const {
+  useState,
+  useEffect,
+  useMemo,
+  useRef
+} = React;
+const APP_VERSION = "2.55";
+// 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
+// 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
+// (server/supabase-admin-confirm-code-v1.sql 참고).
+async function sha256(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+const D = window.APP_DATA || {};
+const SUPPORTED_FACTORIES = D.SUPPORTED_FACTORIES || [];
+const SUB_FACTORIES = D.SUB_FACTORIES || {};
+const FIXED_SUPERVISORS = D.FIXED_SUPERVISORS || {};
+const SUPERVISOR_TITLES = D.SUPERVISOR_TITLES || {};
+const FLOOR_TABS = D.FLOOR_TABS || ["B1", "1층", "2층", "2.5층", "3층", "옥상", "옥외"];
+const WORK_TYPE_SAFETY = D.WORK_TYPE_SAFETY || {};
+const REPORT_CARD_FACTORIES = ["5공장"];
+const WORK_TYPE_LABEL_CODE = D.WORK_TYPE_LABEL_CODE || {
+  "고소": "고",
+  "중량물": "중",
+  "화기": "화",
+  "밀폐": "밀",
+  "건설기계": "건",
+  "전기": "전",
+  "자동화": "자",
+  "청소": "청",
+  "운반": "운",
+  "도색": "도"
+};
+const COMMON_MEASURES = D.COMMON_MEASURES || [];
+const HELP_ITEMS = [{
+  id: "h1",
+  group: "📋 공사 리스트 화면",
+  q: "내가 체크한 게 다른 사람에게도 보이나요?",
+  a: "네. 모든 기록은 한 곳에 저장되어, 누가 어디서 체크하든 전원에게 똑같이 보입니다. 화면에 보이는 범위만 내 공장 설정이나 권한에 따라 달라질 뿐입니다."
+}, {
+  id: "h2",
+  group: "📋 공사 리스트 화면",
+  q: "내 공장 설정은 왜 필요한가요?",
+  a: "담당 공장을 정하면 그 공장만 걸러보고, 앱을 열 때 첫 화면으로 자동 표시됩니다."
+}, {
+  id: "h3",
+  group: "📋 공사 리스트 화면",
+  q: "TODAY 배지가 뭔가요?",
+  a: "오늘 배정된 공사에 파란 배지가 붙습니다. 터치하면 회색(취소)↔파랑 전환되고, 2일째부터 \"N일째\"도 표시됩니다."
+}, {
+  id: "h4",
+  group: "📋 공사 리스트 화면",
+  q: "날짜 이동은 어떻게 하나요?",
+  a: "◀▶ 화살표로 넘기고, 가운데 날짜를 터치하면 오늘로 바로 이동합니다."
+}, {
+  id: "h5",
+  group: "📝 공사 세부 화면",
+  q: "즐겨찾기는 뭔가요?",
+  a: "관심 있는 공사를 여러 개 찜해두면 목록 맨 위에 모아 보여줍니다. ★를 다시 누르면 해제되고, 공사기간이 끝나거나 전체 초기화하면 자동으로 정리됩니다."
+}, {
+  id: "h6",
+  group: "📝 공사 세부 화면",
+  q: "\"안전보고문\"은 뭔가요?",
+  a: "5공장 전용 기능. 공사전/중/종료 단계별로 작업·체감온도·폭염대책을 자동으로 정리해줍니다. \"안전보고문 생성\"을 누르면 내용을 확인·수정할 수 있는 창이 뜨고, 거기서 클립보드로 복사합니다. 체감온도 기록이 없어도 생성할 수 있습니다. 상세화면은 전 공장 사용 가능합니다."
+}, {
+  id: "h7",
+  group: "📝 공사 세부 화면",
+  q: "공사 연장은 어떻게 하나요?",
+  a: "17시 이후 계속되면 \"⏰ 작업연장\"에서 종료 시각을 선택하세요. 카드·카톡복사·보고문에 자동 반영됩니다."
+}, {
+  id: "h8",
+  group: "📝 공사 세부 화면",
+  q: "카톡 복사는 어떻게 하나요?",
+  a: "\"💬 카톡복사\" 누르면 공사명·위치·감독자·인원이 정리돼 클립보드에 복사됩니다. 카톡방에 붙여넣기만 하면 됩니다."
+}];
+const WORKDAY_SHIFT_MS = 6 * 60 * 60 * 1000;
+const getWorkdayDate = (d = new Date()) => new Date(d.getTime() - WORKDAY_SHIFT_MS);
+const getWorkdayKey = (d = new Date()) => {
+  const t = getWorkdayDate(d);
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+};
+const getWorkdayDow = (d = new Date()) => getWorkdayDate(d).getDay();
+const findDayWorkers = (dateWorkers, targetDate) => {
+  if (!dateWorkers || !targetDate) return null;
+  const tDay = targetDate.getDate();
+  const tMonth = targetDate.getMonth() + 1;
+  const tDow = targetDate.getDay();
+  for (const key of Object.keys(dateWorkers)) {
+    const dw = dateWorkers[key];
+    if (!dw || Number(dw.day) !== tDay) continue;
+    if (dw.month != null) {
+      if (Number(dw.month) === tMonth) return dw;
+      continue;
+    }
+    if (Number(key) % 7 === tDow) return dw;
+  }
+  return null;
+};
+const workersOn = (dateWorkers, targetDate) => Number(findDayWorkers(dateWorkers, targetDate)?.workers) || 0;
+const computeEndDate = (dateWorkers, base = new Date()) => {
+  const entries = Object.values(dateWorkers || {}).filter(dw => Number(dw?.day) > 0);
+  if (!entries.length) return null;
+  const y = base.getFullYear(),
+    m = base.getMonth(),
+    today = base.getDate();
+  const dates = entries.map(dw => {
+    const d = Number(dw.day);
+    if (dw.month != null) {
+      const mm = Number(dw.month) - 1;
+      const yy = mm - m > 6 ? y - 1 : m - mm > 6 ? y + 1 : y;
+      return new Date(yy, mm, d);
+    }
+    return d < today - 15 ? new Date(y, m + 1, d) : new Date(y, m, d);
+  });
+  const latest = new Date(Math.max(...dates.map(dt => dt.getTime())));
+  return `${latest.getFullYear()}-${String(latest.getMonth() + 1).padStart(2, "0")}-${String(latest.getDate()).padStart(2, "0")}`;
+};
+const computeDateRange = (dateWorkers, base = new Date()) => {
+  const entries = Object.values(dateWorkers || {}).filter(dw => Number(dw?.day) > 0);
+  if (!entries.length) return {
+    start: null,
+    end: null
+  };
+  const y = base.getFullYear(),
+    m = base.getMonth(),
+    today = base.getDate();
+  const dates = entries.map(dw => {
+    const d = Number(dw.day);
+    if (dw.month != null) {
+      const mm = Number(dw.month) - 1;
+      const yy = mm - m > 6 ? y - 1 : m - mm > 6 ? y + 1 : y;
+      return new Date(yy, mm, d);
+    }
+    return d < today - 15 ? new Date(y, m + 1, d) : new Date(y, m, d);
+  });
+  const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+  const earliest = new Date(Math.min(...dates.map(dt => dt.getTime())));
+  const latest = new Date(Math.max(...dates.map(dt => dt.getTime())));
+  return {
+    start: fmt(earliest),
+    end: fmt(latest)
+  };
+};
+const isAfter17 = (d = new Date()) => {
+  const h = d.getHours();
+  return h >= 17 || h < 6;
+};
+const fmtExtend = h => h == null ? "" : `${String(h).padStart(2, "0")}시연장`;
+const EXTEND_HOURS = [18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5];
+const fmt1 = v => {
+  const n = Number(v);
+  return isNaN(n) ? String(v) : n.toFixed(1);
+};
+const nowHm = () => {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+const toHm24 = r => {
+  if (r.hm) return r.hm;
+  const s = String(r.time || "");
+  const m = s.match(/(오전|오후)?\s*(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  let h = parseInt(m[2], 10);
+  if (m[1] === "오후" && h < 12) h += 12;
+  if (m[1] === "오전" && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${m[3]}`;
+};
+const normalizeFactoryName = rawName => {
+  if (!rawName) return "9 기타";
+  const name = rawName.toString().trim();
+  if (name.includes("1공장") || name === "1") return "1공장";
+  if (name.includes("2공장") || name === "2") return "2공장";
+  if (name.includes("3공장") || name === "3") return "3공장";
+  if (name.includes("4공장") || name === "4") return "4공장";
+  if (name.includes("5공장") || name === "5") return "5공장";
+  if (name.includes("엔진")) return "6 PT";
+  if (name.includes("변속기")) return "6 PT";
+  if (name.includes("소재")) return "7 소재";
+  if (name.includes("기타")) return "9 기타";
+  if (name.includes("아산")) return "8 아산";
+  if (name.includes("남양")) return "8 아산";
+  if (name.includes("광명")) return "8 아산";
+  if (name.includes("화성")) return "8 아산";
+  return "9 기타";
+};
+// 2026-08-19 v2.54: 공장 체계를 12개→9개로 개편(엔진+변속기→6 PT, 아산+남양+광명+화성→8 아산).
+// 이미 저장된 옛 데이터(factory: "6.엔진","11.남양" 등)는 원본을 절대 건드리지 않고,
+// 화면에 보여줄 때만 이 함수로 새 이름으로 바꿔서 표시한다 (원본은 서버에 그대로 남음).
+const LEGACY_FACTORY_MAP = {
+  "6.엔진": "6 PT",
+  "7.변속기": "6 PT",
+  "8.소재": "7 소재",
+  "9.기타": "9 기타",
+  "10.아산": "8 아산",
+  "11.남양": "8 아산",
+  "12.광명": "8 아산"
+};
+const factoryDisplay = f => LEGACY_FACTORY_MAP[f] || f;
+// 2026-08-24 v2.54c: 접속현황의 "복수 공장 설정" 조합 표시용 축약자.
+// 1~5공장은 숫자, 6~9는 구별되는 글자(PT→P, 소재→소, 아산→아, 기타→기)로 줄여
+// "1234567890" 처럼 붙여써도 한눈에 구분되게 한다.
+const FACTORY_ABBR = {
+  "1공장": "1",
+  "2공장": "2",
+  "3공장": "3",
+  "4공장": "4",
+  "5공장": "5",
+  "6 PT": "P",
+  "7 소재": "소",
+  "8 아산": "아",
+  "9 기타": "기"
+};
+const abbrFactoryCombo = combo => (combo || "").split(",").map(f => FACTORY_ABBR[f.trim()] || f.trim().charAt(0)).join("");
+// 2026-08-24 v2.55: 공지사항 등 텍스트 안의 http(s):// 주소를 자동으로
+// 누를 수 있는 링크로 바꿔준다. 지금까지는 평문 그대로 표시돼 링크가 안 눌렸음.
+const linkifyText = text => String(text || "").split(/(https?:\/\/[^\s]+)/g).map((part, i) => /^https?:\/\//.test(part) ? React.createElement("a", {
+  key: i,
+  href: part,
+  target: "_blank",
+  rel: "noopener noreferrer",
+  class: "text-sky-600 underline break-all"
+}, part) : part);
+const warningSeverity = w => {
+  if (w.endsWith("중대경보")) return 3;
+  if (w.endsWith("경보")) return 2;
+  if (w.endsWith("주의보")) return 1;
+  return 0;
+};
+const sortWarnings = list => [...list].sort((a, b) => warningSeverity(b) - warningSeverity(a));
+const warningBadgeClass = w => {
+  const sev = warningSeverity(w);
+  if (sev === 3) return "bg-red-700 text-white ring-2 ring-red-300 animate-pulse";
+  if (sev === 2) return "bg-rose-500 text-white";
+  return "bg-amber-500 text-white";
+};
+function App() {
+  const [items, setItems] = useState([]);
+  const [activeTab, setActiveTab] = useState("전체");
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [sessionId, setSessionId] = useState(MMEECStorage.getSessionId());
+  const [sheetTitle, setSheetTitle] = useState("");
+  const [periodStart, setPeriodStart] = useState(null);
+  const [periodEnd, setPeriodEnd] = useState(null);
+  const [syncStatus, setSyncStatus] = useState("idle");
+  const [pendingSave, setPendingSave] = useState(() => {
+    try {
+      return MMEECStorage.hasPending ? MMEECStorage.hasPending() : false;
+    } catch {
+      return false;
+    }
+  });
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [companyName, setCompanyName] = useState(() => localStorage.getItem("MMEEC_COMPANY_NAME") || "MMEEC");
+  const [companyNameDraft, setCompanyNameDraft] = useState("");
+  const [showInfo, setShowInfo] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [openHelpId, setOpenHelpId] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [showNotice, setShowNotice] = useState(false);
+  const [noticeDraft, setNoticeDraft] = useState("");
+  const [showPwModal, setShowPwModal] = useState(false);
+  const [pwInput, setPwInput] = useState("");
+  const [pwTarget, setPwTarget] = useState("");
+  const [pwError, setPwError] = useState(false);
+  const [firstRun] = useState(() => !localStorage.getItem("MMEEC_MY_FACTORIES"));
+  const [myFactories, setMyFactories] = useState(() => {
+    try {
+      const saved = localStorage.getItem("MMEEC_MY_FACTORIES");
+      if (saved) {
+        const v = JSON.parse(saved);
+        return Array.isArray(v) && v.length ? v : null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
+  const [showFactoryFilter, setShowFactoryFilter] = useState(false);
+  const [filterDraft, setFilterDraft] = useState([]);
+  const [spotLocation, setSpotLocation] = useState("");
+  const [assignedSupervisor, setAssignedSupervisor] = useState("");
+  const [memo, setMemo] = useState("");
+  const [expandedIds, setExpandedIds] = useState([]);
+  const [showCardResetConfirm, setShowCardResetConfirm] = useState(false);
+  const [directWorkers, setDirectWorkers] = useState("");
+  const [dailyWorkers, setDailyWorkers] = useState("");
+  const [partnerName, setPartnerName] = useState("");
+  const [partnerWorkers, setPartnerWorkers] = useState("");
+  const [reportStage, setReportStage] = useState("전");
+  const [hasElderly, setHasElderly] = useState(false);
+  const [elderlyCount, setElderlyCount] = useState(1);
+  const [extendHour, setExtendHour] = useState(null);
+  const decExtendHour = () => {
+    if (extendHour == null) return;
+    const idx = EXTEND_HOURS.indexOf(extendHour);
+    setExtendHour(idx <= 0 ? null : EXTEND_HOURS[idx - 1]);
+  };
+  const incExtendHour = () => {
+    if (extendHour == null) {
+      setExtendHour(EXTEND_HOURS[0]);
+      return;
+    }
+    const idx = EXTEND_HOURS.indexOf(extendHour);
+    if (idx < EXTEND_HOURS.length - 1) setExtendHour(EXTEND_HOURS[idx + 1]);
+  };
+  const [heatTemp, setHeatTemp] = useState("");
+  const [heatHumidity, setHeatHumidity] = useState("");
+  const [heatResults, setHeatResults] = useState([]);
+  const [currentHeatStatus, setCurrentHeatStatus] = useState(null);
+  const sendHeatToSheet = async (item, entry) => {
+    const cfg = window.APP_CONFIG || {};
+    if (!cfg.sheetsWebhookUrl) return;
+    try {
+      await fetch(cfg.sheetsWebhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain"
+        },
+        body: JSON.stringify({
+          token: cfg.sheetsToken || "",
+          factory: factoryDisplay(item.factory) || "",
+          company: item.company || item.location || "",
+          title: item.title || "",
+          grade: item.grade || "",
+          workType: item.workType || "",
+          value: entry.value,
+          level: entry.level,
+          temp: entry.temp,
+          humidity: entry.humidity
+        })
+      });
+    } catch (e) {
+      console.warn("시트 기록 실패:", e);
+    }
+  };
+  const calcHeatFor = (targetItem, tempStr, humStr, onDone) => {
+    const Ta = parseFloat(tempStr);
+    const RH = parseFloat(humStr);
+    if (isNaN(Ta) || isNaN(RH)) {
+      showToast("기온과 습도를 입력해주세요.");
+      return;
+    }
+    const Tw = Ta * Math.atan(0.151977 * Math.pow(RH + 8.313659, 0.5)) + Math.atan(Ta + RH) - Math.atan(RH - 1.67633) + 0.00391838 * Math.pow(RH, 1.5) * Math.atan(0.023101 * RH) - 4.686035;
+    const HIc = -0.2442 + 0.55399 * Tw + 0.45535 * Ta - 0.0022 * Tw * Tw + 0.00278 * Tw * Ta + 3.0;
+    let level, color, guide;
+    if (HIc >= 38) {
+      level = "위험";
+      color = "red";
+      guide = "작업 중지 권고, 즉시 대피";
+    } else if (HIc >= 35) {
+      level = "경고";
+      color = "orange";
+      guide = "매시간 15분 휴식 권고";
+    } else if (HIc >= 33) {
+      level = "주의";
+      color = "yellow";
+      guide = "2시간 작업 시 20분 휴식";
+    } else if (HIc >= 31) {
+      level = "관심";
+      color = "sky";
+      guide = "충분한 물 섭취, 주기적 휴식";
+    } else {
+      level = "보통";
+      color = "slate";
+      guide = "쾌적한 작업 환경";
+    }
+    const entry = {
+      temp: Ta,
+      humidity: RH,
+      value: HIc.toFixed(1),
+      level,
+      color,
+      guide,
+      workday: getWorkdayKey(),
+      hm: nowHm(),
+      time: new Date().toLocaleTimeString("ko-KR", {
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    };
+    if (targetItem) {
+      const updatedItems = items.map(it => it.id === targetItem.id ? {
+        ...it,
+        lastHeatStatus: entry,
+        heatResults: [entry, ...(it.heatResults || [])]
+      } : it);
+      persistItems(updatedItems);
+      sendHeatToSheet(targetItem, entry);
+    }
+    if (onDone) onDone(entry);
+    return entry;
+  };
+  const calcHeatIndex = () => {
+    calcHeatFor(selectedItem, heatTemp, heatHumidity, entry => {
+      setHeatResults(prev => [entry, ...prev]);
+      setCurrentHeatStatus(entry);
+    });
+  };
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addModalTab, setAddModalTab] = useState("extra");
+  const [selectedExtras, setSelectedExtras] = useState([]);
+  const [urgentFactory, setUrgentFactory] = useState("1공장");
+  const [urgentSubFactory, setUrgentSubFactory] = useState("");
+  const [urgentWorkLocation, setUrgentWorkLocation] = useState("");
+  const [urgentWorkContent, setUrgentWorkContent] = useState("");
+  const [urgentWorkTypes, setUrgentWorkTypes] = useState([]);
+  const [urgentSupervisor, setUrgentSupervisor] = useState("");
+  const WORK_TYPE_OPTIONS = D.WORK_TYPE_OPTIONS || ["고소", "중량물", "화기", "밀폐", "건설기계", "전기", "자동화", "청소", "운반", "도색"];
+  const tryFlushPending = React.useCallback(async () => {
+    if (!MMEECStorage.flushPending) return;
+    if (!MMEECStorage.hasPending || !MMEECStorage.hasPending()) {
+      setPendingSave(false);
+      return;
+    }
+    const r = await MMEECStorage.flushPending();
+    if (r.flushed) {
+      if (r.items) setItems(r.items);
+      setPendingSave(false);
+      setSyncStatus("saved");
+      showToast("✅ 대기 중이던 기록이 서버에 전송되었습니다");
+    }
+  }, []);
+  useEffect(() => {
+    const goOnline = () => {
+      setIsOffline(false);
+      tryFlushPending();
+    };
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    const t = setInterval(() => {
+      if (navigator.onLine !== false) tryFlushPending();
+    }, 30 * 1000);
+    tryFlushPending();
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+      clearInterval(t);
+    };
+  }, [tryFlushPending]);
+  const [nowTick, setNowTick] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(new Date()), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  const workday = getWorkdayKey(nowTick);
+  const todayDow = getWorkdayDow(nowTick);
+  useEffect(() => {
+    setExpandedIds([]);
+  }, [workday]);
+  const after17 = isAfter17(nowTick);
+  const todayLabel = (() => {
+    const d = nowTick || new Date();
+    const dows = ["일", "월", "화", "수", "목", "금", "토"];
+    return `${d.getMonth() + 1}/${d.getDate()}(${dows[d.getDay()]})`;
+  })();
+  const [dateOffset, setDateOffset] = useState(0);
+  const selectedDate = useMemo(() => {
+    const d = new Date(nowTick || new Date());
+    d.setDate(d.getDate() + dateOffset);
+    return d;
+  }, [nowTick, dateOffset]);
+  const selectedDateLabel = (() => {
+    const dows = ["일", "월", "화", "수", "목", "금", "토"];
+    return `${selectedDate.getMonth() + 1}/${selectedDate.getDate()}(${dows[selectedDate.getDay()]})`;
+  })();
+  useEffect(() => {
+    setDateOffset(0);
+  }, [workday]);
+  const isTodayActive = item => item.todayOn === workday;
+  const isOngoingItem = i => i.status === "checked" && (!after17 || i.extendHour != null);
+  const isCardOpen = i => isTodayActive(i) || isOngoingItem(i);
+  const hasWorkToday = item => workersOn(item.dateWorkers, getWorkdayDate()) > 0;
+  const hasWorkOn = (item, d) => workersOn(item.dateWorkers, d) > 0;
+  const workDayCount = item => (item.pastWorkDays || 0) + (isTodayActive(item) ? 1 : 0);
+  const applyDailyCycle = list => {
+    const wd = getWorkdayKey();
+    let changed = false;
+    let out = list.map(raw => {
+      let it = raw;
+      const mut = () => {
+        if (it === raw) {
+          it = {
+            ...raw
+          };
+          changed = true;
+        }
+      };
+      if (it.activeMark && it.activeMark !== wd) {
+        mut();
+        it.pastWorkDays = (it.pastWorkDays || 0) + 1;
+        it.activeMark = null;
+      }
+      if (it.dayKey !== wd) {
+        mut();
+        it.dayKey = wd;
+        if (it.status === "checked") it.status = "pending";
+        if (it.extendHour != null) it.extendHour = null;
+        if (it.todayOn && it.todayOn !== wd) it.todayOn = null;
+      }
+      const heats = it.heatResults;
+      if (Array.isArray(heats) && heats.length) {
+        const todayOnly = heats.filter(r => r && (!r.workday || r.workday === wd));
+        if (todayOnly.length !== heats.length) {
+          mut();
+          it.heatResults = todayOnly;
+          if (it.lastHeatStatus && it.lastHeatStatus.workday && it.lastHeatStatus.workday !== wd) it.lastHeatStatus = null;
+        }
+      }
+      const active = it.todayOn === wd;
+      if (active && it.activeMark !== wd) {
+        mut();
+        it.activeMark = wd;
+      }
+      if (!active && it.activeMark === wd) {
+        mut();
+        it.activeMark = null;
+      }
+      return it;
+    });
+    const before = out.length;
+    out = out.filter(it => {
+      if (it.endDate && it.endDate < wd) return false;
+      if (it.isUrgent && periodEnd && wd > periodEnd) return false;
+      return true;
+    });
+    if (out.length !== before) changed = true;
+    return {
+      list: changed ? out : list,
+      changed
+    };
+  };
+  useEffect(() => {
+    if (isLoading || items.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      // 2026-08-23 버그수정: 화면을 오래 켜둔 기기가 낡은 기억(오래된 dayKey)을
+      // 기준으로 "새 날짜가 됐다"고 착각해 다른 사람이 방금 한 체크를 되돌리고,
+      // 그 되돌림이 최신 시각으로 저장돼 진짜 체크를 덮어쓰는 사고가 있었다.
+      // 자동정리를 실행하기 전에 서버 최신본을 한 번 받아와 그걸 기준으로 판단하면
+      // 낡은 스냅샷 때문에 오판하는 일이 없어진다. 실패하면(오프라인 등) 기존처럼
+      // 화면에 있는 것을 그대로 기준으로 삼는다.
+      let base = items;
+      if (MMEECStorage.isCloudEnabled()) {
+        try {
+          const fresh = await MMEECStorage.load();
+          if (!cancelled && fresh && Array.isArray(fresh.items) && fresh.items.length) {
+            base = fresh.items;
+          }
+        } catch (e) {}
+      }
+      if (cancelled) return;
+      const {
+        list,
+        changed
+      } = applyDailyCycle(base);
+      if (changed) persistItems(list);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, workday, items.length]);
+  const toggleTodayOff = (item, e) => {
+    if (e) e.stopPropagation();
+    const wd = getWorkdayKey();
+    const updated = items.map(it => {
+      if (it.id !== item.id) return it;
+      const on = it.todayOn === wd ? null : wd;
+      return {
+        ...it,
+        todayOn: on,
+        activeMark: on ? wd : null
+      };
+    });
+    persistItems(updated);
+  };
+  const toggleUrgentWorkType = type => {
+    setUrgentWorkTypes(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
+  };
+  const handleAddUrgent = () => {
+    if (!urgentFactory) {
+      showToast("공장을 선택해주세요.");
+      return;
+    }
+    const availableSubFactories = SUB_FACTORIES[urgentFactory] || [];
+    if (availableSubFactories.length > 0 && !urgentSubFactory) {
+      showToast("하위 공장을 선택해주세요.");
+      return;
+    }
+    if (!urgentWorkLocation.trim()) {
+      showToast("작업 위치를 입력해주세요.");
+      return;
+    }
+    if (!urgentWorkContent.trim()) {
+      showToast("작업 내용을 입력해주세요.");
+      return;
+    }
+    if (!urgentSupervisor.trim()) {
+      showToast("담당 감독자를 입력해주세요.");
+      return;
+    }
+    const generatedTitle = `${urgentFactory} ${urgentSubFactory} ${urgentWorkLocation.trim()} ${urgentWorkContent.trim()}`.replace(/\s+/g, ' ').trim();
+    const generatedLocation = `${urgentSubFactory} ${urgentWorkLocation.trim()}`.trim();
+    const newItem = {
+      id: `urgent-${Date.now()}`,
+      no: `긴급`,
+      factory: urgentFactory,
+      rawFactory: urgentFactory,
+      location: generatedLocation,
+      title: generatedTitle,
+      company: "긴급공사",
+      supervisor: urgentSupervisor.trim(),
+      assignedSupervisor: urgentSupervisor.trim(),
+      spotLocation: generatedLocation,
+      status: "pending",
+      grade: "긴급",
+      workType: urgentWorkTypes.length > 0 ? urgentWorkTypes.join("+") : "일반",
+      memo: "",
+      isUrgent: true
+    };
+    const updatedItems = [...items, newItem];
+    persistItems(updatedItems);
+    setShowAddModal(false);
+    setUrgentFactory("1공장");
+    setUrgentSubFactory("");
+    setUrgentWorkLocation("");
+    setUrgentWorkContent("");
+    setUrgentSupervisor("");
+    setUrgentWorkTypes([]);
+    showToast("⚡ 긴급공사가 추가되었습니다.");
+  };
+  const showToast = message => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2500);
+  };
+  const persistItems = async (newItems, metaOverride) => {
+    const prevMap = new Map((items || []).map(it => [it.id, JSON.stringify(it)]));
+    const now = Date.now();
+    const stamped = (newItems || []).map(it => {
+      const before = prevMap.get(it.id);
+      const after = JSON.stringify(it);
+      if (before === undefined || before !== after) {
+        return {
+          ...it,
+          updatedAt: now
+        };
+      }
+      return it;
+    });
+    setItems(stamped);
+    setSyncStatus("saving");
+    const meta = metaOverride || {
+      sheetTitle: sheetTitle || null,
+      periodStart,
+      periodEnd
+    };
+    try {
+      const result = await MMEECStorage.save(stamped, meta);
+      if (result.mode === "offline") {
+        setSyncStatus("offline");
+        setPendingSave(true);
+        showToast("📴 오프라인 저장됨 — 연결되면 자동 전송됩니다");
+      } else {
+        if (result.items) setItems(result.items);
+        setSyncStatus(result.mode === "cloud" ? "saved" : "local");
+        setPendingSave(false);
+      }
+    } catch (e) {
+      console.error(e);
+      setSyncStatus("error");
+      showToast("저장 실패 — 네트워크 확인 후 다시 시도");
+    }
+  };
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const data = await MMEECStorage.load();
+        if (!mounted) return;
+        setItems(data.items || []);
+        setSortedOrder(computeSortedOrder(data.items || [], selectedDate));
+        console.log("[포켓보드 v" + APP_VERSION + "] 로드:", (data.items || []).length + "건", "| workday:", getWorkdayKey(), "| dow:", getWorkdayDow(), "| data.js:", Object.keys(window.APP_DATA || {}).length > 0 ? "OK" : "누락!");
+        setSessionId(data.sessionId);
+        if (data.meta?.sheetTitle) setSheetTitle(data.meta.sheetTitle);
+        if (data.meta?.periodStart) setPeriodStart(data.meta.periodStart);
+        if (data.meta?.periodEnd) setPeriodEnd(data.meta.periodEnd);
+        setSyncStatus(MMEECStorage.isCloudEnabled() ? "saved" : "local");
+      } catch (e) {
+        console.error(e);
+        showToast("데이터 불러오기 실패");
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!MMEECStorage.isCloudEnabled()) return;
+    const socket = MMEECStorage.subscribeRealtime(sessionId, async () => {
+      try {
+        const data = await MMEECStorage.load();
+        setItems(data.items || []);
+        if (data.meta?.sheetTitle) setSheetTitle(data.meta.sheetTitle);
+        if (data.meta?.periodStart) setPeriodStart(data.meta.periodStart);
+        if (data.meta?.periodEnd) setPeriodEnd(data.meta.periodEnd);
+        showToast("📡 데이터가 자동으로 업데이트되었습니다.");
+      } catch (e) {
+        console.warn("Realtime 업데이트 실패:", e);
+      }
+    });
+    return () => {
+      if (socket) socket.close();
+    };
+  }, [sessionId]);
+  const syncLabel = {
+    idle: "준비",
+    saving: "저장 중…",
+    saved: "☁️ 저장됨",
+    local: "📱 기기 저장",
+    offline: "📴 오프라인 저장 (전송 대기)",
+    error: "⚠️ 저장 실패"
+  }[syncStatus] || "";
+  const handleFileUpload = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, {
+        type: 'array'
+      });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet, {
+        header: 1
+      });
+      const normCell = c => String(c ?? "").replace(/\s/g, "");
+      let headerRowIndex = -1;
+      for (let i = 0; i < rows.length; i++) {
+        if (!rows[i]) continue;
+        const normed = rows[i].map(normCell);
+        if (normed.includes("NO") && normed.includes("공장")) {
+          headerRowIndex = i;
+          break;
+        }
+      }
+      if (headerRowIndex === -1) {
+        console.warn("[엑셀 파싱 실패] 상위 10행 원본:", rows.slice(0, 10));
+        showToast("엑셀 양식 오류입니다. 확인 바랍니다.");
+        return;
+      }
+      const headers = rows[headerRowIndex].map(c => String(c ?? "").trim());
+      const noIdx = headers.indexOf("NO");
+      const factoryIdx = headers.indexOf("공장");
+      const bizIdx = headers.indexOf("사업장");
+      const locIdx = headers.indexOf("세부위치");
+      const nameIdx = headers.indexOf("공사명");
+      const gradeIdx = headers.indexOf("등급");
+      const workIdx = headers.indexOf("작업");
+      const supervisorIdx = headers.indexOf("감독");
+      const dateColMap = {};
+      const dowMap = {
+        일: 0,
+        월: 1,
+        화: 2,
+        수: 3,
+        목: 4,
+        금: 5,
+        토: 6
+      };
+      let sheetMonth = null;
+      for (let r = 0; r < Math.min(rows.length, headerRowIndex + 1); r++) {
+        const line = (rows[r] || []).map(c => c == null ? "" : String(c)).join(" ");
+        const mm = line.match(/(\d{1,2})\s*[\/월]\s*\d{1,2}/);
+        if (mm) {
+          const v = Number(mm[1]);
+          if (v >= 1 && v <= 12) {
+            sheetMonth = v;
+            break;
+          }
+        }
+      }
+      const scanDateRow = rowArr => {
+        if (!rowArr) return;
+        let curMonth = sheetMonth,
+          prevDay = 0;
+        rowArr.forEach((h, i) => {
+          if (h == null) return;
+          const s = String(h).trim();
+          const dowChar = (s.match(/[월화수목금토일]/) || [])[0];
+          const dayNum = (s.match(/(\d{1,2})/) || [])[1];
+          if (dowChar && dowMap[dowChar] !== undefined && dateColMap[i] === undefined) {
+            const d = dayNum ? Number(dayNum) : 0;
+            if (curMonth != null && d > 0 && prevDay > 0 && d < prevDay) {
+              curMonth = curMonth === 12 ? 1 : curMonth + 1;
+            }
+            if (d > 0) prevDay = d;
+            dateColMap[i] = {
+              day: d,
+              dow: dowMap[dowChar],
+              month: curMonth
+            };
+          }
+        });
+      };
+      scanDateRow(rows[headerRowIndex]);
+      scanDateRow(rows[headerRowIndex + 1]);
+      const dateRowIsNext = Object.keys(dateColMap).length > 0 && Object.keys(dateColMap).some(ci => {
+        const cell = rows[headerRowIndex + 1]?.[ci];
+        return cell != null && /[월화수목금토일]/.test(String(cell));
+      });
+      const dataStartIndex = dateRowIsNext ? headerRowIndex + 2 : headerRowIndex + 1;
+      console.log("[엑셀] 헤더행:", headerRowIndex, "| 날짜컬럼:", dateColMap, "| 데이터시작:", dataStartIndex);
+      const dateRangePattern = /\d{1,2}\s*\/\s*\d{1,2}\s*[~\-]\s*\d{1,2}\s*\/\s*\d{1,2}/;
+      const monthWeekRow = rows.find(r => r && r[0] && String(r[0]).includes("월") && String(r[0]).includes("주"));
+      const dateOnlyRow = rows.find(r => r && r[0] && dateRangePattern.test(String(r[0])));
+      let detectedTitle;
+      if (monthWeekRow) {
+        const raw = String(monthWeekRow[0]).trim();
+        if (dateRangePattern.test(raw)) {
+          detectedTitle = raw;
+        } else {
+          const entries = Object.values(dateColMap);
+          if (entries.length) {
+            const base = entries[0].month;
+            const val = e => e.day + (e.month - base + (e.month < base ? 12 : 0)) * 31;
+            const first = entries.reduce((a, b) => val(a) <= val(b) ? a : b);
+            const last = entries.reduce((a, b) => val(a) >= val(b) ? a : b);
+            detectedTitle = `${raw} ${first.month}/${first.day}~${last.month}/${last.day}`;
+          } else {
+            detectedTitle = raw;
+          }
+        }
+      } else if (dateOnlyRow) {
+        detectedTitle = String(dateOnlyRow[0]).trim();
+      } else {
+        detectedTitle = firstSheetName;
+      }
+      const parsedList = [];
+      for (let i = dataStartIndex; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0 || !row[noIdx]) continue;
+        const rawFactory = row[factoryIdx] || "";
+        const normalizedFactory = normalizeFactoryName(rawFactory);
+        const rawSupervisor = row[supervisorIdx] || "";
+        const dateWorkers = {};
+        Object.entries(dateColMap).forEach(([ci, info]) => {
+          const val = Number(row[ci] || 0);
+          let slot = info.dow;
+          while (dateWorkers[slot] !== undefined) slot += 7;
+          dateWorkers[slot] = {
+            day: info.day,
+            workers: val,
+            month: info.month ?? null
+          };
+        });
+        const wdDateForInit = getWorkdayDate();
+        const curDay = wdDateForInit.getDate();
+        const curMonth = wdDateForInit.getMonth() + 1;
+        let initialPast = 0;
+        Object.values(dateWorkers).forEach(dw => {
+          if (dw.workers <= 0) return;
+          const dwMonth = dw.month ?? curMonth;
+          const diffDays = (curMonth - dwMonth + (curMonth < dwMonth ? 12 : 0)) * 31 + (curDay - dw.day);
+          if (diffDays > 0 && diffDays <= 7) initialPast++;
+        });
+        parsedList.push({
+          id: `mmeec-${row[noIdx]}-${normalizedFactory}-${String(row[nameIdx] || "").slice(0, 20)}`,
+          no: row[noIdx],
+          factory: normalizedFactory,
+          rawFactory: rawFactory,
+          location: row[locIdx] || "",
+          title: row[nameIdx] || "",
+          company: row[bizIdx] || "미지정 업체",
+          supervisor: rawSupervisor,
+          assignedSupervisor: rawSupervisor,
+          spotLocation: "",
+          status: "pending",
+          grade: row[gradeIdx] || "B",
+          workType: row[workIdx] || "",
+          memo: "",
+          dateWorkers,
+          endDate: computeEndDate(dateWorkers),
+          pastWorkDays: initialPast,
+          dayKey: getWorkdayKey()
+        });
+      }
+      if (parsedList.length > 0) {
+        const merged = MMEECStorage.mergeItems(items, parsedList);
+        const cycled = applyDailyCycle(merged).list;
+        const range = computeDateRange(dateColMap);
+        setSheetTitle(detectedTitle);
+        setPeriodStart(range.start);
+        setPeriodEnd(range.end);
+        persistItems(cycled, {
+          sheetTitle: detectedTitle,
+          periodStart: range.start,
+          periodEnd: range.end
+        });
+        setSortedOrder(computeSortedOrder(cycled, selectedDate));
+        setActiveTab("전체");
+        const noDateCol = Object.keys(dateColMap).length === 0;
+        showToast(noDateCol ? `총 ${parsedList.length}건 업로드 — ⚠️ 날짜 정보를 못 찾아 TODAY 표시가 안 됩니다` : `총 ${parsedList.length}건 업로드 (기존 입력 유지)`);
+      } else {
+        showToast("추출된 공사 데이터가 없습니다.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  const extraItems = useMemo(() => {
+    return items.filter(item => !item.isUrgent && !hasWorkToday(item));
+  }, [items, nowTick]);
+  const toggleExtraSelect = id => {
+    setSelectedExtras(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const withTodayAssigned = item => {
+    const d = getWorkdayDate();
+    const dw = {
+      ...(item.dateWorkers || {})
+    };
+    const existing = findDayWorkers(dw, d);
+    if (existing) {
+      existing.workers = Math.max(1, Number(existing.workers) || 0);
+      return dw;
+    }
+    let slot = d.getDay();
+    while (dw[slot] !== undefined) slot += 7;
+    dw[slot] = {
+      day: d.getDate(),
+      month: d.getMonth() + 1,
+      workers: 1
+    };
+    return dw;
+  };
+  const addExtraItems = () => {
+    const toAdd = items.map(item => selectedExtras.includes(item.id) ? {
+      ...item,
+      dateWorkers: withTodayAssigned(item)
+    } : item);
+    persistItems(toAdd);
+    setSelectedExtras([]);
+    setShowAddModal(false);
+    showToast(`${selectedExtras.length}건이 오늘 목록에 추가됐습니다.`);
+  };
+  const activeFactories = useMemo(() => {
+    const set = new Set(items.map(item => factoryDisplay(item.factory)));
+    const inData = SUPPORTED_FACTORIES.filter(f => set.has(f));
+    const filtered = myFactories ? inData.filter(f => myFactories.includes(f)) : inData;
+    return ["전체", ...filtered];
+  }, [items, myFactories]);
+  const touchStart = useRef(null);
+  const onListTouchStart = e => {
+    const t = e.touches && e.touches[0];
+    touchStart.current = t ? {
+      x: t.clientX,
+      y: t.clientY
+    } : null;
+  };
+  const onListTouchEnd = e => {
+    const s = touchStart.current;
+    touchStart.current = null;
+    if (!s || activeFactories.length < 2) return;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const idx = activeFactories.indexOf(activeTab);
+    if (idx === -1) return;
+    const len = activeFactories.length;
+    const next = dx < 0 ? (idx + 1) % len : (idx - 1 + len) % len;
+    setActiveTab(activeFactories[next]);
+    setSlideDir(dx < 0 ? "left" : "right");
+  };
+  const [slideDir, setSlideDir] = useState(null);
+  useEffect(() => {
+    if (!slideDir) return;
+    const t = setTimeout(() => setSlideDir(null), 260);
+    return () => clearTimeout(t);
+  }, [slideDir, activeTab]);
+  const tabRefs = useRef({});
+  useEffect(() => {
+    const el = tabRefs.current[activeTab];
+    if (el && el.scrollIntoView) {
+      try {
+        el.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center"
+        });
+      } catch {}
+    }
+  }, [activeTab]);
+  const [bookmarkIds, setBookmarkIds] = useState(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem("MMEEC_BOOKMARK") || "null");
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw.filter(Boolean);
+      if (raw.id) return [raw.id];
+      return [];
+    } catch {
+      return [];
+    }
+  });
+  const saveBookmarkIds = next => {
+    setBookmarkIds(next);
+    localStorage.setItem("MMEEC_BOOKMARK", JSON.stringify(next));
+  };
+  const toggleBookmark = () => {
+    if (!selectedItem) return;
+    const has = bookmarkIds.includes(selectedItem.id);
+    const next = has ? bookmarkIds.filter(id => id !== selectedItem.id) : [...bookmarkIds, selectedItem.id];
+    saveBookmarkIds(next);
+    showToast(has ? "즐겨찾기 저장을 해제했습니다." : "즐겨찾기로 저장했습니다.");
+  };
+  useEffect(() => {
+    if (isLoading) return;
+    if (items.length === 0) return;
+    if (bookmarkIds.length === 0) return;
+    const validIds = new Set(items.map(i => i.id));
+    const pruned = bookmarkIds.filter(id => validIds.has(id));
+    if (pruned.length !== bookmarkIds.length) saveBookmarkIds(pruned);
+  }, [items, isLoading]);
+  const selectedKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+  const inPeriod = !periodStart || !periodEnd || selectedKey >= periodStart && selectedKey <= periodEnd;
+  const filteredItems = useMemo(() => {
+    if (!inPeriod) return [];
+    return activeTab === "전체" ? items : items.filter(item => factoryDisplay(item.factory) === activeTab);
+  }, [items, activeTab, inPeriod]);
+  const GONGJEONG_ORDER = ["프레스", "차체", "도장", "의장"];
+  const gongjeongRank = item => {
+    const t = item.title || "";
+    const i = GONGJEONG_ORDER.findIndex(g => t.includes(g));
+    return i < 0 ? GONGJEONG_ORDER.length : i;
+  };
+  const computeSortedOrder = (list, date) => {
+    return (list || []).map((item, idx) => ({
+      item,
+      idx
+    })).sort((a, b) => {
+      const ta = hasWorkOn(a.item, date) ? 0 : 1;
+      const tb = hasWorkOn(b.item, date) ? 0 : 1;
+      if (ta !== tb) return ta - tb;
+      const fa = bookmarkIds.includes(a.item.id) ? 0 : 1;
+      const fb = bookmarkIds.includes(b.item.id) ? 0 : 1;
+      if (fa !== fb) return fa - fb;
+      const ga = gongjeongRank(a.item),
+        gb = gongjeongRank(b.item);
+      if (ga !== gb) return ga - gb;
+      return a.idx - b.idx;
+    }).map(x => x.item.id);
+  };
+  const [sortedOrder, setSortedOrder] = useState([]);
+  const selectedDateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
+  useEffect(() => {
+    setSortedOrder(computeSortedOrder(items, selectedDate));
+  }, [selectedDateKey]);
+  const displayItems = useMemo(() => {
+    const rank = new Map(sortedOrder.map((id, i) => [id, i]));
+    return filteredItems.map((item, idx) => ({
+      item,
+      idx
+    })).sort((a, b) => {
+      const ra = rank.has(a.item.id) ? rank.get(a.item.id) : Number.MAX_SAFE_INTEGER;
+      const rb = rank.has(b.item.id) ? rank.get(b.item.id) : Number.MAX_SAFE_INTEGER;
+      if (ra !== rb) return ra - rb;
+      return a.idx - b.idx;
+    }).map(x => x.item);
+  }, [filteredItems, sortedOrder]);
+  const scheduledCount = useMemo(() => {
+    const viewingToday = dateOffset === 0;
+    return filteredItems.filter(item => hasWorkOn(item, selectedDate) || viewingToday && isOngoingItem(item)).length;
+  }, [filteredItems, dateOffset, selectedDate, after17]);
+  const getSupervisorPool = factoryName => {
+    const fixed = FIXED_SUPERVISORS[factoryName] || [];
+    const dynamicallyAssigned = items.filter(item => factoryDisplay(item.factory) === factoryName && item.assignedSupervisor).map(item => item.assignedSupervisor.trim());
+    return Array.from(new Set([...fixed, ...dynamicallyAssigned])).filter(Boolean);
+  };
+  const [cardHeatOpen, setCardHeatOpen] = useState(null);
+  const [cardTemp, setCardTemp] = useState("");
+  const [cardHum, setCardHum] = useState("");
+  const [cardStage, setCardStage] = useState({});
+  const STAGE_SEQ = ["전", "중", "후"];
+  const stageLabel = s => s === "후" ? "종료" : `공사${s}`;
+  const defaultStageOf = item => {
+    if (item.status !== "checked") return "전";
+    return after17 && item.extendHour == null ? "후" : "중";
+  };
+  const stageOf = item => cardStage[item.id] || defaultStageOf(item);
+  const moveStage = (item, dir) => {
+    const cur = STAGE_SEQ.indexOf(stageOf(item));
+    const next = (cur + dir + STAGE_SEQ.length) % STAGE_SEQ.length;
+    setCardStage(prev => ({
+      ...prev,
+      [item.id]: STAGE_SEQ[next]
+    }));
+  };
+  const openBottomSheet = item => {
+    setSelectedItem(item);
+    setSpotLocation(item.spotLocation || "");
+    setAssignedSupervisor(item.assignedSupervisor || "");
+    setMemo(item.memo || "");
+    setDirectWorkers(item.directWorkers || "");
+    setDailyWorkers(item.dailyWorkers || "");
+    setPartnerName(item.partnerName || "");
+    setPartnerWorkers(item.partnerWorkers || "");
+    setReportStage(item.reportStage || "전");
+    setHasElderly(item.hasElderly || false);
+    setElderlyCount(item.elderlyCount || 1);
+    setHeatTemp("");
+    setHeatHumidity("");
+    const wd = getWorkdayKey();
+    setHeatResults((item.heatResults || []).filter(r => !r.workday || r.workday === wd));
+    setExtendHour(item.extendHour ?? null);
+  };
+  const cleanCount = v => {
+    const n = parseInt(String(v).replace(/[^\d]/g, ""), 10);
+    return isNaN(n) || n < 0 ? "" : String(n);
+  };
+  const handleSaveDetails = () => {
+    if (!selectedItem) return;
+    const isChecked = spotLocation.trim() !== "" && assignedSupervisor.trim() !== "";
+    const updatedItems = items.map(item => {
+      if (item.id === selectedItem.id) {
+        return {
+          ...item,
+          spotLocation: spotLocation.trim(),
+          assignedSupervisor: assignedSupervisor.trim(),
+          ...(item.isUrgent ? {
+            location: spotLocation.trim()
+          } : {}),
+          memo: memo.trim(),
+          directWorkers: cleanCount(directWorkers),
+          dailyWorkers: cleanCount(dailyWorkers),
+          partnerName: partnerName.trim(),
+          partnerWorkers: cleanCount(partnerWorkers),
+          reportStage,
+          hasElderly,
+          elderlyCount: cleanCount(elderlyCount) || "1",
+          extendHour,
+          status: isChecked ? "checked" : "pending",
+          dayKey: workday,
+          todayOn: workday,
+          activeMark: workday,
+          dateWorkers: hasWorkToday(item) ? item.dateWorkers : withTodayAssigned(item)
+        };
+      }
+      return item;
+    });
+    persistItems(updatedItems);
+    setSelectedItem(null);
+    showToast("점검 기록이 저장되었습니다.");
+  };
+  const handleCardReset = () => {
+    if (!selectedItem) return;
+    const updatedItems = items.map(item => {
+      if (item.id !== selectedItem.id) return item;
+      return {
+        ...item,
+        spotLocation: "",
+        assignedSupervisor: "",
+        ...(item.isUrgent ? {
+          location: ""
+        } : {}),
+        memo: "",
+        directWorkers: "",
+        dailyWorkers: "",
+        partnerName: "",
+        partnerWorkers: "",
+        hasElderly: false,
+        elderlyCount: "1",
+        extendHour: null,
+        status: "pending",
+        dayKey: workday
+      };
+    });
+    persistItems(updatedItems);
+    setShowCardResetConfirm(false);
+    setSelectedItem(null);
+    showToast("입력 내용이 초기화되어 공사전 상태로 되돌아갔습니다.");
+  };
+  const findHeatRecordForStage = (item, stage) => {
+    const wd = getWorkdayKey();
+    const todays = (item.heatResults || []).filter(r => !r.workday || r.workday === wd).map(r => ({
+      ...r,
+      _hm: toHm24(r)
+    })).filter(r => r._hm).sort((a, b) => a._hm.localeCompare(b._hm));
+    if (todays.length === 0) return null;
+    if (stage === "전") return todays[0];
+    return todays.find(r => r._hm >= "12:00" && r._hm <= "14:00") || null;
+  };
+  const buildSafetyReport = (item, stage, elderly, elderlyCount, heatRec) => {
+    const grade = (item.grade || "").trim();
+    const workCode = (item.workType || "").trim();
+    const validKeys = Object.keys(WORK_TYPE_SAFETY);
+    let codes;
+    if (workCode.includes("+") || WORK_TYPE_LABEL_CODE[workCode]) {
+      codes = workCode.split("+").map(label => WORK_TYPE_LABEL_CODE[label.trim()]).filter(c => c && validKeys.includes(c));
+    } else {
+      codes = workCode.split("").filter(c => validKeys.includes(c));
+    }
+    codes = Array.from(new Set(codes));
+    const specificMeasures = [];
+    codes.forEach(c => {
+      const entry = WORK_TYPE_SAFETY[c];
+      if (entry && entry.measures.length > 0) {
+        specificMeasures.push(entry.measures[0]);
+      }
+    });
+    const allMeasures = [...COMMON_MEASURES, ...specificMeasures];
+    const stageLabel = stage === "전" ? "공사 전" : stage === "중" ? "공사 중" : "공사 후";
+    const workTypeLine = `${grade}급`;
+    const elderlyLine = elderly ? `65세 이상 고령자 ${elderlyCount || "O"}명 / 작업 전 하지근력 및 평형성 테스트 실시` : `65세 이상 작업자 없음`;
+    const fallbackLocation = [item.company, item.location].filter(Boolean).join(" ");
+    const location = item.spotLocation || fallbackLocation || "";
+    const heatLines = heatRec ? heatRec.level === "보통" ? [`*폭염대책 : 체감온도 ${fmt1(heatRec.value)}℃ (관심 관리)`] : [`*폭염대책 : 체감온도 ${fmt1(heatRec.value)}℃ (${heatRec.level})`, `  - ${heatRec.guide}`] : [];
+    const extendLine = item.extendHour != null ? [`*작업연장 : ${fmtExtend(item.extendHour)}`] : [];
+    if (stage === "후") {
+      return [`공사 후 안전작업 이행결과`, `*업 체 명 : ${item.companyName || "MMEEC"}`, `*허가번호 : 2607`, `*작업위치 : ${location}`, `*작업유형 : ${workTypeLine}`, `*작업내용 : ${item.title || ""}`, ...extendLine, `*작업장 주변 정리정돈 후 작업 종료합니다.`].join("\n");
+    }
+    return [`공사 ${stage === "전" ? "전" : "중"} 안전작업 이행결과`, `*업 체 명 : ${item.companyName || "MMEEC"}`, `*허가번호 : 2607`, `*작업위치 : ${location}`, `*작업유형 : ${workTypeLine}`, `*작업내용 : ${item.title || ""}`, ...extendLine, `*안전대책 :`, ...allMeasures.map(m => `  - ${m}`), ...heatLines, `*65세이상 고령자 : ${elderlyLine}`, `* TBM 실시 후 작업 시작합니다.`].join("\n");
+  };
+  const [safetyReportDraft, setSafetyReportDraft] = useState(null);
+  const handleSafetyReportCopy = (item, e) => {
+    if (e) e.stopPropagation();
+    const location = item.spotLocation || item.location || "";
+    if (!location) {
+      showToast("작업위치를 입력해주세요.");
+      return;
+    }
+    const stage = item.reportStage || "전";
+    let heatRec = null;
+    if (stage === "전" || stage === "중") {
+      heatRec = findHeatRecordForStage(item, stage);
+    }
+    const text = buildSafetyReport(item, stage, item.hasElderly || false, item.elderlyCount || 1, heatRec);
+    setSafetyReportDraft(text);
+  };
+  const handleKakaoCopy = (item, e) => {
+    if (e) e.stopPropagation();
+    if (!item.title || !item.spotLocation || !item.assignedSupervisor) {
+      showToast("먼저 카드를 눌러 공사위치·감독자를 입력해주세요.");
+      return;
+    }
+    const extendTag = item.extendHour != null ? `  ${fmtExtend(item.extendHour)}` : "";
+    const line1 = item.title + extendTag;
+    const line2 = `  ${item.spotLocation}  감독-${item.assignedSupervisor}`;
+    const dCount = parseInt(item.directWorkers, 10) || 0;
+    const wCount = parseInt(item.dailyWorkers, 10) || 0;
+    const pCount = parseInt(item.partnerWorkers, 10) || 0;
+    const manpowerParts = [];
+    if (dCount > 0) manpowerParts.push(`직${dCount}`);
+    if (wCount > 0) manpowerParts.push(`일용${wCount}`);
+    if (item.partnerName && pCount > 0) manpowerParts.push(`${item.partnerName} ${pCount}`);
+    const line3 = manpowerParts.join(" ");
+    const text = [line1, line2, line3].filter(Boolean).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      showToast("💬 카톡용 문구가 복사되었습니다.");
+    }).catch(() => {
+      showToast("클립보드 복사에 실패했습니다.");
+    });
+  };
+  const openFactoryFilter = () => {
+    setFilterDraft(myFactories ? [...myFactories] : []);
+    setShowFactoryFilter(true);
+  };
+  useEffect(() => {
+    if (!myFactories || myFactories.length === 0) {
+      setFilterDraft([]);
+      setShowFactoryFilter(true);
+    }
+  }, []);
+  useEffect(() => {
+    if (myFactories && myFactories.length > 0) {
+      setActiveTab(myFactories[0]);
+    }
+  }, [isLoading]);
+
+  const openPwModal = target => {
+    setPwTarget(target);
+    setPwInput("");
+    setPwError(false);
+    setShowPwModal(true);
+  };
+  const confirmPw = async () => {
+    try {
+      const ok = await rpc("admin_confirm_check", {
+        p_code: pwInput
+      });
+      if (!ok) {
+        setPwError(true);
+        return;
+      }
+    } catch (e) {
+      setPwError(true);
+      return;
+    }
+    setShowPwModal(false);
+    if (pwTarget === "reset") {
+      doReset();
+    } else if (pwTarget === "company") {
+      setCompanyNameDraft(companyName);
+      setShowCompanyEdit(true);
+    }
+  };
+  const toggleFilterFactory = f => {
+    if (masterLevel < 1) {
+      setFilterDraft([f]);
+      return;
+    }
+    setFilterDraft(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
+  };
+  const saveFactoryFilter = () => {
+    const sorted = SUPPORTED_FACTORIES.filter(f => filterDraft.includes(f));
+    if (sorted.length === 0) {
+      showToast("내 공장을 1개 이상 선택해주세요.");
+      return;
+    }
+    setMyFactories(sorted);
+    localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(sorted));
+    setShowFactoryFilter(false);
+    setActiveTab(sorted[0]);
+    showToast("내 공장 설정이 저장됐습니다.");
+  };
+  const [showCompanyEdit, setShowCompanyEdit] = useState(false);
+  const saveCompanyName = () => {
+    const name = companyNameDraft.trim() || "MMEEC";
+    setCompanyName(name);
+    localStorage.setItem("MMEEC_COMPANY_NAME", name);
+    setShowCompanyEdit(false);
+    showToast("회사명이 저장됐습니다.");
+  };
+  const doReset = async () => {
+    try {
+      await MMEECStorage.clear(sessionId);
+    } catch (e) {
+      console.error(e);
+    }
+    setItems([]);
+    setSortedOrder([]);
+    setSheetTitle("");
+    setPeriodStart(null);
+    setPeriodEnd(null);
+    setActiveTab("전체");
+    saveBookmarkIds([]);
+    showToast("데이터가 초기화되었습니다.");
+  };
+  const [showWeather, setShowWeather] = useState(false);
+  const [weather, setWeather] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("MMEEC_WEATHER") || "null");
+    } catch {
+      return null;
+    }
+  });
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [wrnExpand, setWrnExpand] = useState(false);
+  const fetchWeather = async force => {
+    const cfg = window.APP_CONFIG || {};
+    if (!cfg.kmaServiceKey) {
+      showToast("기상청 연결 설정이 필요합니다.");
+      return;
+    }
+    const TTL = 60 * 60 * 1000;
+    if (!force && weather && Date.now() - weather.ts < TTL) return;
+    setWeatherLoading(true);
+    const result = {
+      ts: Date.now(),
+      temp: null,
+      humidity: null,
+      warnings: [],
+      bulletin: "",
+      error: null,
+      wrnOk: false,
+      wrnCheckedAt: null,
+      wrnStale: false
+    };
+    const prev = weather || (() => {
+      try {
+        return JSON.parse(localStorage.getItem("MMEEC_WEATHER") || "null");
+      } catch {
+        return null;
+      }
+    })();
+    const getJson = async url => {
+      try {
+        const r = await fetch(url);
+        return await r.json();
+      } catch (e) {
+        if (!cfg.sheetsWebhookUrl) throw e;
+        const pr = await fetch(`${cfg.sheetsWebhookUrl}?proxy=${encodeURIComponent(url)}`);
+        return await pr.json();
+      }
+    };
+    try {
+      const now = new Date(Date.now() - 45 * 60 * 1000);
+      const bd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+      const bt = `${String(now.getHours()).padStart(2, "0")}00`;
+      const ncstUrl = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst` + `?serviceKey=${encodeURIComponent(cfg.kmaServiceKey)}&dataType=JSON&numOfRows=10&pageNo=1` + `&base_date=${bd}&base_time=${bt}&nx=${cfg.kmaNx || 103}&ny=${cfg.kmaNy || 84}`;
+      const j1 = await getJson(ncstUrl);
+      const obs = j1?.response?.body?.items?.item || [];
+      obs.forEach(o => {
+        if (o.category === "T1H") result.temp = o.obsrValue;
+        if (o.category === "REH") result.humidity = o.obsrValue;
+      });
+    } catch (e) {
+      console.warn("기상 실황 조회 실패:", e);
+      result.error = "실황";
+    }
+    try {
+      const base = `https://apis.data.go.kr/1360000/WthrWrnInfoService`;
+      const key = encodeURIComponent(cfg.kmaServiceKey);
+      const areaKw = cfg.kmaAreaKeyword || "울산";
+      const statusUrl = `${base}/getPwnStatus?serviceKey=${key}&dataType=JSON&numOfRows=10&pageNo=1`;
+      let items = [];
+      try {
+        const j = await getJson(statusUrl);
+        let it = j?.response?.body?.items?.item || [];
+        if (it && !Array.isArray(it)) it = [it];
+        items = it;
+      } catch (e1) {
+        console.warn("getPwnStatus 실패:", e1);
+        throw e1;
+      }
+      const t6 = items.map(m => m.t6 || "").join("\n");
+      const regionLines = t6.split("\n").filter(l => l.includes(areaKw));
+      const scope = regionLines.length ? regionLines.join(" ") : "";
+      const found = scope.match(/[가-힣]{2,4}(?:중대경보|경보|주의보)/g) || [];
+      result.warnings = Array.from(new Set(found.map(s => s.replace(/\s+/g, ""))));
+      result.bulletin = (regionLines.length ? regionLines.join("\n") : t6).trim().slice(0, 800);
+      result.wrnOk = true;
+      result.wrnCheckedAt = Date.now();
+      result.wrnStale = false;
+    } catch (e) {
+      console.warn("기상특보 조회 실패:", e);
+      if (!result.error) result.error = "특보";
+      result.wrnOk = false;
+      if (prev) {
+        result.warnings = prev.warnings || [];
+        result.bulletin = prev.bulletin || "";
+        result.wrnCheckedAt = prev.wrnCheckedAt || prev.ts || null;
+      }
+      result.wrnStale = (result.warnings || []).length > 0;
+    }
+    setWeather(result);
+    try {
+      localStorage.setItem("MMEEC_WEATHER", JSON.stringify(result));
+    } catch {}
+    setWeatherLoading(false);
+  };
+  useEffect(() => {
+    fetchWeather(false);
+    const t = setInterval(() => fetchWeather(false), 10 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  const itemsToRows = list => list.map(it => ({
+    "공장": factoryDisplay(it.factory) || "",
+    "사업장": it.company || "",
+    "공사명": it.title || "",
+    "등급": it.grade || "",
+    "작업": it.workType || "",
+    "공사위치": it.spotLocation || "",
+    "감독자": it.assignedSupervisor || "",
+    "직영": it.directWorkers || "",
+    "일용": it.dailyWorkers || "",
+    "협력사": it.partnerName || "",
+    "협력인원": it.partnerWorkers || "",
+    "상태": it.status === "checked" ? "공사중" : "공사전",
+    "연장": it.extendHour != null ? fmtExtend(it.extendHour) : "",
+    "작업일수": workDayCount(it) || "",
+    "메모": it.memo || "",
+    "체감온도기록": (it.heatResults || []).slice().reverse().map(r => `${toHm24(r) || r.time} ${fmt1(r.value)}℃(${r.level})`).join(" | ")
+  }));
+  const exportExcel = (list, label) => {
+    if (!list || list.length === 0) {
+      showToast("내보낼 데이터가 없습니다.");
+      return;
+    }
+    try {
+      const ws = XLSX.utils.json_to_sheet(itemsToRows(list));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "진행기록");
+      XLSX.writeFile(wb, `포켓보드_${label}_${getWorkdayKey()}.xlsx`);
+      showToast("📊 엑셀 파일이 다운로드되었습니다.");
+    } catch (e) {
+      console.error(e);
+      showToast("엑셀 생성 실패");
+    }
+  };
+  const [showMaster, setShowMaster] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("MMEEC_DARK") === "1");
+  const toggleDarkMode = () => {
+    setDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem("MMEEC_DARK", next ? "1" : "0");
+      return next;
+    });
+  };
+  const [showAccess, setShowAccess] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
+  const [accessStats, setAccessStats] = useState(null);
+  const [accessCombos, setAccessCombos] = useState(null);
+  const [accessRoleStats, setAccessRoleStats] = useState(null);
+  const [accessBusy, setAccessBusy] = useState(false);
+  const [accessErr, setAccessErr] = useState("");
+  const [masterCode, setMasterCode] = useState(() => {
+    try {
+      // 2026-08-26 v2.55: 인증 유효기간(30일) 해제 — 한 번 로그인하면 이 기기에서 계속 유지
+      const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
+      if (at > 0) {
+        return localStorage.getItem("MMEEC_ADMIN_CODE") || "";
+      }
+    } catch {}
+    return "";
+  });
+  const [masterLevel, setMasterLevel] = useState(() => {
+    try {
+      const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
+      if (at > 0) return Number(localStorage.getItem("MMEEC_ADMIN_LV") || 2);
+    } catch {}
+    return 0;
+  });
+  const appDisplayName = masterLevel >= 2 ? "포켓보드 Master" : masterLevel >= 1 ? "포켓보드 PRO" : "포켓보드";
+  const appNameBadge = masterLevel >= 2 ? "Master" : masterLevel >= 1 ? "PRO" : "";
+  useEffect(() => {
+    document.title = `MMEEC 현장 점검 ${appDisplayName} ${APP_VERSION}`;
+  }, [appDisplayName]);
+  useEffect(() => {
+    if (masterLevel < 1 && myFactories && myFactories.length > 1) {
+      const trimmed = [myFactories[0]];
+      setMyFactories(trimmed);
+      localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(trimmed));
+    }
+  }, [masterLevel, myFactories]);
+  const [masterContacts, setMasterContacts] = useState(null);
+  const [masterBusy, setMasterBusy] = useState(false);
+  const [ctName, setCtName] = useState("");
+  const [ctPhone, setCtPhone] = useState("");
+  const [ctFactory, setCtFactory] = useState("");
+  const [ctDept, setCtDept] = useState("");
+  const [adminAuthed, setAdminAuthed] = useState(() => {
+    try {
+      const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
+      return at > 0;
+    } catch {
+      return false;
+    }
+  });
+  const [contactBook, setContactBook] = useState(() => {
+    try {
+      const at = Number(localStorage.getItem("MMEEC_ADMIN_AT") || 0);
+      if (at > 0) {
+        return JSON.parse(localStorage.getItem("MMEEC_CONTACTS") || "[]");
+      }
+    } catch {}
+    return [];
+  });
+  const FACTORY_DEPT_MAP = {
+    "1공장": ["영업1"],
+    "2공장": ["영업2"],
+    "3공장": ["영업3"],
+    "4공장": ["영업4"],
+    "5공장": ["영업5"],
+    "6 PT": ["PT설비", "PT집진1", "PT집진2"],
+    "7 소재": ["소재집진", "8.소재"],
+    "8 아산": ["아산"]
+  };
+  const WIDE_DEPTS = ["프레스(전공장)", "차체로봇(전공장)", "차체기술(전공장)", "자동기(전공장)", "PT로봇(엔변)"];
+  const ALL_DEPTS = [...new Set([...Object.values(FACTORY_DEPT_MAP).flat(), ...WIDE_DEPTS])];
+  const findContact = item => {
+    if (!adminAuthed || !item.assignedSupervisor) return null;
+    const nm = item.assignedSupervisor.trim().replace(/2$/, "");
+    const fac = factoryDisplay((item.factory || "").trim());
+    const deptCandidates = FACTORY_DEPT_MAP[fac] || [];
+    const isMainFactory = /^[1-5]공장$/.test(fac);
+    const inScope = contactBook.find(c => {
+      if ((c.name || "").trim().replace(/2$/, "") !== nm) return false;
+      const d = c.dept || "";
+      if (deptCandidates.includes(d)) return true;
+      if (isMainFactory && WIDE_DEPTS.includes(d)) return true;
+      return false;
+    });
+    if (inScope) return inScope;
+    return contactBook.find(c => (c.name || "").trim().replace(/2$/, "") === nm && factoryDisplay((c.factory || "").trim()) === fac) || contactBook.find(c => (c.name || "").trim().replace(/2$/, "") === nm) || null;
+  };
+  const rpc = async (fn, params) => {
+    const cfg = window.APP_CONFIG || {};
+    const res = await fetch(`${cfg.supabaseUrl}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: {
+        apikey: cfg.supabaseKey,
+        Authorization: `Bearer ${cfg.supabaseKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(params)
+    });
+    if (!res.ok) throw new Error(`RPC ${fn} 실패 (${res.status})`);
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  };
+  const checkNotice = async () => {
+    try {
+      const cfg = window.APP_CONFIG || {};
+      if (!cfg.supabaseUrl) return;
+      const rows = await rpc("get_notice", {});
+      const n = Array.isArray(rows) ? rows[0] : rows;
+      if (!n || !n.body || !n.body.trim()) return;
+      setNotice(n);
+      const seen = localStorage.getItem("MMEEC_NOTICE_SEEN") || "";
+      if (seen !== n.updated_at) setShowNotice(true);
+    } catch (e) {}
+  };
+  useEffect(() => {
+    checkNotice();
+    const timer = setInterval(checkNotice, 5 * 60 * 1000);
+    const onVisible = () => {
+      if (!document.hidden) checkNotice();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", checkNotice);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", checkNotice);
+    };
+  }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        if (window.__KAKAO_IOS__) return;
+        const cfg = window.APP_CONFIG || {};
+        if (!cfg.supabaseUrl) return;
+        let dev = localStorage.getItem("MMEEC_DEVICE_ID");
+        if (!dev) {
+          dev = window.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2).padEnd(16, "0");
+          localStorage.setItem("MMEEC_DEVICE_ID", dev);
+        }
+        const my = myFactories && myFactories.length ? myFactories[0] : "";
+        const myAll = myFactories && myFactories.length ? myFactories.map(f => factoryDisplay(f)).join(",") : "";
+        await rpc("log_access", {
+          p_device: dev,
+          p_factory: my,
+          p_factories: myAll,
+          p_role: masterLevel
+        });
+      } catch (e) {}
+    })();
+  }, [isLoading]);
+  const loadAccessStats = async () => {
+    const code = accessCode.trim();
+    if (!code) return;
+    setAccessBusy(true);
+    setAccessErr("");
+    try {
+      const rows = await rpc("master_access_stats", {
+        p_code: code
+      });
+      setAccessStats(Array.isArray(rows) ? rows : []);
+      try {
+        const combos = await rpc("master_factory_combos_by_day", {
+          p_code: code
+        });
+        setAccessCombos(Array.isArray(combos) ? combos : []);
+      } catch (e2) {
+        setAccessCombos([]);
+      }
+      try {
+        const roleRows = await rpc("master_factory_role_stats", {
+          p_code: code
+        });
+        setAccessRoleStats(Array.isArray(roleRows) ? roleRows : []);
+      } catch (e3) {
+        setAccessRoleStats([]);
+      }
+      setAccessCode("");
+    } catch (e) {
+      setAccessErr("코드 오류입니다.");
+    } finally {
+      setAccessBusy(false);
+    }
+  };
+  const closeAccess = () => {
+    setShowAccess(false);
+    setAccessCode("");
+    setAccessStats(null);
+    setAccessCombos(null);
+    setAccessRoleStats(null);
+    setAccessErr("");
+  };
+  const dismissNotice = () => {
+    if (notice) localStorage.setItem("MMEEC_NOTICE_SEEN", notice.updated_at);
+    setShowNotice(false);
+  };
+  const masterSaveNotice = async () => {
+    setMasterBusy(true);
+    try {
+      await rpc("master_set_notice", {
+        p_code: masterCode.trim(),
+        p_body: noticeDraft
+      });
+      showToast("공지사항이 저장됐습니다.");
+      const rows = await rpc("get_notice", {});
+      const n = Array.isArray(rows) ? rows[0] : rows;
+      if (n) {
+        setNotice(n);
+        localStorage.setItem("MMEEC_NOTICE_SEEN", n.updated_at);
+      }
+    } catch (e) {
+      showToast("공지 저장 실패");
+    } finally {
+      setMasterBusy(false);
+    }
+  };
+  const masterLogin = async () => {
+    if (!masterCode.trim()) {
+      showToast("마스터 코드를 입력해주세요.");
+      return;
+    }
+    setMasterBusy(true);
+    try {
+      const lv = await rpc("master_level", {
+        p_code: masterCode.trim()
+      });
+      const level = Number(lv) || 0;
+      if (level < 1) {
+        showToast("마스터 코드 오류입니다.");
+        setMasterBusy(false);
+        return;
+      }
+      setMasterLevel(level);
+      try {
+        const contacts = (await rpc("master_list_contacts", {
+          p_code: masterCode.trim()
+        })) || [];
+        localStorage.setItem("MMEEC_ADMIN_AT", String(Date.now()));
+        localStorage.setItem("MMEEC_ADMIN_LV", String(level));
+        localStorage.setItem("MMEEC_ADMIN_CODE", masterCode.trim());
+        localStorage.setItem("MMEEC_CONTACTS", JSON.stringify(contacts));
+        setAdminAuthed(true);
+        setContactBook(contacts);
+        setMasterContacts(contacts);
+      } catch (e2) {
+        console.warn("연락처 캐시 실패:", e2);
+      }
+      setNoticeDraft(notice?.body || "");
+    } catch (e) {
+      console.error(e);
+      showToast("마스터 코드 오류입니다.");
+    } finally {
+      setMasterBusy(false);
+    }
+  };
+  const adminLogout = () => {
+    localStorage.removeItem("MMEEC_ADMIN_AT");
+    localStorage.removeItem("MMEEC_ADMIN_LV");
+    localStorage.removeItem("MMEEC_CONTACTS");
+    localStorage.removeItem("MMEEC_ADMIN_CODE");
+    setAdminAuthed(false);
+    setMasterLevel(0);
+    setMasterCode("");
+    setContactBook([]);
+    setMasterContacts(null);
+    showToast("이 기기의 관리자 인증을 해제했습니다.");
+  };
+  const masterExportAll = async () => {
+    setMasterBusy(true);
+    try {
+      const rows = (await rpc("master_export", {
+        p_code: masterCode.trim()
+      })) || [];
+      if (rows.length === 0) {
+        showToast("내보낼 세션 데이터가 없습니다.");
+        return;
+      }
+      const wb = XLSX.utils.book_new();
+      rows.forEach(r => {
+        const list = Array.isArray(r.items) ? r.items : [];
+        const ws = XLSX.utils.json_to_sheet(itemsToRows(list));
+        const name = String(r.site_name || r.session_id).slice(0, 28).replace(/[\\\/\?\*\[\]:]/g, "_") || "세션";
+        XLSX.utils.book_append_sheet(wb, ws, name);
+      });
+      XLSX.writeFile(wb, `포켓보드_전체통합_${getWorkdayKey()}.xlsx`);
+      showToast("📊 전체 통합 엑셀이 다운로드되었습니다.");
+    } catch (e) {
+      console.error(e);
+      showToast("전체 내보내기 실패");
+    } finally {
+      setMasterBusy(false);
+    }
+  };
+  const masterLoadContacts = async () => {
+    setMasterBusy(true);
+    try {
+      const list = (await rpc("master_list_contacts", {
+        p_code: masterCode.trim()
+      })) || [];
+      setMasterContacts(list);
+      setContactBook(list);
+      if (localStorage.getItem("MMEEC_ADMIN_AT")) {
+        localStorage.setItem("MMEEC_CONTACTS", JSON.stringify(list));
+      }
+    } catch (e) {
+      showToast("연락처 조회 실패");
+    } finally {
+      setMasterBusy(false);
+    }
+  };
+  const masterAddContact = async () => {
+    if (!ctName.trim() || !ctPhone.trim()) {
+      showToast("이름과 연락처를 입력해주세요.");
+      return;
+    }
+    setMasterBusy(true);
+    try {
+      await rpc("master_upsert_contact", {
+        p_code: masterCode.trim(),
+        p_name: ctName.trim(),
+        p_phone: ctPhone.trim(),
+        p_factory: ctFactory.trim(),
+        p_dept: ctDept.trim()
+      });
+      setCtName("");
+      setCtPhone("");
+      setCtFactory("");
+      setCtDept("");
+      await masterLoadContacts();
+    } catch (e) {
+      showToast("연락처 저장 실패");
+    } finally {
+      setMasterBusy(false);
+    }
+  };
+  const masterDeleteContact = async id => {
+    setMasterBusy(true);
+    try {
+      await rpc("master_delete_contact", {
+        p_code: masterCode.trim(),
+        p_id: id
+      });
+      await masterLoadContacts();
+    } catch (e) {
+      showToast("삭제 실패");
+    } finally {
+      setMasterBusy(false);
+    }
+  };
+  const closeMaster = () => {
+    setShowMaster(false);
+    if (masterLevel < 1) setMasterCode("");
+    setMasterContacts(null);
+  };
+  return React.createElement("div", {
+    class: `max-w-md mx-auto bg-slate-50 min-h-screen pb-32 flex flex-col relative shadow-xl${darkMode ? " dark" : ""}`
+  }, React.createElement("header", {
+    class: "bg-white border-b border-slate-200 px-4 py-4 shadow-xs"
+  }, React.createElement("div", {
+    class: "flex items-center justify-between mb-3"
+  }, React.createElement("div", {
+    class: "flex items-center gap-2 min-w-0 overflow-hidden"
+  }, React.createElement("button", {
+    onClick: () => {
+      if (masterLevel >= 2) openPwModal("company");
+    },
+    class: "bg-white px-1.5 py-1 rounded-lg active:scale-95 transition-all flex-shrink-0",
+    "aria-label": `${companyName}${masterLevel >= 2 ? " (회사명 수정)" : ""}`
+  }, companyName === "MMEEC" ? React.createElement("span", {
+    class: "text-blue-600 font-black text-lg tracking-tight px-1 whitespace-nowrap",
+    "aria-label": "M MEEC 로고"
+  }, "M MEEC") : React.createElement("span", {
+    class: "text-slate-900 font-black text-sm px-1 whitespace-nowrap"
+  }, companyName)), React.createElement("h1", {
+    class: "text-xl font-bold text-slate-900 tracking-tight truncate min-w-0"
+  }, "포켓보드", appNameBadge && React.createElement(React.Fragment, null, " ", React.createElement("span", {
+    class: "text-amber-500 font-black"
+  }, appNameBadge)))), React.createElement("button", {
+    onClick: toggleDarkMode,
+    "aria-label": "다크모드 전환",
+    class: "flex-shrink-0 text-xs bg-slate-100 text-slate-600 w-7 h-7 rounded-lg font-bold active:scale-95 transition-all ml-2 flex items-center justify-center"
+  }, React.createElement("svg", {
+    width: "15",
+    height: "15",
+    viewBox: "0 0 20 20"
+  }, React.createElement("circle", {
+    cx: "10",
+    cy: "10",
+    r: "8",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "1.6"
+  }), React.createElement("path", {
+    d: "M10 2 a8 8 0 0 1 0 16 z",
+    fill: "currentColor"
+  }))), React.createElement("button", {
+    onClick: () => {
+      setOpenHelpId(null);
+      setShowHelp(true);
+    },
+    "aria-label": "도움말",
+    class: "flex-shrink-0 text-xs bg-slate-100 text-slate-600 w-7 h-7 rounded-lg font-bold active:scale-95 transition-all ml-2"
+  }, "📖"), React.createElement("button", {
+    onClick: () => setShowInfo(true),
+    class: "flex-shrink-0 text-xs bg-slate-100 text-slate-600 w-7 h-7 rounded-lg font-bold active:scale-95 transition-all ml-2"
+  }, "❓")), (isOffline || pendingSave) && React.createElement("div", {
+    class: `mb-3 rounded-xl px-3 py-2 text-xs font-bold ${isOffline ? "bg-slate-800 text-amber-300" : "bg-amber-50 text-amber-700"}`
+  }, isOffline ? "📴 오프라인 — 입력은 기기에 저장되고, 연결되면 자동 전송됩니다" : "⏳ 전송 대기 중인 기록이 있습니다 — 연결되면 자동으로 올라갑니다", isOffline && React.createElement("span", {
+    class: "block font-medium text-slate-300 mt-0.5"
+  }, "지금 보이는 목록은 최신이 아닐 수 있습니다")), React.createElement("div", {
+    class: "flex items-center gap-2 mb-3"
+  }, masterLevel >= 2 && items.length > 0 && React.createElement("button", {
+    onClick: () => openPwModal("reset"),
+    class: "flex-shrink-0 text-xs text-rose-500 bg-rose-50 px-3 py-2.5 rounded-xl font-medium active:scale-95 transition-all"
+  }, "초기화"), masterLevel >= 2 && React.createElement(React.Fragment, null, React.createElement("input", {
+    type: "file",
+    id: "excel-upload",
+    accept: ".xlsx, .xls, .csv",
+    onChange: handleFileUpload,
+    class: "hidden"
+  }), React.createElement("label", {
+    htmlFor: "excel-upload",
+    class: "flex-shrink-0 flex items-center gap-1.5 bg-slate-900 text-white font-medium text-xs py-2.5 px-3 rounded-xl cursor-pointer active:scale-[0.98] transition-all shadow-sm whitespace-nowrap"
+  }, React.createElement("svg", {
+    class: "w-3.5 h-3.5 text-amber-400",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "2.5",
+    viewBox: "0 0 24 24"
+  }, React.createElement("path", {
+    d: "M12 4v16m8-8H4",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round"
+  })), items.length > 0 ? "파일변경" : "엑셀선택"))), React.createElement("div", {
+    class: "flex items-center gap-2"
+  }, sheetTitle ? React.createElement("p", {
+    class: "flex-1 min-w-0 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 font-semibold truncate"
+  }, sheetTitle) : React.createElement("div", {
+    class: "flex-1"
+  }), React.createElement("button", {
+    onClick: openFactoryFilter,
+    class: `flex-shrink-0 text-xs px-2.5 py-2 rounded-lg font-medium active:scale-95 transition-all whitespace-nowrap ${myFactories ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`
+  }, "🏭 내 공장"))), items.length > 0 && inPeriod && React.createElement("div", {
+    class: "bg-white border-b border-slate-100 sticky top-0 z-30 px-4 py-2 flex items-center gap-2 shadow-xs"
+  }, React.createElement("button", {
+    onClick: () => {
+      setAddModalTab("extra");
+      setShowAddModal(true);
+    },
+    class: "flex-shrink-0 flex items-center gap-1 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-2 px-2.5 rounded-xl active:scale-[0.97] transition-all shadow-sm whitespace-nowrap"
+  }, React.createElement("svg", {
+    class: "w-3.5 h-3.5",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "2.5",
+    viewBox: "0 0 24 24"
+  }, React.createElement("path", {
+    d: "M12 4v16m8-8H4",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round"
+  })), "공사추가"), React.createElement("div", {
+    class: "flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0"
+  }, (masterLevel < 1 ? activeFactories.filter(f => f !== "전체") : activeFactories).map(factory => {
+    const scope = factory === "전체" ? items : items.filter(i => factoryDisplay(i.factory) === factory);
+    const count = scope.length;
+    const activeCount = scope.filter(isCardOpen).length;
+    const isActive = activeTab === factory;
+    return React.createElement("button", {
+      key: factory,
+      ref: el => {
+        tabRefs.current[factory] = el;
+      },
+      onClick: () => setActiveTab(factory),
+      class: `flex-shrink-0 min-w-[70px] px-3.5 py-2 rounded-xl text-base font-semibold tracking-tight transition-all active:scale-95 flex items-center gap-1.5 ${isActive ? "bg-amber-500 text-white shadow-sm shadow-amber-200" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`
+    }, React.createElement("span", null, factory), React.createElement("span", {
+      class: `px-1 py-0.2 rounded-md text-sm ${isActive ? "bg-amber-600 text-white" : "bg-slate-200 text-slate-700"}`
+    }, activeCount > 0 ? React.createElement(React.Fragment, null, React.createElement("span", {
+      class: isActive ? "text-sky-200 font-black" : "text-sky-600 font-black"
+    }, activeCount), React.createElement("span", null, "/", count)) : count));
+  }))), React.createElement("main", {
+    class: "p-4 flex-1"
+  }, React.createElement("div", {
+    class: "flex items-center gap-2 px-1 mb-3.5"
+  }, React.createElement("button", {
+    onClick: () => {
+      setShowWeather(true);
+      fetchWeather(false);
+    },
+    "aria-label": "기상 정보",
+    class: "text-xl bg-sky-50 px-2 py-1 rounded-md leading-none flex items-center flex-shrink-0 active:scale-95 transition-all"
+  }, "🌤️"), React.createElement("div", {
+    class: `flex items-center gap-0.5 rounded-md pl-0.5 pr-1 py-0.5 flex-shrink-0 ${dateOffset === 0 ? "bg-sky-500" : "bg-slate-400"}`
+  }, React.createElement("button", {
+    onClick: () => setDateOffset(o => o - 1),
+    "aria-label": "이전 날짜",
+    class: "text-white font-black w-5 h-5 flex items-center justify-center active:scale-90 transition-all"
+  }, "◀"), React.createElement("span", {
+    onClick: () => setDateOffset(0),
+    "aria-label": "오늘로 이동",
+    class: "text-sm text-white px-1 font-black tracking-wide whitespace-nowrap underline decoration-white/50 underline-offset-2 cursor-pointer active:scale-95 transition-all"
+  }, selectedDateLabel), React.createElement("button", {
+    onClick: () => setDateOffset(o => o + 1),
+    "aria-label": "다음 날짜",
+    class: "text-white font-black w-5 h-5 flex items-center justify-center active:scale-90 transition-all"
+  }, "▶")), React.createElement("span", {
+    class: "text-base text-slate-500 font-semibold whitespace-nowrap"
+  }, "예정 공사 ", scheduledCount, "건")), isLoading ? React.createElement("div", {
+    class: "flex flex-col items-center justify-center py-24 text-center"
+  }, React.createElement("div", {
+    class: "w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"
+  }), React.createElement("p", {
+    class: "text-sm text-slate-500 font-semibold"
+  }, "데이터 불러오는 중…")) : items.length === 0 || !inPeriod ? React.createElement("div", {
+    class: "flex flex-col items-center justify-center py-20 text-center px-6"
+  }, React.createElement("div", {
+    class: "w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mb-4"
+  }, React.createElement("svg", {
+    class: "w-8 h-8 text-amber-500",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "2",
+    viewBox: "0 0 24 24"
+  }, React.createElement("path", {
+    d: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round"
+  }))), !inPeriod ? React.createElement(React.Fragment, null, React.createElement("h3", {
+    class: "text-sm font-bold text-slate-800"
+  }, "휴일 공사 기간이 아닙니다."), React.createElement("p", {
+    class: "text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed"
+  }, "상단 날짜를 변경하면 예정된 공사를 확인할 수 있습니다.", React.createElement("br", null), "(공사 목록 업데이트 매주 수/금요일 오후)")) : React.createElement(React.Fragment, null, React.createElement("h3", {
+    class: "text-sm font-bold text-slate-800"
+  }, "로딩된 주말 공사 목록이 없습니다"), React.createElement("p", {
+    class: "text-xs text-slate-400 mt-1.5 max-w-[240px] leading-relaxed"
+  }, masterLevel >= 2 ? "주말공사 엑셀 내역 파일을 선택해주세요." : "공사 목록이 확정되지 않았습니다. 매주 수요일 오후 업로드 됩니다. 추가 업데이트는 금요일 오후 입니다."))) : React.createElement("div", {
+    class: `space-y-3.5 ${slideDir ? `slide-${slideDir}` : ""}`,
+    onTouchStart: onListTouchStart,
+    onTouchEnd: onListTouchEnd
+  }, displayItems.map(item => {
+    const isPending = item.status === "pending";
+    const cardOpen = isCardOpen(item) || expandedIds.includes(item.id);
+    const manuallyExpanded = !isCardOpen(item) && expandedIds.includes(item.id);
+    return React.createElement("div", {
+      key: item.id,
+      onClick: () => {
+        if (!cardOpen) setExpandedIds(prev => [...prev, item.id]);else openBottomSheet(item);
+      },
+      class: `bg-white rounded-2xl p-4 border transition-all duration-200 cursor-pointer active:scale-[0.99] shadow-xs relative overflow-hidden ${isPending ? "border-amber-300 bg-linear-to-br from-amber-50/20 to-white" : "border-slate-200 opacity-80"}`
+    }, React.createElement("div", {
+      class: "flex items-start justify-between gap-2 mb-2.5"
+    }, React.createElement("div", {
+      class: "flex items-center gap-1.5 flex-wrap min-w-0"
+    }, bookmarkIds.includes(item.id) && React.createElement("span", {
+      class: "text-base text-amber-500 flex-shrink-0",
+      title: "즐겨찾기"
+    }, "★"), React.createElement("span", {
+      class: `text-base px-2 py-0.5 rounded-md font-extrabold tracking-wide whitespace-nowrap ${item.grade === "긴급" ? "bg-rose-600 text-white" : (item.grade || "B").startsWith("A") ? "bg-rose-100 text-rose-700" : (item.grade || "B").startsWith("P") ? "keep-light bg-purple-100 text-purple-700" : "keep-light bg-amber-100 text-amber-800"}`
+    }, item.grade === "긴급" ? "⚡ 긴급" : `${item.grade || "B"}급`), React.createElement("span", {
+      class: "text-base font-bold text-slate-400"
+    }, "NO.", item.no), activeTab === "전체" && React.createElement("span", {
+      class: "text-base bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold"
+    }, factoryDisplay(item.factory))), React.createElement("div", {
+      class: "flex items-center gap-1.5 flex-shrink-0"
+    }, hasWorkOn(item, selectedDate) && React.createElement("span", {
+      onClick: e => {
+        if (dateOffset === 0) toggleTodayOff(item, e);else e.stopPropagation();
+      },
+      class: `text-sm px-2 py-0.5 rounded-md font-black tracking-wide select-none transition-all flex-shrink-0 whitespace-nowrap ${dateOffset !== 0 ? "bg-sky-100 text-sky-600" : isTodayActive(item) ? "bg-sky-500 text-white cursor-pointer active:scale-95" : "bg-slate-200 text-slate-400 italic cursor-pointer active:scale-95"}`
+    }, dateOffset !== 0 ? `${selectedDate.getMonth() + 1}/${selectedDate.getDate()}` : `TODAY${isTodayActive(item) && workDayCount(item) >= 2 ? ` ${workDayCount(item)}일째` : ""}`), React.createElement("span", {
+      class: `text-base px-2 py-0.5 rounded-full font-bold flex-shrink-0 whitespace-nowrap ${isPending ? "bg-amber-500 text-white" : !after17 ? item.extendHour != null ? "bg-indigo-500 text-white" : "bg-emerald-500 text-white" : item.extendHour != null ? "bg-indigo-500 text-white" : "bg-slate-400 text-white"}`
+    }, isPending ? "공사전" : !after17 ? item.extendHour != null ? "연장중" : "공사중" : item.extendHour != null ? fmtExtend(item.extendHour) : "종료"))), React.createElement("h4", {
+      class: `text-lg font-bold text-slate-900 leading-snug ${cardOpen ? "mb-1" : ""}`
+    }, item.title), !cardOpen ? null : React.createElement("p", {
+      class: "text-base text-slate-500 mb-2 font-medium"
+    }, "상세위치: ", React.createElement("span", {
+      class: "text-slate-700 font-semibold"
+    }, item.location || "-"), React.createElement("span", {
+      class: "mx-2 text-slate-300"
+    }, "|"), "작업: ", React.createElement("span", {
+      class: "text-slate-700 font-semibold"
+    }, item.workType || "일반")), manuallyExpanded && React.createElement("button", {
+      type: "button",
+      onClick: e => {
+        e.stopPropagation();
+        setExpandedIds(prev => prev.filter(id => id !== item.id));
+      },
+      class: "text-xs text-slate-400 font-bold mb-2 active:scale-95 transition-all"
+    }, "▲ 접기"), cardOpen && React.createElement(React.Fragment, null, React.createElement("div", {
+      class: "bg-slate-50 rounded-xl p-2.5 space-y-1.5 text-sm"
+    }, React.createElement("div", {
+      class: "flex items-center justify-between border-t border-slate-200/50 pt-1.5"
+    }, React.createElement("span", {
+      class: "text-base text-slate-900 font-bold"
+    }, "🎯 공사위치"), React.createElement("span", {
+      class: `font-black ${item.spotLocation ? "text-amber-600" : "text-rose-500 animate-pulse"}`
+    }, item.spotLocation || "미입력 상태")), React.createElement("div", {
+      class: "flex items-center justify-between border-t border-slate-200/50 pt-1.5"
+    }, React.createElement("span", {
+      class: "text-base text-slate-900 font-bold"
+    }, "🟡 담당 감독자"), React.createElement("span", {
+      class: "flex items-center gap-2"
+    }, React.createElement("span", {
+      class: `font-bold ${item.assignedSupervisor ? "text-slate-800" : "text-rose-500 font-black"}`
+    }, item.assignedSupervisor ? item.assignedSupervisor + (SUPERVISOR_TITLES[item.assignedSupervisor.trim()] ? ` ${SUPERVISOR_TITLES[item.assignedSupervisor.trim()]}` : "") : "미배정"), (() => {
+      const c = findContact(item);
+      return c ? React.createElement("a", {
+        href: `tel:${c.phone}`,
+        onClick: e => e.stopPropagation(),
+        class: "inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 text-white active:scale-90 transition-all shadow-sm"
+      }, React.createElement("svg", {
+        class: "w-4 h-4",
+        fill: "currentColor",
+        viewBox: "0 0 24 24"
+      }, React.createElement("path", {
+        d: "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
+      }))) : null;
+    })())), item.memo && React.createElement("div", {
+      class: "text-sm text-amber-700 bg-amber-50/50 p-1.5 rounded-lg mt-1 border border-amber-100/50"
+    }, "📝 ", item.memo), item.lastHeatStatus && (!item.lastHeatStatus.workday || item.lastHeatStatus.workday === workday) && React.createElement("div", {
+      class: `flex items-center justify-between mt-2 px-3 py-2 rounded-xl ${item.lastHeatStatus.color === "red" ? "bg-red-600" : item.lastHeatStatus.color === "orange" ? "bg-orange-400" : item.lastHeatStatus.color === "yellow" ? "bg-yellow-400" : item.lastHeatStatus.color === "sky" ? "bg-sky-400" : "bg-slate-100"}`
+    }, React.createElement("span", {
+      class: "text-xs font-bold",
+      style: {
+        color: item.lastHeatStatus.color === "red" ? "#ffffff" : "#000000"
+      }
+    }, "🌡️ 체감온도"), React.createElement("span", {
+      class: "text-sm font-black flex items-center gap-1",
+      style: {
+        color: item.lastHeatStatus.color === "red" ? "#ffffff" : "#000000"
+      }
+    }, item.lastHeatStatus.color === "sky" ? "○" : item.lastHeatStatus.color === "yellow" ? "■" : item.lastHeatStatus.color === "orange" ? "▲" : item.lastHeatStatus.color === "red" ? "◆" : "", fmt1(item.lastHeatStatus.value), "℃ ", item.lastHeatStatus.level))), React.createElement("div", {
+      class: "mt-3 space-y-2",
+      onClick: e => e.stopPropagation()
+    }, cardHeatOpen === item.id && React.createElement("div", {
+      class: "bg-sky-50 border border-sky-200 rounded-xl p-3 space-y-2"
+    }, React.createElement("div", {
+      class: "grid grid-cols-2 gap-2"
+    }, React.createElement("div", {
+      class: "relative"
+    }, React.createElement("input", {
+      type: "number",
+      inputMode: "decimal",
+      placeholder: "기온",
+      value: cardTemp,
+      onChange: e => setCardTemp(e.target.value),
+      class: "w-full bg-white border border-sky-200 rounded-lg pl-2.5 pr-8 py-2 text-sm focus:outline-none focus:border-sky-500"
+    }), React.createElement("span", {
+      class: "absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-sky-400 font-bold"
+    }, "℃")), React.createElement("div", {
+      class: "relative"
+    }, React.createElement("input", {
+      type: "number",
+      inputMode: "decimal",
+      placeholder: "습도",
+      value: cardHum,
+      onChange: e => setCardHum(e.target.value),
+      class: "w-full bg-white border border-sky-200 rounded-lg pl-2.5 pr-8 py-2 text-sm focus:outline-none focus:border-sky-500"
+    }), React.createElement("span", {
+      class: "absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-sky-400 font-bold"
+    }, "%"))), React.createElement("button", {
+      type: "button",
+      onClick: () => calcHeatFor(item, cardTemp, cardHum, () => {
+        setCardTemp("");
+        setCardHum("");
+        setCardHeatOpen(null);
+        showToast("체감온도가 기록되었습니다.");
+      }),
+      class: "w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 rounded-lg text-sm active:scale-[0.98] transition-all"
+    }, "계산하기")), React.createElement("div", {
+      class: "flex items-center gap-2"
+    }, React.createElement("button", {
+      type: "button",
+      onClick: () => {
+        setCardHeatOpen(prev => prev === item.id ? null : item.id);
+        setCardTemp("");
+        setCardHum("");
+      },
+      class: "flex-1 flex items-center justify-center gap-1 bg-sky-100 hover:bg-sky-200 text-sky-700 font-bold text-sm py-2.5 rounded-xl active:scale-[0.98] transition-all"
+    }, "🌡️ 체감온도 계산"), REPORT_CARD_FACTORIES.includes(item.factory) && React.createElement("div", {
+      class: "flex items-center gap-0.5 rounded-xl bg-slate-200 px-1 py-0.5 flex-shrink-0"
+    }, React.createElement("button", {
+      type: "button",
+      onClick: () => moveStage(item, -1),
+      "aria-label": "이전 단계",
+      class: "text-slate-600 font-black w-5 h-6 flex items-center justify-center active:scale-90 transition-all"
+    }, "◀"), React.createElement("span", {
+      class: "text-xs font-black text-slate-700 w-11 text-center whitespace-nowrap"
+    }, stageLabel(stageOf(item))), React.createElement("button", {
+      type: "button",
+      onClick: () => moveStage(item, 1),
+      "aria-label": "다음 단계",
+      class: "text-slate-600 font-black w-5 h-6 flex items-center justify-center active:scale-90 transition-all"
+    }, "▶"))), REPORT_CARD_FACTORIES.includes(item.factory) && React.createElement("button", {
+      type: "button",
+      onClick: e => {
+        const live = items.find(it => it.id === item.id) || item;
+        handleSafetyReportCopy({
+          ...live,
+          reportStage: stageOf(item),
+          companyName
+        }, e);
+      },
+      class: "w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-2.5 rounded-xl active:scale-[0.98] transition-all"
+    }, "📋 안전보고문 생성"))));
+  }))), React.createElement("div", {
+    class: `fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${selectedItem ? "opacity-100 visible" : "opacity-0 invisible"}`
+  }, React.createElement("div", {
+    onClick: () => setSelectedItem(null),
+    class: "absolute inset-0"
+  }), React.createElement("div", {
+    class: `absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[28px] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 transform max-h-[85vh] overflow-y-auto ${selectedItem ? "translate-y-0" : "translate-y-full"}`
+  }, React.createElement("div", {
+    class: "w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-5"
+  }), selectedItem && React.createElement("div", {
+    class: "space-y-5"
+  }, React.createElement("div", null, React.createElement("div", {
+    class: "flex items-center gap-2 mb-1"
+  }, selectedItem.isUrgent ? React.createElement("span", {
+    class: "text-sm bg-rose-600 text-white px-2 py-0.5 rounded font-bold"
+  }, "⚡ 긴급") : React.createElement("span", {
+    class: "text-sm bg-slate-900 text-white px-2 py-0.5 rounded font-bold"
+  }, factoryDisplay(selectedItem.factory)), React.createElement("span", {
+    class: "text-sm text-slate-400 font-medium"
+  }, selectedItem.isUrgent ? `${factoryDisplay(selectedItem.factory)} · 긴급공사` : `NO.${selectedItem.no} 공사 정보 기록`)), React.createElement("h3", {
+    class: "text-lg font-bold text-slate-900 leading-snug"
+  }, selectedItem.title), !selectedItem.isUrgent && React.createElement("p", {
+    class: "text-sm text-slate-400 mt-1"
+  }, "도면/원안 위치: ", selectedItem.location || "없음"), selectedItem.isUrgent && React.createElement("p", {
+    class: "text-xs text-rose-500 font-semibold mt-1 bg-rose-50 px-2 py-1 rounded-lg inline-block"
+  }, "작업구분: ", selectedItem.workType)), React.createElement("div", {
+    class: "bg-sky-50 border border-sky-200 rounded-2xl p-4 space-y-3"
+  }, React.createElement("p", {
+    class: "text-base font-black text-sky-800"
+  }, "🌡️ 체감온도 계산기 ", React.createElement("span", {
+    class: "text-xs font-normal text-sky-500"
+  }, "(안전보건공단 KOSHA 공식)")), React.createElement("div", {
+    class: "grid grid-cols-2 gap-2"
+  }, React.createElement("div", {
+    class: "relative"
+  }, React.createElement("input", {
+    type: "number",
+    inputMode: "decimal",
+    placeholder: "기온",
+    value: heatTemp,
+    onChange: e => setHeatTemp(e.target.value),
+    onKeyDown: e => e.key === "Enter" && calcHeatIndex(),
+    class: "w-full bg-white border border-sky-200 rounded-xl pl-3 pr-9 py-2.5 text-base focus:outline-none focus:border-sky-500 transition-all"
+  }), React.createElement("span", {
+    class: "absolute right-3 top-1/2 -translate-y-1/2 text-sm text-sky-400 font-bold"
+  }, "℃")), React.createElement("div", {
+    class: "relative"
+  }, React.createElement("input", {
+    type: "number",
+    inputMode: "decimal",
+    placeholder: "습도",
+    value: heatHumidity,
+    onChange: e => setHeatHumidity(e.target.value),
+    onKeyDown: e => e.key === "Enter" && calcHeatIndex(),
+    class: "w-full bg-white border border-sky-200 rounded-xl pl-3 pr-9 py-2.5 text-base focus:outline-none focus:border-sky-500 transition-all"
+  }), React.createElement("span", {
+    class: "absolute right-3 top-1/2 -translate-y-1/2 text-sm text-sky-400 font-bold"
+  }, "%"))), React.createElement("div", {
+    class: "bg-white/70 border border-sky-200 rounded-xl px-3 py-2 text-xs text-sky-700 leading-relaxed"
+  }, React.createElement("p", {
+    class: "font-bold"
+  }, "📋 측정주기 ", React.createElement("span", {
+    class: "font-normal text-sky-500"
+  }, "※ 기온 급등 시 수시 측정")), React.createElement("p", null, "기본 일2회 \xA0/\xA0 주의(33℃↑) 매2시간 \xA0/\xA0 경고(35℃↑) 매1시간·수시")), React.createElement("button", {
+    type: "button",
+    onClick: calcHeatIndex,
+    class: "w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl text-sm active:scale-[0.98] transition-all"
+  }, "계산하기"), heatResults.length > 0 && React.createElement("div", {
+    class: "space-y-2 max-h-[220px] overflow-y-auto"
+  }, heatResults.map((r, i) => React.createElement("div", {
+    key: i,
+    class: `rounded-xl px-3 py-2.5 border-2 ${r.color === "red" ? "bg-red-600 border-red-700" : r.color === "orange" ? "bg-orange-400 border-orange-500" : r.color === "yellow" ? "bg-yellow-400 border-yellow-500" : r.color === "sky" ? "bg-sky-400 border-sky-500" : "bg-slate-100 border-slate-200"}`
+  }, React.createElement("div", {
+    class: "flex items-center justify-between"
+  }, React.createElement("span", {
+    class: "text-sm font-bold",
+    style: {
+      color: r.color === "red" ? "#ffffff" : "#000000"
+    }
+  }, r.temp, "℃ / ", r.humidity, "%", React.createElement("span", {
+    class: "text-xs opacity-80 ml-2"
+  }, r.time)), React.createElement("span", {
+    class: "text-base font-black flex items-center gap-1",
+    style: {
+      color: r.color === "red" ? "#ffffff" : "#000000"
+    }
+  }, r.color === "sky" ? "○" : r.color === "yellow" ? "■" : r.color === "orange" ? "▲" : r.color === "red" ? "◆" : "", fmt1(r.value), "℃ ", r.level)), React.createElement("p", {
+    class: "text-xs mt-1 font-semibold",
+    style: {
+      color: r.color === "red" ? "rgba(255,255,255,0.9)" : "#000000"
+    }
+  }, r.guide))))), React.createElement("div", {
+    class: "space-y-1.5"
+  }, React.createElement("label", {
+    class: "text-base font-bold text-slate-800 flex items-center gap-1"
+  }, React.createElement("span", null, "🎯 ", selectedItem.isUrgent ? "공사위치 수정" : "공사위치"), React.createElement("span", {
+    class: "text-rose-500"
+  }, "*")), React.createElement("div", {
+    class: "flex gap-2 overflow-x-auto pb-1 no-scrollbar"
+  }, FLOOR_TABS.map(f => React.createElement("button", {
+    key: f,
+    type: "button",
+    onClick: () => setSpotLocation(prev => {
+      const parts = prev.split(" ").filter(p => !FLOOR_TABS.includes(p));
+      return [f, ...parts].join(" ").trim();
+    }),
+    class: `px-3 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${spotLocation.includes(f) ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-600"}`
+  }, f))), React.createElement("input", {
+    type: "text",
+    placeholder: "기둥번호·구역 직접 입력 (예: C-01, 샤시메인)",
+    value: spotLocation,
+    onChange: e => setSpotLocation(e.target.value),
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px]"
+  })), React.createElement("div", {
+    class: "space-y-2"
+  }, React.createElement("label", {
+    class: "text-base font-bold text-slate-800 flex items-center gap-1"
+  }, React.createElement("span", null, "🟡 담당 감독자 지정"), React.createElement("span", {
+    class: "text-rose-500"
+  }, "*")), React.createElement("div", {
+    class: "flex flex-wrap gap-1.5 max-h-[110px] overflow-y-auto p-0.5"
+  }, getSupervisorPool(factoryDisplay(selectedItem.factory)).map(name => React.createElement("button", {
+    key: name,
+    type: "button",
+    onClick: () => setAssignedSupervisor(name),
+    class: `px-3 py-2 text-sm font-semibold rounded-xl transition-all active:scale-95 min-h-[44px] ${assignedSupervisor === name ? "bg-amber-500 text-white shadow-xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`
+  }, name)), getSupervisorPool(factoryDisplay(selectedItem.factory)).length === 0 && React.createElement("span", {
+    class: "text-xs text-slate-400 italic"
+  }, "등록된 추천 고정 감독자가 없습니다.")), React.createElement("input", {
+    type: "text",
+    placeholder: "명단에 없는 감독자 이름 직접 입력",
+    value: assignedSupervisor,
+    onChange: e => setAssignedSupervisor(e.target.value),
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px] mt-1"
+  })), React.createElement("div", {
+    class: "space-y-1.5"
+  }, React.createElement("label", {
+    class: "text-base font-bold text-slate-800"
+  }, "👷🏻‍♂️ 작업 인원"), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3"
+  }, React.createElement("div", {
+    class: "relative"
+  }, React.createElement("input", {
+    type: "number",
+    inputMode: "numeric",
+    min: "0",
+    placeholder: "0",
+    value: directWorkers,
+    onChange: e => setDirectWorkers(e.target.value),
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px]"
+  }), React.createElement("span", {
+    class: "absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold"
+  }, "직영")), React.createElement("div", {
+    class: "relative"
+  }, React.createElement("input", {
+    type: "number",
+    inputMode: "numeric",
+    min: "0",
+    placeholder: "0",
+    value: dailyWorkers,
+    onChange: e => setDailyWorkers(e.target.value),
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px]"
+  }), React.createElement("span", {
+    class: "absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold"
+  }, "일용"))), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3 mt-1"
+  }, React.createElement("input", {
+    type: "text",
+    placeholder: "협력사명",
+    value: partnerName,
+    onChange: e => setPartnerName(e.target.value),
+    class: "bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px]"
+  }), React.createElement("div", {
+    class: "relative"
+  }, React.createElement("input", {
+    type: "number",
+    inputMode: "numeric",
+    min: "0",
+    placeholder: "0",
+    value: partnerWorkers,
+    onChange: e => setPartnerWorkers(e.target.value),
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all min-h-[52px]"
+  }), React.createElement("span", {
+    class: "absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold"
+  }, "명")))), React.createElement("div", {
+    class: "space-y-1.5"
+  }, React.createElement("label", {
+    class: "text-base font-bold text-slate-800"
+  }, "⏰ 작업연장 ", React.createElement("span", {
+    class: "text-xs font-normal text-slate-400"
+  }, "(기본 종료 17시)")), React.createElement("div", {
+    class: "flex items-center justify-center gap-4 py-1"
+  }, React.createElement("button", {
+    type: "button",
+    onClick: decExtendHour,
+    disabled: extendHour == null,
+    class: `w-11 h-11 rounded-full text-xl font-bold flex items-center justify-center transition-all active:scale-95 ${extendHour == null ? "bg-slate-100 text-slate-300" : "bg-slate-200 text-slate-700"}`
+  }, "−"), React.createElement("span", {
+    class: "text-base font-bold text-slate-800 w-16 text-center"
+  }, extendHour == null ? "없음" : `${String(extendHour).padStart(2, "0")}시`), React.createElement("button", {
+    type: "button",
+    onClick: incExtendHour,
+    disabled: extendHour === EXTEND_HOURS[EXTEND_HOURS.length - 1],
+    class: `w-11 h-11 rounded-full text-xl font-bold flex items-center justify-center transition-all active:scale-95 ${extendHour === EXTEND_HOURS[EXTEND_HOURS.length - 1] ? "bg-slate-100 text-slate-300" : "bg-indigo-500 text-white"}`
+  }, "+")), extendHour != null && React.createElement("p", {
+    class: "text-sm text-indigo-600 font-bold text-center"
+  }, "→ ", fmtExtend(extendHour), " 으로 표시됩니다")), React.createElement("div", {
+    class: "space-y-1.5"
+  }, React.createElement("label", {
+    class: "text-base font-bold text-slate-800"
+  }, "📝 특이사항 메모"), React.createElement("textarea", {
+    rows: "2",
+    placeholder: "Memo here",
+    value: memo,
+    onChange: e => setMemo(e.target.value),
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all resize-none"
+  })), React.createElement("div", {
+    class: `grid gap-2 pt-2 ${masterLevel >= 2 ? "grid-cols-4" : "grid-cols-3"}`
+  }, masterLevel >= 2 && React.createElement("button", {
+    type: "button",
+    onClick: () => setShowCardResetConfirm(true),
+    class: "w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]"
+  }, "초기화"), React.createElement("button", {
+    type: "button",
+    onClick: e => handleKakaoCopy(selectedItem, e),
+    class: "keep-light w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]"
+  }, "💬 카톡복사"), React.createElement("button", {
+    type: "button",
+    onClick: toggleBookmark,
+    class: `w-full font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px] ${bookmarkIds.includes(selectedItem.id) ? "bg-amber-100 text-amber-700 border-2 border-amber-400" : "bg-slate-100 text-slate-600"}`
+  }, "★ 즐겨찾기"), React.createElement("button", {
+    type: "button",
+    onClick: handleSaveDetails,
+    class: "w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl text-xs shadow-xs active:scale-95 transition-all min-h-[52px]"
+  }, "입력 완료")), React.createElement("div", {
+    class: "border-t border-slate-100 pt-4 space-y-3"
+  }, React.createElement("p", {
+    class: "text-base font-bold text-slate-800"
+  }, "📋 안전보고문 생성"), React.createElement("div", {
+    class: "space-y-1.5"
+  }, React.createElement("label", {
+    class: "text-sm font-semibold text-slate-500"
+  }, "공사 단계"), React.createElement("div", {
+    class: "flex gap-2"
+  }, ["전", "중", "후"].map(s => React.createElement("button", {
+    key: s,
+    type: "button",
+    onClick: () => setReportStage(s),
+    class: `flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${reportStage === s ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500"}`
+  }, s === "후" ? "종료" : `공사${s}`)))), reportStage !== "후" && React.createElement("div", {
+    class: "space-y-1.5"
+  }, React.createElement("label", {
+    class: "text-sm font-semibold text-slate-500"
+  }, "65세 이상 고령자"), React.createElement("div", {
+    class: "flex gap-2 items-center"
+  }, React.createElement("button", {
+    type: "button",
+    onClick: () => setHasElderly(true),
+    class: `flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${hasElderly ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500"}`
+  }, "있음"), hasElderly && React.createElement("div", {
+    class: "relative w-24"
+  }, React.createElement("input", {
+    type: "number",
+    inputMode: "numeric",
+    min: "1",
+    value: elderlyCount,
+    onChange: e => setElderlyCount(e.target.value),
+    class: "w-full text-center border-2 border-sky-300 rounded-xl py-2 text-base font-bold focus:outline-none focus:border-sky-500"
+  }), React.createElement("span", {
+    class: "absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400"
+  }, "명")), React.createElement("button", {
+    type: "button",
+    onClick: () => setHasElderly(false),
+    class: `flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${!hasElderly ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500"}`
+  }, "없음"))), React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      const live = items.find(it => it.id === selectedItem.id) || selectedItem;
+      const synthetic = {
+        ...live,
+        spotLocation,
+        assignedSupervisor,
+        reportStage,
+        hasElderly,
+        elderlyCount,
+        extendHour,
+        companyName
+      };
+      handleSafetyReportCopy(synthetic);
+    },
+    class: "w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm py-3 rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+  }, "📋 안전보고문 생성"))))), toast && React.createElement("div", {
+    class: "fixed top-6 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-xl z-50 transition-all animate-bounce max-w-[280px] text-center border border-slate-700"
+  }, toast), showAccess && React.createElement("div", {
+    class: "fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6"
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto"
+  }, React.createElement("h3", {
+    class: "text-lg font-black text-slate-900 text-center"
+  }, "접속 현황"), !accessStats ? React.createElement("div", {
+    class: "space-y-3"
+  }, React.createElement("p", {
+    class: "text-xs text-slate-400 text-center leading-relaxed"
+  }, "관리자 코드를 입력하세요."), React.createElement("input", {
+    type: "password",
+    inputMode: "text",
+    value: accessCode,
+    onChange: e => setAccessCode(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter") loadAccessStats();
+    },
+    placeholder: "관리자 코드",
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-base text-center focus:outline-none focus:border-amber-500 focus:bg-white transition-all"
+  }), accessErr && React.createElement("p", {
+    class: "text-xs text-rose-500 text-center leading-relaxed"
+  }, accessErr), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3"
+  }, React.createElement("button", {
+    type: "button",
+    onClick: closeAccess,
+    class: "w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl min-h-[52px] active:scale-95 transition-all"
+  }, "닫기"), React.createElement("button", {
+    type: "button",
+    onClick: loadAccessStats,
+    disabled: accessBusy || !accessCode.trim(),
+    class: `w-full font-bold py-3.5 rounded-xl min-h-[52px] transition-all active:scale-95 ${accessBusy || !accessCode.trim() ? "bg-slate-200 text-slate-400" : "bg-slate-900 text-white"}`
+  }, accessBusy ? "조회 중…" : "확인"))) : React.createElement("div", {
+    class: "space-y-3"
+  }, (() => {
+    const todayKey = (() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })();
+    const byDay = {};
+    accessStats.forEach(r => {
+      const d = String(r.day).slice(0, 10);
+      (byDay[d] = byDay[d] || []).push(r);
+    });
+    const days = Object.keys(byDay).sort().reverse();
+    const todayTotal = (byDay[todayKey] || []).reduce((s, r) => s + Number(r.devices || 0), 0);
+    if (days.length === 0) {
+      return React.createElement("p", {
+        class: "text-sm text-slate-400 text-center py-8"
+      }, "기록된 접속이 없습니다.");
+    }
+    return React.createElement(React.Fragment, null, React.createElement("div", {
+      class: "bg-sky-50 rounded-2xl p-4 text-center"
+    }, React.createElement("p", {
+      class: "text-xs text-sky-700 font-bold"
+    }, "오늘 접속"), React.createElement("p", {
+      class: "text-3xl font-black text-sky-600 mt-1"
+    }, todayTotal, React.createElement("span", {
+      class: "text-base font-bold ml-1"
+    }, "대"))), (() => {
+      const list = Array.isArray(accessCombos) ? accessCombos : [];
+      if (list.length === 0) return null;
+      const byDay3 = {};
+      list.forEach(r => {
+        if (!byDay3[r.day]) byDay3[r.day] = [];
+        byDay3[r.day].push(r);
+      });
+      const days3 = Object.keys(byDay3).sort((a, b) => b.localeCompare(a));
+      return React.createElement("div", {
+        class: "bg-violet-50 rounded-2xl p-3"
+      }, React.createElement("p", {
+        class: "text-xs text-violet-700 font-bold mb-2"
+      }, "복수 공장 설정"), React.createElement("div", {
+        class: "space-y-1"
+      }, days3.map(day => {
+        const rows = byDay3[day];
+        const dayDevices = rows.reduce((s, r) => s + Number(r.devices || 0), 0);
+        return React.createElement("div", {
+          key: day,
+          class: "bg-white rounded-lg"
+        }, React.createElement("div", {
+          class: "w-full flex items-center justify-between px-2 py-1.5 text-xs"
+        }, React.createElement("span", {
+          class: "font-bold text-slate-700"
+        }, day.slice(5).replace("-", "/") + (day === todayKey ? " (오늘)" : "")), React.createElement("span", {
+          class: "font-black text-slate-900"
+        }, dayDevices, "대")), React.createElement("div", {
+          class: "px-2 pb-2 space-y-1 border-t border-slate-100 pt-1"
+        }, rows.map((r, i) => React.createElement("div", {
+          key: i,
+          class: "flex items-center justify-between text-xs"
+        }, React.createElement("span", {
+          class: "text-slate-600 font-mono tracking-wider"
+        }, abbrFactoryCombo(r.combo)), React.createElement("span", {
+          class: "text-slate-800 font-bold shrink-0"
+        }, r.devices, "대")))));
+      })));
+    })(), (() => {
+      const list = Array.isArray(accessRoleStats) ? accessRoleStats : [];
+      if (list.length === 0) return null;
+      const byDay2 = {};
+      list.forEach(r => {
+        if (!byDay2[r.day]) byDay2[r.day] = [];
+        byDay2[r.day].push(r);
+      });
+      const days2 = Object.keys(byDay2).sort((a, b) => b.localeCompare(a));
+      const roleLabel = lv => Number(lv) >= 2 ? "마스터" : Number(lv) >= 1 ? "관리자" : "감독자";
+      return React.createElement("div", {
+        class: "bg-emerald-50 rounded-2xl p-3"
+      }, React.createElement("p", {
+        class: "text-xs text-emerald-700 font-bold mb-2"
+      }, "공장별 접속 현황"), React.createElement("div", {
+        class: "space-y-1"
+      }, days2.map(day => {
+        const rows = byDay2[day];
+        const dayTotal = rows.reduce((s, r) => s + Number(r.devices || 0), 0);
+        const byFactory = {};
+        rows.forEach(r => {
+          const f = factoryDisplay(r.factory) || "미설정";
+          if (!byFactory[f]) byFactory[f] = [];
+          byFactory[f].push(r);
+        });
+        return React.createElement("div", {
+          key: day,
+          class: "bg-white rounded-lg"
+        }, React.createElement("div", {
+          class: "w-full flex items-center justify-between px-2 py-1.5 text-xs"
+        }, React.createElement("span", {
+          class: "font-bold text-slate-700"
+        }, day.slice(5).replace("-", "/") + (day === todayKey ? " (오늘)" : "")), React.createElement("span", {
+          class: "font-black text-slate-900"
+        }, dayTotal, "대")), React.createElement("div", {
+          class: "px-2 pb-2 space-y-1 border-t border-slate-100 pt-1"
+        }, Object.keys(byFactory).map(f => React.createElement("div", {
+          key: f,
+          class: "flex items-center justify-between text-xs"
+        }, React.createElement("span", {
+          class: "text-slate-600"
+        }, f), React.createElement("span", {
+          class: "text-slate-800 font-medium"
+        }, byFactory[f].map(r => `${roleLabel(r.role)} ${r.devices}대`).join("  "))))));
+      })));
+    })(), React.createElement("div", {
+      class: "space-y-2"
+    }, days.map(d => {
+      const rows = byDay[d];
+      const total = rows.reduce((s, r) => s + Number(r.devices || 0), 0);
+      return React.createElement("div", {
+        key: d,
+        class: "bg-slate-50 rounded-xl p-3"
+      }, React.createElement("div", {
+        class: "flex items-center justify-between mb-1"
+      }, React.createElement("span", {
+        class: "text-sm font-bold text-slate-700"
+      }, d.slice(5).replace("-", "/"), d === todayKey ? " (오늘)" : ""), React.createElement("span", {
+        class: "text-sm font-black text-slate-900"
+      }, total, "대")), React.createElement("div", {
+        class: "flex flex-wrap gap-1.5"
+      }, rows.map((r, i) => React.createElement("span", {
+        key: i,
+        class: "text-xs bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md"
+      }, factoryDisplay(r.factory) || "미설정", " ", r.devices))));
+    })), React.createElement("p", {
+      class: "text-[11px] text-slate-400 leading-relaxed"
+    }, "기기 단위 집계입니다. 한 사람이 폰·태블릿을 함께 쓰면 2대로 집계되며, 개인을 식별하지 않습니다."));
+  })(), React.createElement("button", {
+    type: "button",
+    onClick: closeAccess,
+    class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all"
+  }, "닫기")))), showCardResetConfirm && React.createElement("div", {
+    class: "fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6"
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
+  }, React.createElement("div", {
+    class: "text-center"
+  }, React.createElement("div", {
+    class: "text-4xl mb-2"
+  }, "🗑️"), React.createElement("p", {
+    class: "text-base font-bold text-slate-800 leading-relaxed"
+  }, "입력된 내용이 삭제되고", React.createElement("br", null), "공사전 상태로 돌아갑니다.", React.createElement("br", null), "계속하시겠습니까?"), React.createElement("p", {
+    class: "text-xs text-slate-400 mt-2"
+  }, "체감온도 측정 기록은 삭제되지 않습니다.")), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3"
+  }, React.createElement("button", {
+    type: "button",
+    onClick: () => setShowCardResetConfirm(false),
+    class: "w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]"
+  }, "취소"), React.createElement("button", {
+    type: "button",
+    onClick: handleCardReset,
+    class: "w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]"
+  }, "삭제")))), showNotice && notice && React.createElement("div", {
+    class: "fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6"
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
+  }, React.createElement("div", {
+    class: "text-center"
+  }, React.createElement("div", {
+    class: "text-4xl mb-2"
+  }, "📢"), React.createElement("h2", {
+    class: "text-lg font-black text-slate-900"
+  }, "공지사항")), React.createElement("div", {
+    class: "bg-amber-50 border border-amber-200 rounded-2xl p-4 max-h-[65vh] overflow-y-auto"
+  }, React.createElement("p", {
+    class: "text-sm text-slate-700 leading-relaxed whitespace-pre-wrap"
+  }, linkifyText(notice.body))), React.createElement("button", {
+    onClick: dismissNotice,
+    class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all"
+  }, "확인"))), showHelp && React.createElement("div", {
+    class: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6"
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl max-h-[80vh] flex flex-col"
+  }, React.createElement("h2", {
+    class: "text-lg font-black text-slate-900 text-center mb-4 flex-shrink-0"
+  }, "📖 사용 도움말"), React.createElement("div", {
+    class: "bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3 mb-4 flex-shrink-0"
+  }, React.createElement("p", {
+    class: "text-sm text-amber-700 font-semibold"
+  }, "💡 팁: 화면 곳곳의 아이콘을 눌러보세요")), React.createElement("div", {
+    class: "overflow-y-auto space-y-4 pr-1"
+  }, ["📋 공사 리스트 화면", "📝 공사 세부 화면"].map(group => React.createElement("div", {
+    key: group
+  }, React.createElement("p", {
+    class: "text-sm font-black text-slate-500 mb-2"
+  }, group), React.createElement("div", {
+    class: "space-y-2"
+  }, HELP_ITEMS.filter(h => h.group === group).map(h => React.createElement("div", {
+    key: h.id,
+    class: "border border-slate-200 rounded-xl overflow-hidden"
+  }, React.createElement("button", {
+    type: "button",
+    onClick: () => setOpenHelpId(openHelpId === h.id ? null : h.id),
+    class: "w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left active:bg-slate-50 transition-all"
+  }, React.createElement("span", {
+    class: "text-sm font-bold text-slate-800"
+  }, h.q), React.createElement("span", {
+    class: "text-slate-400 flex-shrink-0"
+  }, openHelpId === h.id ? "▼" : "▶")), openHelpId === h.id && React.createElement("p", {
+    class: "px-3.5 pb-3.5 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap"
+  }, h.a))))))), React.createElement("button", {
+    onClick: () => setShowHelp(false),
+    class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all mt-4 flex-shrink-0"
+  }, "확인"))), showInfo && React.createElement("div", {
+    class: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6"
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto"
+  }, React.createElement("div", {
+    class: "text-center"
+  }, React.createElement("div", {
+    class: "text-4xl mb-2 cursor-pointer select-none active:scale-90 transition-transform inline-block",
+    onClick: () => {
+      setShowInfo(false);
+      setShowAccess(true);
+    }
+  }, "⚡"), React.createElement("h2", {
+    class: "text-xl font-black text-slate-900"
+  }, companyName, " ", appDisplayName), React.createElement("p", {
+    class: "text-base text-slate-500 mt-1"
+  }, "Ver. ", APP_VERSION, masterLevel >= 2 ? " (마스터)" : masterLevel >= 1 ? " (관리자)" : ""), React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      setShowInfo(false);
+      setShowMaster(true);
+    },
+    class: "mt-2 text-sm text-slate-500 font-bold py-1.5 px-3 active:scale-95 transition-all"
+  }, "🔑 관리자 모드 활성")), React.createElement("div", {
+    class: "bg-slate-50 rounded-2xl p-4 space-y-3 text-sm"
+  }, React.createElement("div", null, React.createElement("p", {
+    class: "font-black text-slate-800 mb-1"
+  }, "📌 포켓보드?"), React.createElement("p", {
+    class: "text-slate-600 leading-relaxed"
+  }, "휴일 공사 현장 안전관리 도구", React.createElement("br", null), "일별 공사 목록, 체감온도 측정,", React.createElement("br", null), "안전보고문 작성(5공장), 카톡 보고 공유", React.createElement("br", null), "긴급공사 등록, 기상 정보 확인", React.createElement("br", null), "날짜 넘겨 예정 공사 미리보기", React.createElement("br", null), "즐겨찾기, Today 켜고 끄기")), React.createElement("div", null, React.createElement("p", {
+    class: "font-black text-slate-800 mb-1"
+  }, "🔄 공사목록 업데이트"), React.createElement("p", {
+    class: "text-slate-600"
+  }, "주 2회 · 수/금 오후")), React.createElement("div", null, React.createElement("p", {
+    class: "font-black text-slate-800 mb-1"
+  }, "👤 사용 대상"), React.createElement("p", {
+    class: "text-slate-600"
+  }, "현장 안전 감독자 및 공장 관리자")), React.createElement("div", null, React.createElement("p", {
+    class: "font-black text-slate-800 mb-1"
+  }, "🔑 관리자 기능"), React.createElement("p", {
+    class: "text-slate-600"
+  }, "전화 연결 가능")), React.createElement("div", null, React.createElement("p", {
+    class: "font-black text-slate-800 mb-1"
+  }, "💬 문의·불편사항"), React.createElement("a", {
+    href: "https://vvd.im/pT",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    class: "text-sky-600 underline break-all active:opacity-60"
+  }, "익명 의견/건의 남기기"))), React.createElement("div", {
+    class: "bg-slate-50 rounded-2xl p-4 text-base"
+  }, React.createElement("p", {
+    class: "text-slate-500 mb-0.5"
+  }, "만든이"), React.createElement("p", {
+    class: "font-semibold text-slate-800 break-all"
+  }, "aibulapia@gmail.com")), React.createElement("p", {
+    class: "text-xs text-slate-400 text-center leading-relaxed"
+  }, "제작자의 동의 없이 상기 페이지의 내용 및", React.createElement("br", null), "무단 복제를 엄금합니다."), React.createElement("button", {
+    onClick: () => setShowInfo(false),
+    class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all"
+  }, "확인"))), showPwModal && React.createElement("div", {
+    class: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6"
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
+  }, React.createElement("h2", {
+    class: "text-lg font-black text-slate-900 text-center"
+  }, pwTarget === "reset" ? "🔐 초기화 확인" : "🔐 회사명 수정"), React.createElement("p", {
+    class: "text-base text-slate-500 text-center"
+  }, "암호를 입력해주세요."), React.createElement("input", {
+    type: "password",
+    maxLength: "32",
+    value: pwInput,
+    onChange: e => {
+      setPwInput(e.target.value);
+      setPwError(false);
+    },
+    onKeyDown: e => e.key === "Enter" && confirmPw(),
+    placeholder: "마스터 코드",
+    class: `w-full text-center text-xl tracking-widest border-2 rounded-2xl py-3 focus:outline-none transition-all ${pwError ? "border-rose-400 bg-rose-50" : "border-slate-200 focus:border-amber-400"}`,
+    autoFocus: true
+  }), pwError && React.createElement("p", {
+    class: "text-sm text-rose-500 text-center font-semibold"
+  }, "암호가 틀렸습니다."), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3"
+  }, React.createElement("button", {
+    onClick: () => setShowPwModal(false),
+    class: "w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all"
+  }, "취소"), React.createElement("button", {
+    onClick: confirmPw,
+    class: "w-full bg-amber-500 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all"
+  }, "확인")))), showCompanyEdit && React.createElement("div", {
+    class: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6"
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
+  }, React.createElement("h2", {
+    class: "text-lg font-black text-slate-900 text-center"
+  }, "🏢 회사명 수정"), React.createElement("input", {
+    type: "text",
+    value: companyNameDraft,
+    onChange: e => setCompanyNameDraft(e.target.value),
+    placeholder: "예: MMEEC",
+    class: "w-full text-center text-xl font-bold border-2 border-slate-200 focus:border-amber-400 rounded-2xl py-3 focus:outline-none transition-all",
+    autoFocus: true
+  }), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3"
+  }, React.createElement("button", {
+    onClick: () => setShowCompanyEdit(false),
+    class: "w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all"
+  }, "취소"), React.createElement("button", {
+    onClick: saveCompanyName,
+    class: "w-full bg-amber-500 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all"
+  }, "저장")))), React.createElement("div", {
+    class: `fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${showFactoryFilter ? "opacity-100 visible" : "opacity-0 invisible"}`
+  }, React.createElement("div", {
+    onClick: () => {
+      if (myFactories && myFactories.length) setShowFactoryFilter(false);else showToast("내 공장을 1개 이상 선택해주세요.");
+    },
+    class: "absolute inset-0"
+  }), React.createElement("div", {
+    class: `absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[28px] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 transform ${showFactoryFilter ? "translate-y-0" : "translate-y-full"}`
+  }, React.createElement("div", {
+    class: "w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4"
+  }), React.createElement("h3", {
+    class: "text-lg font-black text-slate-900 mb-1"
+  }, "🏭 내 담당 공장 설정"), React.createElement("p", {
+    class: "text-xs text-slate-400 mb-4 leading-relaxed"
+  }, "선택한 공장 탭만 내 화면에 표시됩니다.", React.createElement("br", null), "다른 사람 화면에는 영향 없이 ", React.createElement("span", {
+    class: "font-bold text-slate-600"
+  }, "이 기기에만"), " 저장됩니다."), React.createElement("div", {
+    class: "grid grid-cols-3 gap-2 mb-6"
+  }, SUPPORTED_FACTORIES.map(f => {
+    const selected = filterDraft.includes(f);
+    return React.createElement("button", {
+      key: f,
+      type: "button",
+      onClick: () => toggleFilterFactory(f),
+      class: `py-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${selected ? "bg-amber-500 text-white shadow-sm" : "bg-slate-100 text-slate-500"}`
+    }, f);
+  })), React.createElement("p", {
+    class: "text-xs text-slate-400 text-center mb-3"
+  }, filterDraft.length === 0 ? "⚠️ 최소 1개 이상 선택해주세요" : `${filterDraft.length}개 공장 선택됨`), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3"
+  }, React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      if (myFactories && myFactories.length) setShowFactoryFilter(false);else showToast("내 공장을 1개 이상 선택해주세요.");
+    },
+    class: "w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl min-h-[52px]"
+  }, "취소"), React.createElement("button", {
+    type: "button",
+    onClick: saveFactoryFilter,
+    disabled: filterDraft.length === 0,
+    class: `w-full font-bold py-3.5 rounded-xl min-h-[52px] transition-all ${filterDraft.length === 0 ? "bg-slate-200 text-slate-400" : "bg-amber-500 text-white"}`
+  }, "저장")))), React.createElement("div", {
+    class: `fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${showAddModal ? "opacity-100 visible" : "opacity-0 invisible"}`
+  }, React.createElement("div", {
+    onClick: () => setShowAddModal(false),
+    class: "absolute inset-0"
+  }), React.createElement("div", {
+    class: `absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[28px] px-5 pb-8 pt-5 shadow-2xl transition-transform duration-300 transform max-h-[92vh] overflow-y-auto ${showAddModal ? "translate-y-0" : "translate-y-full"}`
+  }, React.createElement("div", {
+    class: "w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4"
+  }), React.createElement("div", {
+    class: "flex gap-2 mb-4"
+  }, React.createElement("button", {
+    type: "button",
+    onClick: () => setAddModalTab("extra"),
+    class: `flex-1 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 ${addModalTab === "extra" ? "bg-amber-500 text-white shadow-sm" : "bg-slate-100 text-slate-500"}`
+  }, "당일 공사 추가"), React.createElement("button", {
+    type: "button",
+    onClick: () => setAddModalTab("urgent"),
+    class: `flex-1 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 ${addModalTab === "urgent" ? "bg-rose-600 text-white shadow-sm" : "bg-slate-100 text-slate-500"}`
+  }, "긴급공사 등록")), addModalTab === "extra" && React.createElement("div", {
+    class: "space-y-3"
+  }, React.createElement("p", {
+    class: "text-xs text-slate-500 leading-relaxed px-1"
+  }, "오늘 인원 배정이 없는 공사입니다. 선택하면 오늘 목록(TODAY)에 추가됩니다."), extraItems.length === 0 ? React.createElement("div", {
+    class: "py-12 text-center text-sm text-slate-400"
+  }, "추가할 공사가 없습니다.") : React.createElement("div", {
+    class: "space-y-2 max-h-[46vh] overflow-y-auto"
+  }, extraItems.map(item => {
+    const picked = selectedExtras.includes(item.id);
+    return React.createElement("button", {
+      type: "button",
+      key: item.id,
+      onClick: () => toggleExtraSelect(item.id),
+      class: `w-full text-left px-3 py-2.5 rounded-xl border transition-all active:scale-[0.99] ${picked ? "bg-amber-50 border-amber-400" : "bg-slate-50 border-slate-200"}`
+    }, React.createElement("div", {
+      class: "flex items-center gap-2"
+    }, React.createElement("span", {
+      class: `w-5 h-5 flex-shrink-0 rounded-md flex items-center justify-center text-xs font-black ${picked ? "bg-amber-500 text-white" : "bg-white border border-slate-300 text-transparent"}`
+    }, "✓"), React.createElement("span", {
+      class: "text-xs text-slate-500 font-bold flex-shrink-0"
+    }, factoryDisplay(item.factory), " · NO.", item.no)), React.createElement("p", {
+      class: "text-sm font-bold text-slate-800 mt-1 leading-snug"
+    }, item.title));
+  })), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3 pt-1"
+  }, React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      setSelectedExtras([]);
+      setShowAddModal(false);
+    },
+    class: "w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl min-h-[52px] active:scale-95 transition-all"
+  }, "취소"), React.createElement("button", {
+    type: "button",
+    onClick: addExtraItems,
+    disabled: selectedExtras.length === 0,
+    class: `w-full font-bold py-3.5 rounded-xl min-h-[52px] transition-all active:scale-95 ${selectedExtras.length === 0 ? "bg-slate-200 text-slate-400" : "bg-amber-500 text-white"}`
+  }, selectedExtras.length > 0 ? `${selectedExtras.length}건 추가` : "추가"))), addModalTab === "urgent" && React.createElement("div", {
+    class: "space-y-4"
+  }, React.createElement("div", {
+    class: "flex items-center gap-2 mb-2"
+  }, React.createElement("div", {
+    class: "w-8 h-8 bg-rose-600 rounded-xl flex items-center justify-center"
+  }, React.createElement("svg", {
+    class: "w-4 h-4 text-white",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "2.5",
+    viewBox: "0 0 24 24"
+  }, React.createElement("path", {
+    d: "M13 10V3L4 14h7v7l9-11h-7z",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round"
+  }))), React.createElement("div", null, React.createElement("h3", {
+    class: "text-base font-black text-slate-900"
+  }, "긴급공사 등록 마법사"), React.createElement("p", {
+    class: "text-xs text-slate-400"
+  }, "선택한 정보로 공사명이 자동 생성됩니다."))), React.createElement("div", {
+    class: "space-y-6"
+  }, React.createElement("div", {
+    class: "space-y-2"
+  }, React.createElement("label", {
+    class: "text-sm font-black text-slate-800 flex items-center gap-1"
+  }, "Step 1. 공장 선택 ", React.createElement("span", {
+    class: "text-rose-500"
+  }, "*")), React.createElement("div", {
+    class: "flex flex-wrap gap-1.5"
+  }, SUPPORTED_FACTORIES.map(f => React.createElement("button", {
+    key: f,
+    type: "button",
+    onClick: () => {
+      setUrgentFactory(f);
+      setUrgentSubFactory("");
+    },
+    class: `px-3 py-2 text-sm font-semibold rounded-xl transition-all active:scale-95 min-h-[40px] ${urgentFactory === f ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`
+  }, f))), SUB_FACTORIES[urgentFactory] && SUB_FACTORIES[urgentFactory].length > 0 && React.createElement("div", {
+    class: "flex flex-wrap gap-1.5 mt-2 bg-rose-50/50 p-2 rounded-xl border border-rose-100"
+  }, SUB_FACTORIES[urgentFactory].map(sub => React.createElement("button", {
+    key: sub,
+    type: "button",
+    onClick: () => setUrgentSubFactory(sub),
+    class: `px-3 py-1.5 text-sm font-bold rounded-lg transition-all active:scale-95 ${urgentSubFactory === sub ? "bg-rose-500 text-white shadow-sm" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"}`
+  }, sub)))), React.createElement("div", {
+    class: "space-y-1.5"
+  }, React.createElement("label", {
+    class: "text-sm font-black text-slate-800 flex items-center gap-1"
+  }, "Step 2. 작업 위치 ", React.createElement("span", {
+    class: "text-rose-500"
+  }, "*")), React.createElement("input", {
+    type: "text",
+    placeholder: "예: DL1, 상도1, 샤시메인 등",
+    value: urgentWorkLocation,
+    onChange: e => setUrgentWorkLocation(e.target.value),
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-rose-500 focus:bg-white transition-all"
+  })), React.createElement("div", {
+    class: "space-y-1.5"
+  }, React.createElement("label", {
+    class: "text-sm font-black text-slate-800 flex items-center gap-1"
+  }, "Step 3. 작업 내용 ", React.createElement("span", {
+    class: "text-rose-500"
+  }, "*")), React.createElement("input", {
+    type: "text",
+    placeholder: "예: 발판 개선 작업, 누수 보수 등",
+    value: urgentWorkContent,
+    onChange: e => setUrgentWorkContent(e.target.value),
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-rose-500 focus:bg-white transition-all"
+  })), React.createElement("div", {
+    class: "bg-amber-50 border border-amber-200 rounded-xl p-3.5 shadow-inner"
+  }, React.createElement("p", {
+    class: "text-xs text-amber-700 font-bold mb-1 flex items-center gap-1"
+  }, React.createElement("svg", {
+    class: "w-3.5 h-3.5",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "3",
+    viewBox: "0 0 24 24"
+  }, React.createElement("path", {
+    d: "M13 10V3L4 14h7v7l9-11h-7z",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round"
+  })), "공사명 자동 생성 결과"), React.createElement("p", {
+    class: "text-base font-black text-slate-900 break-keep"
+  }, `${urgentFactory} ${urgentSubFactory} ${urgentWorkLocation} ${urgentWorkContent}`.replace(/\s+/g, ' ').trim() || "상단 항목을 선택 및 입력해주세요.")), React.createElement("div", {
+    class: "space-y-1.5 pt-2 border-t border-slate-100"
+  }, React.createElement("label", {
+    class: "text-sm font-black text-slate-800"
+  }, "Step 4. 작업 구분 ", React.createElement("span", {
+    class: "text-slate-400 font-normal text-xs"
+  }, "(복수 선택 가능)")), React.createElement("div", {
+    class: "flex flex-wrap gap-2"
+  }, WORK_TYPE_OPTIONS.map(type => React.createElement("button", {
+    key: type,
+    type: "button",
+    onClick: () => toggleUrgentWorkType(type),
+    class: `px-3 py-2 text-sm font-bold rounded-xl transition-all active:scale-95 min-h-[44px] ${urgentWorkTypes.includes(type) ? "bg-amber-500 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`
+  }, type)))), React.createElement("div", {
+    class: "space-y-2"
+  }, React.createElement("label", {
+    class: "text-sm font-black text-slate-800 flex items-center gap-1"
+  }, "Step 5. 담당 감독자 ", React.createElement("span", {
+    class: "text-rose-500"
+  }, "*")), React.createElement("div", {
+    class: "flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto p-0.5"
+  }, getSupervisorPool(urgentFactory).map(name => React.createElement("button", {
+    key: name,
+    type: "button",
+    onClick: () => setUrgentSupervisor(name),
+    class: `px-3 py-2 text-sm font-semibold rounded-xl transition-all active:scale-95 min-h-[40px] ${urgentSupervisor === name ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`
+  }, name))), React.createElement("input", {
+    type: "text",
+    placeholder: "명단에 없는 감독자 직접 입력",
+    value: urgentSupervisor,
+    onChange: e => setUrgentSupervisor(e.target.value),
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-rose-500 focus:bg-white transition-all"
+  })), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3 pt-4 border-t border-slate-100"
+  }, React.createElement("button", {
+    type: "button",
+    onClick: () => setShowAddModal(false),
+    class: "w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]"
+  }, "취소"), React.createElement("button", {
+    type: "button",
+    onClick: handleAddUrgent,
+    class: "w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3.5 rounded-xl text-base shadow-sm active:scale-95 transition-all min-h-[52px]"
+  }, "⚡ 등록 완료")))))), showWeather && React.createElement("div", {
+    class: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6",
+    onClick: () => setShowWeather(false)
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4",
+    onClick: e => e.stopPropagation()
+  }, React.createElement("div", {
+    class: "text-center"
+  }, React.createElement("h2", {
+    class: "text-lg font-black text-slate-900"
+  }, "🌤️ 기상 정보 ", React.createElement("span", {
+    class: "text-xs font-medium text-slate-400"
+  }, "(매1시간 자동 갱신)")), React.createElement("p", {
+    class: "text-xs text-slate-400 mt-0.5"
+  }, "울산 북구 양정동 기준")), weather ? React.createElement("div", {
+    class: "space-y-3"
+  }, React.createElement("div", {
+    class: "grid grid-cols-2 gap-3"
+  }, React.createElement("div", {
+    class: "bg-sky-50 rounded-2xl p-4 text-center"
+  }, React.createElement("p", {
+    class: "text-xs text-sky-500 font-bold mb-1"
+  }, "현재 기온"), React.createElement("p", {
+    class: "text-2xl font-black text-slate-900"
+  }, weather.temp != null ? `${weather.temp}℃` : "—")), React.createElement("div", {
+    class: "bg-sky-50 rounded-2xl p-4 text-center"
+  }, React.createElement("p", {
+    class: "text-xs text-sky-500 font-bold mb-1"
+  }, "현재 습도"), React.createElement("p", {
+    class: "text-2xl font-black text-slate-900"
+  }, weather.humidity != null ? `${weather.humidity}%` : "—"))), React.createElement("div", {
+    class: "bg-slate-50 rounded-2xl p-4"
+  }, React.createElement("p", {
+    class: "text-xs text-slate-500 font-bold mb-2"
+  }, "기상특보"), weather.warnings && weather.warnings.length > 0 ? React.createElement("div", {
+    class: "flex flex-wrap gap-1.5"
+  }, sortWarnings(weather.warnings).map((w, i) => React.createElement("span", {
+    key: i,
+    class: `${warningBadgeClass(w)} text-sm font-black px-2.5 py-1 rounded-lg`
+  }, w))) : React.createElement("p", {
+    class: "text-sm font-bold text-emerald-600"
+  }, "특보 없음"), weather.wrnStale && React.createElement("p", {
+    class: "text-xs text-amber-600 font-bold mt-2 leading-relaxed"
+  }, "⚠️ 최신 특보 확인 실패 — 아래는 ", weather.wrnCheckedAt ? `${new Date(weather.wrnCheckedAt).getMonth() + 1}/${new Date(weather.wrnCheckedAt).getDate()} ${String(new Date(weather.wrnCheckedAt).getHours()).padStart(2, "0")}:${String(new Date(weather.wrnCheckedAt).getMinutes()).padStart(2, "0")}` : "이전", " 기준 정보입니다.")), weather.bulletin && React.createElement("button", {
+    type: "button",
+    onClick: () => setWrnExpand(!wrnExpand),
+    class: "w-full text-left bg-amber-50 border border-amber-100 rounded-2xl p-3"
+  }, React.createElement("p", {
+    class: "text-xs text-amber-700 font-bold mb-1"
+  }, "⚠️ 통보문/속보 ", wrnExpand ? "▲" : "▼ (탭하여 펼치기)"), React.createElement("p", {
+    class: `text-xs text-slate-600 leading-relaxed whitespace-pre-wrap ${wrnExpand ? "" : "line-clamp-2"}`
+  }, weather.bulletin)), weather.error && React.createElement("p", {
+    class: "text-xs text-rose-400 text-center"
+  }, weather.error, " 조회 실패")) : React.createElement("p", {
+    class: "text-sm text-slate-400 text-center py-6"
+  }, weatherLoading ? "불러오는 중…" : "데이터 없음"), React.createElement("button", {
+    onClick: () => setShowWeather(false),
+    class: "w-full bg-slate-900 text-white font-bold py-3 rounded-2xl text-sm active:scale-95 transition-all"
+  }, "닫기"))), safetyReportDraft != null && React.createElement("div", {
+    class: "fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6"
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-5 w-full max-w-sm shadow-2xl space-y-3"
+  }, React.createElement("h2", {
+    class: "text-lg font-black text-slate-900"
+  }, "📋 안전보고문 생성"), React.createElement("textarea", {
+    value: safetyReportDraft,
+    onChange: e => setSafetyReportDraft(e.target.value),
+    rows: 12,
+    class: "w-full text-sm text-slate-700 border-2 border-slate-200 rounded-2xl p-3 leading-relaxed focus:outline-none focus:border-slate-400 resize-none"
+  }), React.createElement("div", {
+    class: "flex gap-2"
+  }, React.createElement("button", {
+    onClick: () => setSafetyReportDraft(null),
+    class: "flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl text-sm active:scale-95 transition-all"
+  }, "닫기"), React.createElement("button", {
+    onClick: () => {
+      navigator.clipboard.writeText(safetyReportDraft).then(() => {
+        showToast("📋 안전보고문이 복사되었습니다.");
+      }).catch(() => {
+        showToast("클립보드 복사에 실패했습니다.");
+      });
+    },
+    class: "flex-1 bg-slate-800 text-white font-bold py-3 rounded-2xl text-sm active:scale-95 transition-all"
+  }, "클립보드 복사")))), showMaster && React.createElement("div", {
+    class: "fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center"
+  }, React.createElement("div", {
+    class: "bg-white rounded-t-[28px] sm:rounded-3xl w-full max-w-md p-5 shadow-2xl max-h-[90vh] overflow-y-auto"
+  }, React.createElement("div", {
+    class: "w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4"
+  }), React.createElement("h3", {
+    class: "text-lg font-black text-slate-900 mb-1"
+  }, masterLevel >= 2 ? "🔑 마스터 모드" : masterLevel >= 1 ? "🔑 관리자 모드" : "🔑 관리자(마스터) 모드"), masterLevel < 1 ? React.createElement("div", {
+    class: "space-y-3 mt-3"
+  }, React.createElement("p", {
+    class: "text-xs text-slate-400 leading-relaxed"
+  }, "마스터 코드는 서버에서 검증됩니다.", React.createElement("br", null), "일반 사용자에게는 연락처 등 관리자 데이터가 전송되지 않습니다."), React.createElement("input", {
+    type: "password",
+    value: masterCode,
+    onChange: e => setMasterCode(e.target.value),
+    onKeyDown: e => e.key === "Enter" && masterLogin(),
+    placeholder: "마스터 코드 입력",
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-amber-500 min-h-[52px]",
+    autoFocus: true
+  }), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3"
+  }, React.createElement("button", {
+    onClick: closeMaster,
+    class: "w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl min-h-[52px]"
+  }, "취소"), React.createElement("button", {
+    onClick: masterLogin,
+    disabled: masterBusy,
+    class: "w-full bg-slate-900 text-amber-400 font-bold py-3.5 rounded-xl min-h-[52px] disabled:opacity-50"
+  }, masterBusy ? "확인 중…" : "인증"))) : React.createElement("div", {
+    class: "space-y-5 mt-3"
+  }, masterLevel < 2 && React.createElement("p", {
+    class: "text-xs text-sky-600 bg-sky-50 rounded-xl px-3 py-2 font-medium"
+  }, "관리자 모드 — 공지 작성 및 연락처 조회·추가"), masterLevel >= 2 && React.createElement("button", {
+    onClick: masterExportAll,
+    disabled: masterBusy,
+    class: "w-full bg-emerald-500 text-white font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all disabled:opacity-50"
+  }, "📊 전체 현장 통합 엑셀 다운로드"), React.createElement("div", {
+    class: "space-y-2"
+  }, React.createElement("p", {
+    class: "text-base font-bold text-slate-800"
+  }, "📢 공지사항 ", React.createElement("span", {
+    class: "text-xs font-normal text-slate-400"
+  }, "(저장 시 전 사용자에게 자동 표시)")), React.createElement("textarea", {
+    value: noticeDraft,
+    onChange: e => setNoticeDraft(e.target.value),
+    rows: 3,
+    placeholder: "현장 전달사항을 입력하세요. 비우면 공지가 표시되지 않습니다.",
+    class: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 resize-none"
+  }), React.createElement("button", {
+    onClick: masterSaveNotice,
+    disabled: masterBusy,
+    class: "w-full bg-slate-900 text-amber-400 font-bold py-2.5 rounded-xl text-sm active:scale-95 disabled:opacity-50"
+  }, "공지 저장")), React.createElement("div", {
+    class: "space-y-2"
+  }, React.createElement("div", {
+    class: "flex items-center justify-between"
+  }, React.createElement("p", {
+    class: "text-base font-bold text-slate-800"
+  }, "📞 감독자 연락처 ", React.createElement("span", {
+    class: "text-xs font-normal text-slate-400"
+  }, "(서버 보관)")), masterContacts === null && React.createElement("button", {
+    onClick: masterLoadContacts,
+    disabled: masterBusy,
+    class: "text-xs bg-slate-100 text-slate-600 font-bold px-2.5 py-1.5 rounded-lg active:scale-95"
+  }, "불러오기")), masterContacts !== null && React.createElement(React.Fragment, null, React.createElement("div", {
+    class: "space-y-1.5 max-h-[160px] overflow-y-auto"
+  }, masterContacts.length === 0 && React.createElement("p", {
+    class: "text-xs text-slate-400 py-2"
+  }, "등록된 연락처가 없습니다."), masterContacts.map(c => React.createElement("div", {
+    key: c.id,
+    class: "flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2"
+  }, React.createElement("div", {
+    class: "flex-1 min-w-0"
+  }, React.createElement("p", {
+    class: "text-sm font-bold text-slate-800"
+  }, c.name, " ", React.createElement("span", {
+    class: "text-xs font-normal text-slate-400"
+  }, c.dept || c.factory)), React.createElement("a", {
+    href: `tel:${c.phone}`,
+    class: "text-xs text-sky-600 font-semibold"
+  }, c.phone)), masterLevel >= 2 && React.createElement("button", {
+    onClick: () => masterDeleteContact(c.id),
+    class: "text-xs bg-rose-50 text-rose-500 font-bold px-2.5 py-1.5 rounded-lg active:scale-95"
+  }, "삭제")))), React.createElement("div", {
+    class: "grid grid-cols-2 gap-2"
+  }, React.createElement("input", {
+    type: "text",
+    value: ctName,
+    onChange: e => setCtName(e.target.value),
+    placeholder: "이름",
+    class: "min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500"
+  }), React.createElement("input", {
+    type: "tel",
+    value: ctPhone,
+    onChange: e => setCtPhone(e.target.value),
+    placeholder: "연락처",
+    class: "min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500"
+  }), React.createElement("select", {
+    value: ctDept,
+    onChange: e => setCtDept(e.target.value),
+    class: "min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500"
+  }, React.createElement("option", {
+    value: ""
+  }, "부서 선택"), ALL_DEPTS.map(d => React.createElement("option", {
+    key: d,
+    value: d
+  }, d))), React.createElement("select", {
+    value: ctFactory,
+    onChange: e => setCtFactory(e.target.value),
+    class: "min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm focus:outline-none focus:border-amber-500"
+  }, React.createElement("option", {
+    value: ""
+  }, "공장 선택"), SUPPORTED_FACTORIES.map(f => React.createElement("option", {
+    key: f,
+    value: f
+  }, f)))), React.createElement("button", {
+    onClick: masterAddContact,
+    disabled: masterBusy,
+    class: "w-full bg-slate-800 text-white font-bold py-2.5 rounded-xl text-sm active:scale-95 disabled:opacity-50"
+  }, "연락처 추가"))), adminAuthed && React.createElement("p", {
+    class: "text-xs text-emerald-600 font-semibold text-center"
+  }, masterLevel >= 2 ? "마스터 인증됨 (최고 관리자)" : "관리자 인증됨", " — 감독자 카드에 전화 버튼 표시 (이 기기에 계속 유지)"), React.createElement("div", {
+    class: "grid grid-cols-2 gap-3"
+  }, React.createElement("button", {
+    onClick: adminLogout,
+    class: "w-full bg-rose-50 text-rose-500 font-bold py-3.5 rounded-xl text-sm active:scale-95 transition-all"
+  }, "인증 해제"), React.createElement("button", {
+    onClick: closeMaster,
+    class: "w-full bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all"
+  }, "닫기"))))));
+}
+const container = document.getElementById('root');
+const root = ReactDOM.createRoot(container);
+root.render(React.createElement(App, null));
+(async () => {
+  try {
+    if (!navigator.serviceWorker || !navigator.serviceWorker.getRegistrations) return;
+    const regs = await navigator.serviceWorker.getRegistrations();
+    if (!regs.length) return;
+    await Promise.all(regs.map(r => r.update().catch(() => {})));
+    await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+    if (window.caches && caches.keys) {
+      const names = await caches.keys();
+      await Promise.all(names.map(n => caches.delete(n).catch(() => {})));
+    }
+    if (!sessionStorage.getItem("MMEEC_SW_CLEANED")) {
+      sessionStorage.setItem("MMEEC_SW_CLEANED", "1");
+      location.reload(true);
+    }
+  } catch (e) {}
+})();
+(async () => {
+  const RELOAD_FLAG = "MMEEC_UPDATE_RELOADED";
+  try {
+    const res = await fetch("./version.json", {
+      cache: "no-store"
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const latest = String(data && data.version || "").trim();
+    if (!latest || latest === APP_VERSION) {
+      sessionStorage.removeItem(RELOAD_FLAG);
+      return;
+    }
+    if (sessionStorage.getItem(RELOAD_FLAG)) {
+      console.warn("최신 버전으로 갱신했지만 버전이 계속 다릅니다. 새로고침을 중단합니다.");
+      return;
+    }
+    sessionStorage.setItem(RELOAD_FLAG, "1");
+    if (window.caches && caches.keys) {
+      const names = await caches.keys();
+      await Promise.all(names.map(n => caches.delete(n)));
+    }
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    location.reload();
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
