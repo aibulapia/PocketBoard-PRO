@@ -409,6 +409,7 @@ function App() {
   const [companyName, setCompanyName] = useState(() => localStorage.getItem("MMEEC_COMPANY_NAME") || "MMEEC");
   const [companyNameDraft, setCompanyNameDraft] = useState("");
   const [showInfo, setShowInfo] = useState(false);
+  const [showQrZoom, setShowQrZoom] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [openHelpId, setOpenHelpId] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -1454,10 +1455,6 @@ function App() {
     }
   };
   const toggleFilterFactory = f => {
-    if (masterLevel < 1) {
-      setFilterDraft([f]);
-      return;
-    }
     setFilterDraft(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
   };
   const saveFactoryFilter = () => {
@@ -1675,13 +1672,6 @@ function App() {
   useEffect(() => {
     document.title = `MMEEC 현장 점검 ${appDisplayName} ${APP_VERSION}`;
   }, [appDisplayName]);
-  useEffect(() => {
-    if (masterLevel < 1 && myFactories && myFactories.length > 1) {
-      const trimmed = [myFactories[0]];
-      setMyFactories(trimmed);
-      localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(trimmed));
-    }
-  }, [masterLevel, myFactories]);
   const [masterContacts, setMasterContacts] = useState(null);
   const [masterBusy, setMasterBusy] = useState(false);
   const [ctName, setCtName] = useState("");
@@ -2107,7 +2097,7 @@ function App() {
     "stroke-linejoin": "round"
   })), "공사추가"), React.createElement("div", {
     class: "flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0"
-  }, (masterLevel < 1 ? activeFactories.filter(f => f !== "전체") : activeFactories).map(factory => {
+  }, activeFactories.map(factory => {
     const scope = factory === "전체" ? items : items.filter(i => factoryDisplay(i.factory) === factory);
     const count = scope.length;
     const activeCount = scope.filter(isCardOpen).length;
@@ -2851,7 +2841,20 @@ function App() {
   }, linkifyText(notice.body))), React.createElement("button", {
     onClick: dismissNotice,
     class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all"
-  }, "확인"))), showHelp && React.createElement("div", {
+  }, "확인"))), showQrZoom && React.createElement("div", {
+    class: "fixed inset-0 bg-black/70 z-[60] flex items-center justify-center px-6",
+    onClick: () => setShowQrZoom(false)
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-6 shadow-2xl text-center"
+  }, React.createElement("img", {
+    src: "qr-code.png",
+    alt: "앱 주소 QR코드 확대",
+    class: "w-[260px] h-[260px] rounded-xl mx-auto"
+  }), React.createElement("p", {
+    class: "text-sm text-slate-500 mt-4"
+  }, "pocketboardprov2.pages.dev"), React.createElement("p", {
+    class: "text-xs text-slate-400 mt-1"
+  }, "화면을 누르면 닫힙니다"))), showHelp && React.createElement("div", {
     class: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6"
   }, React.createElement("div", {
     class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl max-h-[80vh] flex flex-col"
@@ -2899,7 +2902,12 @@ function App() {
     }
   }, "⚡"), React.createElement("h2", {
     class: "text-xl font-black text-slate-900"
-  }, companyName, " ", appDisplayName), React.createElement("p", {
+  }, companyName, " ", appDisplayName), React.createElement("img", {
+    src: "qr-code.png",
+    alt: "앱 주소 QR코드",
+    onClick: () => setShowQrZoom(true),
+    class: "mx-auto mt-3 w-[120px] h-[120px] rounded-xl border border-slate-100 cursor-pointer active:scale-95 transition-transform"
+  }), React.createElement("p", {
     class: "text-base text-slate-500 mt-1"
   }, "Ver. ", APP_VERSION, masterLevel >= 2 ? " (마스터)" : masterLevel >= 1 ? " (관리자)" : ""), React.createElement("button", {
     type: "button",
