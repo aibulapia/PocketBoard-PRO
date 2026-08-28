@@ -94,13 +94,21 @@ docs/                       ← 배포 안 됨
 ├── README.md               폴더 구조, 설정 방법, 배포 이력 표
 ├── CHANGELOG.md            상세 변경 이력 (v1.0 ~ 현재)
 ├── BACKLOG.md              할 일·보류 목록
-├── 포켓보드PRO_백서.md      사람이 읽는 소개 문서
+├── 포켓보드PRO_백서.md      사람이 읽는 소개 문서 (+ .html)
 ├── 포켓보드PRO_개발문서.md  ← 이 문서
-└── 포켓보드PRO_사용설명서.html  감독자용
+├── 포켓보드PRO_사용설명서.html  감독자용
+└── archive/                낡은 문서 보관 (참고용, 갱신 안 함)
+
+(루트)
+├── CLAUDE.md               작업 원칙 (AI·개발자가 지킬 규칙)
+└── .gitignore              node_modules·package.json 등 제외
 ```
 
 ⚠️ **Cloudflare Pages 설정**: Build output directory = `public`
 이 덕분에 `server/`·`docs/`는 웹에 노출되지 않습니다.
+
+⚠️ **빌드 도구 없음**: `npm install` 불필요. 검증 테스트로 `node_modules`가
+생기더라도 `.gitignore`가 막으므로 저장소에는 올라가지 않습니다.
 
 ---
 

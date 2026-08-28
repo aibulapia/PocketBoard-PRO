@@ -66,15 +66,20 @@ v 2.55 (26.08/24)
 
 | 폴더 | 내용 | 웹 배포 |
 |---|---|---|
-| `public/` | index.html, config.js, data.js, storage.js, sw.js, manifest.json, 아이콘, _headers, _redirects | ✅ **이 폴더만 배포됨** |
+| `public/` | index.html, config.js, data.js, storage.js, sw.js, manifest.json, version.json, 아이콘, _headers, _redirects | ✅ **이 폴더만 배포됨** |
 | `server/` | supabase-*.sql, apps-script-v3.gs (Supabase·구글시트에 붙여넣는 설정문) | ❌ |
 | `docs/` | README, CHANGELOG, BACKLOG, 백서, 개발문서, 사용설명서, archive | ❌ |
+| (루트) | CLAUDE.md (작업 원칙), .gitignore | ❌ |
 
 > ⚠️ **Cloudflare Pages 설정**: Build output directory = `public`
 > 이 설정 덕분에 `server/`·`docs/`의 파일은 웹에 노출되지 않습니다.
 > 새 파일을 추가할 때 **웹에 공개돼도 되는 것만 `public/`에** 넣으세요.
 
 > ⚠️ **인증정보는 저장소에 기록하지 않습니다.** 관리자 코드·백업 토큰 등은 별도 보관합니다.
+
+> 💡 **이 앱은 빌드 도구를 쓰지 않습니다.** React·Babel을 CDN으로 불러오는
+> 단일 HTML 구조라 `npm install`이 필요 없습니다. `node_modules/`·`package.json`이
+> 저장소에 올라가지 않도록 `.gitignore`로 막아두었습니다.
 
 ---
 
