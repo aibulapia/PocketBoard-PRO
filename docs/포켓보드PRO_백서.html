@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMEEC 포켓보드 PRO — 백서 (v2.55)</title>
+<style>
+  :root{
+    --ink:#1e293b; --sub:#64748b; --line:#e2e8f0; --bg:#f8fafc;
+    --amber:#f59e0b; --amber-bg:#fffbeb; --sky:#0ea5e9; --sky-bg:#f0f9ff;
+    --emerald:#10b981; --emerald-bg:#ecfdf5; --rose:#f43f5e; --rose-bg:#fff1f2;
+    --purple:#8b5cf6; --purple-bg:#f5f3ff; --card:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.65; padding-bottom:80px;
+  }
+  .wrap{max-width:840px; margin:0 auto; padding:0 20px;}
+  header.top{
+    background:linear-gradient(135deg,#0f172a,#1e293b); color:#fff; padding:48px 20px 40px;
+    text-align:center;
+  }
+  header.top .logo{font-size:14px; font-weight:800; color:#fbbf24; letter-spacing:.5px;}
+  header.top h1{font-size:30px; margin:8px 0 6px; font-weight:900;}
+  header.top p{margin:0; color:#94a3b8; font-size:14px;}
+  header.top .badge{
+    display:inline-block; margin-top:18px; background:rgba(251,191,36,.15); color:#fbbf24;
+    border:1px solid rgba(251,191,36,.35); padding:6px 16px; border-radius:999px; font-size:13px; font-weight:700;
+  }
+  nav.toc{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 22px;
+    margin:-28px auto 36px; max-width:800px; box-shadow:0 8px 24px rgba(15,23,42,.06);
+  }
+  nav.toc h2{font-size:13px; color:var(--sub); margin:0 0 10px; font-weight:800; letter-spacing:.3px;}
+  nav.toc ol{margin:0; padding-left:20px; columns:2; gap:24px; font-size:14px;}
+  nav.toc li{margin-bottom:6px;}
+  nav.toc a{color:var(--ink); text-decoration:none; font-weight:600;}
+  nav.toc a:hover{color:var(--amber);}
+  section{margin:44px 0;}
+  section > h2{
+    font-size:22px; font-weight:900; margin:0 0 6px; padding-bottom:12px; border-bottom:3px solid var(--ink);
+    display:flex; align-items:center; gap:10px;
+  }
+  section > .lead{color:var(--sub); font-size:14px; margin:10px 0 20px;}
+  h3.sub{font-size:16px; font-weight:800; margin:26px 0 10px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:14px 0;
+  }
+  .card p{margin:6px 0;}
+  .card .tag{
+    display:inline-block; font-size:11px; font-weight:800; padding:3px 10px; border-radius:999px; margin-bottom:8px;
+  }
+  .tag.lv0{background:#f1f5f9; color:#475569;}
+  .tag.lv1{background:var(--sky-bg); color:var(--sky);}
+  .tag.lv2{background:var(--purple-bg); color:var(--purple);}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  @media (max-width:640px){ .grid2{grid-template-columns:1fr;} nav.toc ol{columns:1;} }
+  table{width:100%; border-collapse:collapse; font-size:13.5px; margin:14px 0;}
+  th, td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top;}
+  th{background:#f1f5f9; font-weight:800; color:var(--ink);}
+  tr:nth-child(even) td{background:#fafbfc;}
+  .callout{
+    border-left:4px solid var(--amber); background:var(--amber-bg); border-radius:0 12px 12px 0;
+    padding:14px 18px; margin:16px 0; font-size:14px;
+  }
+  .callout.blue{border-color:var(--sky); background:var(--sky-bg);}
+  .callout.red{border-color:var(--rose); background:var(--rose-bg);}
+  .callout.green{border-color:var(--emerald); background:var(--emerald-bg);}
+  .callout b{display:block; margin-bottom:4px;}
+  .steps{list-style:none; padding:0; margin:14px 0; counter-reset:step;}
+  .steps li{
+    counter-increment:step; position:relative; padding:8px 0 8px 38px; font-size:14px; border-bottom:1px dashed var(--line);
+  }
+  .steps li:last-child{border-bottom:none;}
+  .steps li::before{
+    content:counter(step); position:absolute; left:0; top:6px; width:24px; height:24px; border-radius:50%;
+    background:var(--ink); color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center;
+  }
+  .badge-row{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0;}
+  .chip{font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; background:#f1f5f9; color:#475569;}
+  .chip.today{background:#dbeafe; color:#1d4ed8;}
+  .chip.star{background:#fef3c7; color:#b45309;}
+  .chip.done{background:#e2e8f0; color:#64748b;}
+  .chip.ext{background:#e0e7ff; color:#4338ca;}
+  .faq details{
+    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin:10px 0;
+  }
+  .faq summary{font-weight:700; cursor:pointer; font-size:14.5px;}
+  .faq p{margin:10px 0 0; color:var(--sub); font-size:13.5px;}
+  .foot{
+    text-align:center; color:#94a3b8; font-size:12.5px; margin-top:60px; padding-top:24px; border-top:1px solid var(--line);
+  }
+  code{background:#f1f5f9; padding:1px 6px; border-radius:6px; font-size:12.5px;}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="logo">MMEEC</div>
+  <h1>포켓보드 PRO 백서</h1>
+  <p>주말·공휴일 공사 현장 안전관리 앱</p>
+  <div class="badge">v2.55 · 2026-08-27</div>
+</header>
+<div class="wrap">
+<h1 id="mmeec-pro">MMEEC 포켓보드 PRO — 백서</h1>
+<blockquote>
+<p><strong>대상 버전: v2.55</strong> (2026-08-27 기준)
+배포 주소: https://pocketboardprov2.pages.dev/
+작성 목적: 상급자 보고 · 업무 인수인계 · 사업 소개를 겸한 종합 설명서</p>
+</blockquote>
+<hr />
+<h2 id="_1">목차</h2>
+<ol>
+<li><a href="#1-개요--무엇을-하는-앱인가">개요 — 무엇을 하는 앱인가</a></li>
+<li><a href="#2-왜-만들었나">왜 만들었나</a></li>
+<li><a href="#3-누가-쓰는가--권한-3단계">누가 쓰는가 — 권한 3단계</a></li>
+<li><a href="#4-기능-총망라">기능 총망라</a></li>
+<li><a href="#5-06시-일일-체계--이-앱의-심장">06시 일일 체계 — 이 앱의 심장</a></li>
+<li><a href="#6-시스템-구조">시스템 구조</a></li>
+<li><a href="#7-운영-방식">운영 방식</a></li>
+<li><a href="#8-데이터보안-원칙">데이터·보안 원칙</a></li>
+<li><a href="#9-지금까지의-발자취">지금까지의 발자취</a></li>
+<li><a href="#10-앞으로의-계획">앞으로의 계획</a></li>
+</ol>
+<hr />
+<h1 id="1">1. 개요 — 무엇을 하는 앱인가</h1>
+<h2 id="1-1">1-1. 한 줄 요약</h2>
+<p><strong>주말·공휴일에 여러 공장에서 동시에 진행되는 공사를, 감독자들이 휴대폰 하나로
+점검하고 보고할 수 있게 만든 현장 안전관리 앱</strong>입니다.</p>
+<h2 id="1-2">1-2. 어떻게 쓰나</h2>
+<ol>
+<li>마스터가 주말공사 엑셀 파일을 앱에 올립니다 (주 2회, 수·금 오후)</li>
+<li>감독자는 링크를 열어 <strong>자기 담당 공장의 오늘 공사 목록</strong>을 봅니다</li>
+<li>현장에서 점검하며 공사위치·인원·체감온도를 입력합니다</li>
+<li>버튼 한 번으로 <strong>안전보고문이 완성</strong>되고, 카톡으로 복사해 보고합니다</li>
+<li>다음 날 오전 6시에 자동으로 초기화되어, 그날의 점검을 새로 시작합니다</li>
+</ol>
+<h2 id="1-3">1-3. 설치가 필요 없습니다</h2>
+<p>앱스토어에서 받는 앱이 아니라 <strong>인터넷 주소(링크)만 있으면 바로 열립니다.</strong>
+휴대폰 홈 화면에 바로가기를 만들어두면 앱처럼 쓸 수 있습니다.</p>
+<hr />
+<h1 id="2">2. 왜 만들었나</h1>
+<h2 id="2-1">2-1. 기존의 어려움</h2>
+<table>
+<thead>
+<tr>
+<th>문제</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>종이·엑셀 의존</td>
+<td>주말 현장에서 종이 출력물이나 엑셀 파일을 들고 다녀야 했음</td>
+</tr>
+<tr>
+<td>보고문 수기 작성</td>
+<td>매번 같은 형식을 손으로 다시 작성</td>
+</tr>
+<tr>
+<td>체감온도 계산</td>
+<td>폭염 시 온·습도로 체감온도를 따로 계산해야 함</td>
+</tr>
+<tr>
+<td>현황 파악 어려움</td>
+<td>지금 몇 건이 진행 중인지 한눈에 안 보임</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-2">2-2. 해결한 것</h2>
+<ul>
+<li>엑셀 한 번 올리면 <strong>모든 감독자 휴대폰에 자동 반영</strong></li>
+<li>입력하면 <strong>안전보고문이 자동 완성</strong> — 형식 고민 불필요</li>
+<li>온·습도 입력하면 <strong>체감온도와 폭염 단계가 자동 계산</strong></li>
+<li>공장별 진행 현황이 <strong>탭 숫자로 즉시 표시</strong></li>
+</ul>
+<hr />
+<h1 id="3-3">3. 누가 쓰는가 — 권한 3단계</h1>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>이름</th>
+<th>누가</th>
+<th>할 수 있는 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>레벨1</td>
+<td><strong>감독자</strong></td>
+<td>현장 안전 감독자</td>
+<td>공사 점검·입력, 보고문 작성, 체감온도 측정, 긴급공사 등록</td>
+</tr>
+<tr>
+<td>레벨2</td>
+<td><strong>관리자</strong></td>
+<td>공장 관리자</td>
+<td>위 전부 + 감독자 연락처 조회·전화 연결, 공지사항 작성</td>
+</tr>
+<tr>
+<td>레벨3</td>
+<td><strong>마스터</strong></td>
+<td>안전보건 담당 실장</td>
+<td>위 전부 + 엑셀 업로드, 전체 초기화, 접속현황 조회, 연락처 관리</td>
+</tr>
+</tbody>
+</table>
+<p><strong>로그인이 없습니다.</strong> 감독자는 링크만 열면 바로 씁니다.
+관리자·마스터 기능이 필요할 때만 <strong>코드를 입력</strong>해 권한을 엽니다.
+한 번 인증하면 그 휴대폰에서는 계속 유지됩니다.</p>
+<hr />
+<h1 id="4">4. 기능 총망라</h1>
+<h2 id="4-1">4-1. 공사 목록 화면</h2>
+<table>
+<thead>
+<tr>
+<th>기능</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>공장별 탭</td>
+<td>9개 공장(1~5공장, 6 PT, 7 소재, 8 아산, 9 기타)을 탭으로 구분</td>
+</tr>
+<tr>
+<td>내 담당 공장 설정</td>
+<td>감독자는 자기 공장 1개만 선택 (관리자·마스터는 여러 개 가능)</td>
+</tr>
+<tr>
+<td>날짜 넘겨보기</td>
+<td>◀ ▶ 버튼으로 다른 날 예정 공사 미리 확인</td>
+</tr>
+<tr>
+<td>TODAY 배지</td>
+<td>오늘 인원이 배정된 공사에 표시</td>
+</tr>
+<tr>
+<td>진행 현황 숫자</td>
+<td>탭마다 "진행중/전체" 건수 표시</td>
+</tr>
+<tr>
+<td>즐겨찾기 ★</td>
+<td>관심 공사를 찜해두면 자기 공장 탭에서 위로 올라옴</td>
+</tr>
+<tr>
+<td>기상 정보</td>
+<td>현재 기온·습도·기상특보 확인</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-2">4-2. 공사 점검 화면</h2>
+<table>
+<thead>
+<tr>
+<th>기능</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>공사위치·담당감독자</td>
+<td>현장에서 직접 입력</td>
+</tr>
+<tr>
+<td>인원 입력</td>
+<td>직영·일용·협력업체 인원, 65세 이상 고령자 여부</td>
+</tr>
+<tr>
+<td>체감온도 계산</td>
+<td>온·습도 입력 → 체감온도와 폭염 단계 자동 산출</td>
+</tr>
+<tr>
+<td>작업 연장</td>
+<td>예정 시간을 넘겨 작업할 때 연장 시각 기록</td>
+</tr>
+<tr>
+<td>안전보고문 자동 작성</td>
+<td>공사 전/중/후 단계별로 형식에 맞춰 자동 생성</td>
+</tr>
+<tr>
+<td>카톡 복사</td>
+<td>버튼 한 번으로 보고문을 복사해 카톡에 붙여넣기</td>
+</tr>
+<tr>
+<td>되돌리기 🗑️</td>
+<td>잘못 입력했을 때 그 카드만 공사 전 상태로 초기화</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-3">4-3. 긴급공사 등록</h2>
+<p>목록에 없던 공사가 갑자기 생겼을 때, 현장에서 바로 등록합니다.</p>
+<p><strong>5단계 마법사</strong>: 공장 → 작업 위치 → 작업 내용 → 작업 구분 → 담당 감독자
+선택만 하면 <strong>공사명이 자동으로 만들어집니다.</strong></p>
+<p>등록된 긴급공사는 일반 공사와 똑같이 점검·기록할 수 있고,
+그 주 공사기간이 끝나면 자동으로 정리됩니다.</p>
+<h2 id="4-4-2">4-4. 관리자 기능 (레벨2 이상)</h2>
+<ul>
+<li>감독자 연락처 조회 및 <strong>전화 바로 걸기</strong></li>
+<li>공지사항 작성 (감독자 앱에 팝업으로 표시)</li>
+<li>공지에 링크를 넣으면 <strong>자동으로 눌러지는 링크</strong>가 됩니다</li>
+</ul>
+<h2 id="4-5-3">4-5. 마스터 기능 (레벨3)</h2>
+<table>
+<thead>
+<tr>
+<th>기능</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>엑셀 업로드</td>
+<td>주말공사 엑셀 파일을 올리면 전원에게 자동 반영</td>
+</tr>
+<tr>
+<td>전체 초기화</td>
+<td>목록 전체를 비움 (암호 재확인 필요)</td>
+</tr>
+<tr>
+<td>접속 현황</td>
+<td>최근 7일간 공장별·등급별 접속 대수 확인</td>
+</tr>
+<tr>
+<td>복수공장 설정 현황</td>
+<td>여러 공장을 담당으로 설정한 기기 파악</td>
+</tr>
+<tr>
+<td>연락처 관리</td>
+<td>감독자 연락처 추가·삭제</td>
+</tr>
+<tr>
+<td>전체 내보내기</td>
+<td>기록 전체를 엑셀로 내려받기</td>
+</tr>
+<tr>
+<td>회사명 수정</td>
+<td>앱에 표시되는 회사명 변경</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-6">4-6. 기타</h2>
+<ul>
+<li><strong>다크모드</strong> — 야간 현장에서 눈부심 감소</li>
+<li><strong>익명 게시판</strong> — 건의사항·의견을 로그인 없이 남길 수 있는 창구</li>
+<li><strong>도움말</strong> — 앱 안에서 사용법 확인</li>
+</ul>
+<hr />
+<h1 id="5-06">5. 06시 일일 체계 — 이 앱의 심장</h1>
+<h2 id="5-1-06">5-1. 왜 자정이 아니라 06시인가</h2>
+<p>주말 공사는 <strong>밤을 넘겨 새벽까지</strong> 이어지는 경우가 많습니다.
+자정을 기준으로 날짜를 바꾸면, 새벽 2시에 작업 중인 감독자의 화면이
+갑자기 "다음 날"로 바뀌어 그날 입력이 사라진 것처럼 보입니다.</p>
+<p>그래서 이 앱은 <strong>오전 6시를 하루의 경계</strong>로 삼습니다.</p>
+<table>
+<thead>
+<tr>
+<th>실제 시각</th>
+<th>앱이 보는 날짜</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>8월 27일 새벽 3시</td>
+<td>8월 <strong>26일</strong> (아직 전날 근무 중)</td>
+</tr>
+<tr>
+<td>8월 27일 오전 7시</td>
+<td>8월 <strong>27일</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-2-06">5-2. 06시에 자동으로 일어나는 일</h2>
+<ul>
+<li>공사중 → 공사전으로 초기화</li>
+<li>작업 연장 기록 해제</li>
+<li>수동으로 켠 TODAY 표시 해제</li>
+<li>공사기간이 끝난 공사는 목록에서 자동 정리</li>
+</ul>
+<p><strong>체감온도 기록은 지워지지 않고 보존됩니다</strong> (이력·백업에 활용).</p>
+<hr />
+<h1 id="6">6. 시스템 구조</h1>
+<h2 id="6-1">6-1. 전체 그림</h2>
+<pre><code>   감독자 휴대폰
+        ↓  (인터넷 주소로 접속)
+   Cloudflare Pages  ← 앱 화면 제공
+        ↓
+   Supabase (데이터베이스)  ← 공사 목록·연락처·공지 보관
+        ↓  (매일 새벽 5시)
+   구글 시트  ← 자동 백업
+</code></pre>
+<h2 id="6-2">6-2. 각 부분이 하는 일</h2>
+<table>
+<thead>
+<tr>
+<th>구성</th>
+<th>역할</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cloudflare Pages</strong></td>
+<td>앱 화면을 감독자 휴대폰에 전달. 무료·자동 HTTPS</td>
+</tr>
+<tr>
+<td><strong>Supabase</strong></td>
+<td>공사 목록, 감독자 연락처, 공지사항, 접속 기록 보관</td>
+</tr>
+<tr>
+<td><strong>구글 앱스스크립트</strong></td>
+<td>체감온도 기록 전송 + 매일 새벽 자동 백업</td>
+</tr>
+<tr>
+<td><strong>구글 시트</strong></td>
+<td>백업 데이터 보관 (사고 시 복구용)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-3">6-3. 배포 방식</h2>
+<p>앱 파일을 GitHub에 올리면 <strong>Cloudflare가 자동으로 감지해 배포</strong>합니다.
+감독자는 앱을 다시 설치할 필요 없이, 다음에 열면 새 버전이 뜹니다.</p>
+<hr />
+<h1 id="7">7. 운영 방식</h1>
+<h2 id="7-1">7-1. 주간 흐름</h2>
+<table>
+<thead>
+<tr>
+<th>시점</th>
+<th>하는 일</th>
+<th>누가</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>수요일 오후</td>
+<td>주말공사 엑셀 업로드</td>
+<td>마스터</td>
+</tr>
+<tr>
+<td>금요일 오후</td>
+<td>변경사항 반영해 재업로드</td>
+<td>마스터</td>
+</tr>
+<tr>
+<td>토·일·공휴일</td>
+<td>현장 점검 및 보고</td>
+<td>감독자</td>
+</tr>
+<tr>
+<td>매일 새벽 5시</td>
+<td>자동 백업</td>
+<td>시스템</td>
+</tr>
+<tr>
+<td>매일 오전 6시</td>
+<td>일일 자동 초기화</td>
+<td>시스템</td>
+</tr>
+</tbody>
+</table>
+<h2 id="7-2">7-2. 감독자가 해야 할 일</h2>
+<ol>
+<li>앱 열기 (홈화면 바로가기 권장)</li>
+<li>최초 1회 — 내 담당 공장 선택</li>
+<li>현장에서 점검하며 입력</li>
+<li>보고문 복사해 카톡 보고</li>
+</ol>
+<p><strong>그 외 설정은 필요 없습니다.</strong></p>
+<hr />
+<h1 id="8">8. 데이터·보안 원칙</h1>
+<h2 id="8-1">8-1. 여러 사람이 동시에 써도 안전하게</h2>
+<p>여러 감독자가 각자 휴대폰에서 동시에 입력합니다.
+저장할 때마다 <strong>서버의 최신 내용과 합쳐서</strong> 저장하므로,
+다른 사람이 방금 입력한 내용이 지워지지 않습니다.</p>
+<h2 id="8-2">8-2. 개인정보 보호</h2>
+<ul>
+<li><strong>접속 통계는 개인을 식별하지 않습니다.</strong> 기기를 구분하는 임의 번호만 사용</li>
+<li>감독자 연락처는 <strong>관리자 이상만</strong> 조회 가능</li>
+<li>연락처·접속기록은 직접 접근이 차단되어 있고, 정해진 통로로만 조회됩니다</li>
+</ul>
+<h2 id="8-3">8-3. 데이터 보호 조치</h2>
+<table>
+<thead>
+<tr>
+<th>조치</th>
+<th>상태</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>공사 목록 삭제 차단</td>
+<td>✅ 적용</td>
+</tr>
+<tr>
+<td>연락처·접속기록 직접 접근 차단</td>
+<td>✅ 적용</td>
+</tr>
+<tr>
+<td>매일 자동 백업</td>
+<td>✅ 적용</td>
+</tr>
+<tr>
+<td>HTTPS 암호화 통신</td>
+<td>✅ 적용 (자동)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="8-4">8-4. 구조적 한계 — 솔직히 밝힙니다</h2>
+<p>이 앱은 <strong>로그인이 없어서 누구나 바로 쓸 수 있는 대신</strong>,
+주소를 아는 사람이 공사 목록을 들여다볼 가능성을 완전히 막을 수는 없습니다.</p>
+<p><strong>공사 목록에는 개인정보가 들어있지 않습니다</strong> (공사명·위치·인원수).
+개인정보인 연락처는 별도로 차단되어 있습니다.</p>
+<p>완전한 차단은 로그인 도입이 필요하며, 이는 현장 사용성과 맞바꾸는 문제입니다.</p>
+<hr />
+<h1 id="9">9. 지금까지의 발자취</h1>
+<table>
+<thead>
+<tr>
+<th>시기</th>
+<th>이정표</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-07</td>
+<td><strong>v1.0</strong> 첫 완성 — 엑셀 읽기, 보고문, 체감온도</td>
+</tr>
+<tr>
+<td>2026-07</td>
+<td><strong>v2.0</strong> 대전환 — 06시 일일 체계, 폭염대책 자동 작성, 마스터 모드</td>
+</tr>
+<tr>
+<td>2026-07</td>
+<td><strong>v2.10</strong> 권한 2단계 분리, 코드 검증을 서버로 이전</td>
+</tr>
+<tr>
+<td>2026-07</td>
+<td><strong>v2.15~</strong> 사용성 집중 개선 — 화면 재배치, 다크모드, 날짜 넘겨보기</td>
+</tr>
+<tr>
+<td>2026-07</td>
+<td><strong>v2.19a</strong> 날짜 처리 대수술 — 장기공사·월 걸침 대응</td>
+</tr>
+<tr>
+<td>2026-08</td>
+<td><strong>v2.22H</strong> 도움말 신설</td>
+</tr>
+<tr>
+<td>2026-08</td>
+<td><strong>v2.5d</strong> 데이터 유실 사고 수정 — 카드 단위 병합 저장 도입</td>
+</tr>
+<tr>
+<td>2026-08</td>
+<td><strong>v2.53</strong> 오프라인 캐시 제거 — 검은 화면 오류의 근본 원인 차단</td>
+</tr>
+<tr>
+<td>2026-08</td>
+<td><strong>v2.54</strong> 공장 체계 12개 → 9개 개편</td>
+</tr>
+<tr>
+<td>2026-08</td>
+<td><strong>v2.55</strong> 접속현황 고도화, 정렬 기준 개편, 보안 강화</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>상세 이력은 <code>CHANGELOG.md</code>, 배포 이력 표는 <code>README.md</code> 참고.</p>
+</blockquote>
+<hr />
+<h1 id="10">10. 앞으로의 계획</h1>
+<h2 id="10-1">10-1. 검토 중</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>포켓보드 PHOTO</strong></td>
+<td>작업별 사진 촬영·클라우드 저장·보고서 자동 삽입</td>
+</tr>
+<tr>
+<td>관리자 활동 기록</td>
+<td>누가 언제 어느 공장을 조회했는지 감사 로그</td>
+</tr>
+<tr>
+<td>화면 회전 지원</td>
+<td>가로 모드(폴더블 대응)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="10-2">10-2. 보안 강화 (예정)</h2>
+<ul>
+<li>마스터 코드를 암호화 방식으로 전환</li>
+<li>커스텀 도메인 도입 후 봇 차단·보안 헤더 적용</li>
+</ul>
+<hr />
+<blockquote>
+<p>이 문서는 v2.55 기준입니다.
+기술적 상세는 <code>포켓보드PRO_개발문서.md</code>, 감독자용 사용법은 <code>포켓보드PRO_사용설명서.html</code> 참고.</p>
+</blockquote>
+</div>
+</body>
+</html>

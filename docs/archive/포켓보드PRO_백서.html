@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MMEEC 포켓보드 PRO — 백서 v2.24b</title>
+<style>
+/* ═══════════════════════════════════════════════
+   토큰 — 산업 안전표지·작업허가서에서 가져온 팔레트
+   ═══════════════════════════════════════════════ */
+:root{
+  --ink:#13181E;          /* 강판 먹 */
+  --steel:#2C353F;        /* 설비 회청 */
+  --steel-2:#4A5763;
+  --paper:#ECEEF1;        /* 도면지 회백 */
+  --card:#FFFFFF;
+  --line:#CBD2DA;
+  --line-soft:#E2E6EB;
+  --hazard:#FFC400;       /* 안전 라인 옐로 */
+  --indigo:#33468F;       /* 연장 남색 (앱과 동일 계열) */
+  --ok:#1F7A55;
+  --mute:#6B7684;
+
+  /* KOSHA 폭염 단계 — 정보용으로만 사용 */
+  --k-normal:#8A929C;
+  --k-care:#3A9FD4;
+  --k-warn:#E8B70C;
+  --k-alert:#EE7F1E;
+  --k-danger:#CE2727;
+
+  --mono:ui-monospace,"SFMono-Regular","JetBrains Mono","Roboto Mono",Menlo,monospace;
+  --sans:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+}
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css");
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--sans);font-size:15px;line-height:1.68;
+  letter-spacing:-.011em;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+
+/* 위험구역 사선 띠 — 이 문서의 구분 장치 */
+.hazard-band{
+  height:7px;
+  background:repeating-linear-gradient(135deg,
+    var(--hazard) 0 11px, var(--ink) 11px 22px);
+}
+
+/* ── 헤더 ── */
+header{background:var(--ink);color:#fff;padding:26px 20px 22px}
+.eyebrow{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.19em;
+  text-transform:uppercase;color:var(--hazard);margin:0 0 10px;font-weight:600;
+}
+h1{
+  margin:0;font-size:clamp(25px,7vw,38px);font-weight:800;
+  letter-spacing:-.035em;line-height:1.14;
+}
+h1 .pro{color:var(--hazard)}
+.subtitle{margin:9px 0 0;color:#A8B2BE;font-size:14px;max-width:46ch}
+.meta-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}
+.pill{
+  font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.05em;
+  padding:5px 10px;border:1px solid #3D4854;border-radius:2px;color:#C4CCD5;
+}
+.pill.live{border-color:var(--hazard);color:var(--ink);background:var(--hazard)}
+
+/* ── 탭 내비 (앱의 공장 탭과 같은 가로 스크롤 방식) ── */
+nav{
+  position:sticky;top:0;z-index:50;background:var(--card);
+  border-bottom:1px solid var(--line);
+  box-shadow:0 1px 0 rgba(19,24,30,.04);
+}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;padding:0 12px}
+.tabs::-webkit-scrollbar{display:none}
+.tabs a{
+  flex:0 0 auto;padding:13px 12px;text-decoration:none;color:var(--mute);
+  font-size:13.5px;font-weight:600;white-space:nowrap;
+  border-bottom:2.5px solid transparent;transition:color .15s,border-color .15s;
+}
+.tabs a .n{font-family:var(--mono);font-size:10.5px;color:var(--line);margin-right:5px}
+.tabs a:hover{color:var(--ink)}
+.tabs a.on{color:var(--ink);border-bottom-color:var(--hazard)}
+.tabs a.on .n{color:var(--steel-2)}
+
+/* ── 레이아웃 ── */
+main{max-width:920px;margin:0 auto;padding:0 16px 72px}
+section{padding-top:34px;scroll-margin-top:56px}
+.sec-head{display:flex;align-items:baseline;gap:11px;margin-bottom:6px}
+.sec-num{
+  font-family:var(--mono);font-size:12px;font-weight:700;color:var(--steel);
+  background:var(--hazard);padding:2px 7px;border-radius:2px;flex:0 0 auto;
+}
+h2{margin:0;font-size:22px;font-weight:800;letter-spacing:-.03em}
+.sec-lede{color:var(--mute);margin:0 0 18px;font-size:14px}
+h3{
+  margin:26px 0 10px;font-size:15.5px;font-weight:700;letter-spacing:-.02em;
+  padding-left:10px;border-left:3px solid var(--steel);
+}
+
+.card{
+  background:var(--card);border:1px solid var(--line-soft);
+  border-radius:3px;padding:18px;margin:14px 0;
+}
+.card.flag{border-left:3px solid var(--hazard)}
+.card.warn{border-left:3px solid var(--k-danger);background:#FFF7F7}
+.card h4{margin:0 0 8px;font-size:14.5px;font-weight:750}
+.card p:last-child{margin-bottom:0}
+
+/* ── 지표 ── */
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin:16px 0}
+@media(min-width:620px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--card);border:1px solid var(--line-soft);border-radius:3px;padding:13px 14px}
+.stat .v{font-family:var(--mono);font-size:26px;font-weight:700;letter-spacing:-.045em;display:block;line-height:1.1}
+.stat .l{font-size:11.5px;color:var(--mute);margin-top:3px;display:block;font-weight:500}
+
+/* ── 06시 다이얼 (대표 요소) ── */
+.dial-wrap{
+  background:var(--steel);border-radius:3px;padding:24px 18px;margin:18px 0;
+  display:grid;gap:20px;align-items:center;
+}
+@media(min-width:640px){.dial-wrap{grid-template-columns:210px 1fr}}
+.dial{width:196px;height:196px;margin:0 auto;display:block}
+.dial .track{stroke:#3B4551;stroke-width:15;fill:none}
+.dial .seg{stroke-width:15;fill:none;stroke-linecap:butt;transition:opacity .2s}
+.dial .seg.dim{opacity:.28}
+.dial text{font-family:var(--mono);fill:#8D98A5;font-size:9.5px;font-weight:600}
+.dial .now{stroke:var(--hazard);stroke-width:2.5;stroke-linecap:round}
+.dial .nowdot{fill:var(--hazard)}
+.dial .core-t{fill:#fff;font-size:19px;font-weight:700;letter-spacing:-.04em}
+.dial .core-l{fill:#8D98A5;font-size:8px;letter-spacing:.14em}
+.legend{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.legend li{
+  display:grid;grid-template-columns:13px 1fr;gap:11px;align-items:start;
+  color:#D2D8DF;font-size:13px;cursor:default;
+}
+.legend .sw{width:13px;height:13px;border-radius:2px;margin-top:4px}
+.legend b{color:#fff;font-weight:700;display:block;font-size:13.5px}
+.legend span{color:#95A0AD;font-size:12.5px}
+
+/* ── 표 ── */
+.tbl{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;background:var(--card)}
+.tbl th,.tbl td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line-soft);vertical-align:top}
+.tbl th{
+  background:var(--steel);color:#fff;font-weight:650;font-size:11.5px;
+  letter-spacing:.04em;border-bottom:none;
+}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td.k{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line-soft);border-radius:3px}
+.scroll-x .tbl{margin:0;border:none}
+.scroll-x .tbl.wide{min-width:430px}
+
+/* 폭염 단계 색점 */
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+
+/* ── 배지 ── */
+.badge{
+  display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:650;
+  padding:2px 7px;border-radius:2px;letter-spacing:.03em;
+}
+.b-lv1{background:#E4EAF4;color:var(--indigo)}
+.b-lv2{background:var(--indigo);color:#fff}
+.b-all{background:#E3EBE7;color:var(--ok)}
+.b-star{background:var(--hazard);color:var(--ink)}
+
+/* ── 버전 레일 ── */
+.rail{position:relative;margin:18px 0 0;padding-left:30px}
+.rail::before{
+  content:"";position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--line);
+}
+.v-item{position:relative;margin-bottom:20px}
+.v-item::before{
+  content:"";position:absolute;left:-26px;top:6px;width:10px;height:10px;
+  border-radius:50%;background:var(--card);border:2px solid var(--line-soft);
+  box-shadow:0 0 0 3px var(--paper);
+}
+.v-item.turn::before{background:var(--hazard);border-color:var(--hazard);width:12px;height:12px;left:-27px}
+.v-tag{font-family:var(--mono);font-weight:700;font-size:13.5px;letter-spacing:-.02em}
+.v-title{font-weight:700;font-size:14px;margin-left:7px}
+.v-item ul{margin:6px 0 0;padding-left:17px;color:var(--steel-2);font-size:13.5px}
+.v-item li{margin-bottom:2px}
+
+/* ── 기능 그리드 ── */
+.grid{display:grid;gap:9px;margin:14px 0}
+@media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
+.f{background:var(--card);border:1px solid var(--line-soft);border-radius:3px;padding:14px 15px}
+.f-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px}
+.f b{font-size:14px;font-weight:700}
+.f p{margin:0;font-size:13px;color:var(--steel-2);line-height:1.62}
+
+/* ── 코드 블록 ── */
+pre{
+  background:var(--ink);color:#D7DDE4;padding:14px 15px;border-radius:3px;
+  overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.72;margin:12px 0;
+}
+pre .hl{color:var(--hazard)}
+code{font-family:var(--mono);font-size:.9em;background:var(--line-soft);padding:1px 5px;border-radius:2px}
+
+ul.plain{padding-left:18px;margin:9px 0}
+ul.plain li{margin-bottom:5px}
+p{margin:9px 0}
+.note{font-size:13px;color:var(--mute);border-left:2px solid var(--line);padding-left:11px;margin:12px 0}
+
+footer{background:var(--ink);color:#8D98A5;padding:26px 20px;font-size:12.5px;text-align:center}
+footer a{color:#C4CCD5}
+
+.top-btn{
+  position:fixed;right:14px;bottom:calc(16px + env(safe-area-inset-bottom));
+  width:42px;height:42px;border-radius:3px;border:1px solid var(--line);
+  background:var(--card);color:var(--steel);font-size:17px;cursor:pointer;
+  box-shadow:0 3px 12px rgba(19,24,30,.14);opacity:0;pointer-events:none;
+  transition:opacity .2s;z-index:60;
+}
+.top-btn.show{opacity:1;pointer-events:auto}
+:focus-visible{outline:2.5px solid var(--indigo);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{
+  nav,.top-btn{display:none}
+  body{background:#fff}
+  section{page-break-inside:avoid}
+  .dial-wrap{background:#fff;border:1px solid #ccc}
+  .legend li,.legend b{color:#000}
+}
+</style>
+</head>
+<body>
+
+<div class="hazard-band"></div>
+
+<header>
+  <p class="eyebrow">White Paper · 현장 안전관리 시스템</p>
+  <h1>MMEEC 포켓보드 <span class="pro">PRO</span></h1>
+  <p class="subtitle">주말·공휴일에 여러 공장에서 동시에 진행되는 공사를,
+     감독자가 휴대폰 하나로 점검하고 보고하는 현장 안전관리 앱</p>
+  <div class="meta-row">
+    <span class="pill live">v2.24b</span>
+    <span class="pill">2026-08-06</span>
+    <span class="pill">공장 12</span>
+    <span class="pill">감독자 52</span>
+    <span class="pill">PWA · 설치 불필요</span>
+  </div>
+</header>
+
+<nav>
+  <div class="tabs" id="tabs">
+    <a href="#s1"><span class="n">01</span>개요</a>
+    <a href="#s2"><span class="n">02</span>권한</a>
+    <a href="#s3"><span class="n">03</span>화면</a>
+    <a href="#s4"><span class="n">04</span>기능</a>
+    <a href="#s5"><span class="n">05</span>06시 사이클</a>
+    <a href="#s6"><span class="n">06</span>시스템</a>
+    <a href="#s7"><span class="n">07</span>버전 변화</a>
+    <a href="#s8"><span class="n">08</span>보안</a>
+    <a href="#s9"><span class="n">09</span>계획</a>
+  </div>
+</nav>
+
+<main>
+
+<!-- ══ 1 ══ -->
+<section id="s1">
+  <div class="sec-head"><span class="sec-num">01</span><h2>개요</h2></div>
+  <p class="sec-lede">앱스토어에서 내려받지 않습니다. 주소만 열면 바로 쓰는 웹 앱입니다.</p>
+
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:47%">기존 방식의 문제</th><th>포켓보드 PRO의 해결</th></tr>
+    <tr><td>공사 목록이 엑셀에만 있어 현장에서 열기 불편</td><td>엑셀 한 번 올리면 전원 휴대폰에 카드로 표시</td></tr>
+    <tr><td>누가 어디까지 점검했는지 실시간 파악 불가</td><td>체크하는 즉시 모든 사람 화면에 반영</td></tr>
+    <tr><td>안전보고문·카톡 보고문을 매번 손으로 작성</td><td>입력 내용으로 자동 생성 후 복사</td></tr>
+    <tr><td>폭염 시 체감온도를 따로 계산</td><td>기온·습도만 넣으면 계산 + 조치 문구 자동</td></tr>
+    <tr><td>기록이 개인 휴대폰에만 남고 사라짐</td><td>서버 저장 + 매일 구글시트 자동 백업</td></tr>
+  </table>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="v">12</span><span class="l">지원 공장</span></div>
+    <div class="stat"><span class="v">52</span><span class="l">감독자 (연락처 기준)</span></div>
+    <div class="stat"><span class="v">06:00</span><span class="l">하루의 시작</span></div>
+    <div class="stat"><span class="v">1h</span><span class="l">수정 후 전원 반영</span></div>
+  </div>
+
+  <div class="card flag">
+    <h4>설치가 필요 없다는 것의 의미</h4>
+    <p>앱 심사·배포 절차가 없어 <b>고치면 최대 1시간 안에 전 인원에게 반영</b>됩니다.
+    안드로이드·아이폰 구분 없이 동일하게 동작하고, 카카오톡 링크로 열면 자동으로
+    정식 브라우저로 넘어갑니다. "홈 화면에 추가"를 하면 일반 앱처럼 아이콘이 생깁니다.</p>
+  </div>
+
+  <h3>적용 범위</h3>
+  <ul class="plain">
+    <li><b>공장 12개</b> — 1~5공장, 6.엔진, 7.변속기, 8.소재, 9.기타, 10.아산, 11.남양, 12.광명</li>
+    <li>하위공장(부서)까지 등록된 곳은 <b>9개 공장</b>.
+        10.아산·11.남양·12.광명은 탭만 있고 하위공장·감독자 명단은 아직 비어 있음</li>
+    <li><b>감독자</b> — 명단 49명(<code>data.js</code>) / 전화번호 52명(서버).
+        명단에 없는 협력사 감독자는 이름을 직접 입력해 사용</li>
+    <li><b>주 사용 시점</b> — 주말·공휴일 공사, 하계·동계 집중 공사 기간</li>
+  </ul>
+</section>
+
+<!-- ══ 2 ══ -->
+<section id="s2">
+  <div class="sec-head"><span class="sec-num">02</span><h2>권한 3단계</h2></div>
+  <p class="sec-lede">아이디·비밀번호가 없습니다. 코드를 넣으면 그 기기의 권한이 30일간 올라갑니다.</p>
+
+  <div class="grid">
+    <div class="f">
+      <div class="f-top"><b>감독자</b><span class="badge b-all">기본</span></div>
+      <p>주소만 열면 됨. 점검 기록, 체감온도 계산, 카톡 복사, 안전보고문 생성,
+         즐겨찾기, 긴급공사 추가</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>관리자</b><span class="badge b-lv1">레벨 1</span></div>
+      <p>위 전부 + 공지사항 작성, 감독자 연락처 조회·추가·전화 걸기</p>
+    </div>
+    <div class="f" style="grid-column:1/-1">
+      <div class="f-top"><b>최고관리자</b><span class="badge b-lv2">레벨 2</span></div>
+      <p>위 전부 + 전체 초기화, 엑셀 파일 변경, 현장 등록소 관리, 전체 통합 엑셀,
+         연락처 삭제, 회사명 수정, 접속 현황 조회</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h4>이 구조의 장점과 한계</h4>
+    <p><b>장점</b> — 40~50대 현장 감독자가 가입하거나 비밀번호를 외울 필요가 없습니다.
+       주소만 눌러도 바로 써서 도입 저항이 거의 없습니다.</p>
+    <p><b>한계</b> — 개인 계정이 없으므로 <b>"누가 입력했는지"를 시스템이 자동으로
+       구분하지 못합니다.</b> 대신 입력란의 "감독자" 항목에 이름을 적어 기록을 남깁니다.</p>
+  </div>
+
+  <div class="note">
+    비밀번호 보관 — 초기화·회사명 암호는 앱 소스에 <b>되돌릴 수 없는 해시로만</b> 저장됩니다.
+    관리자 코드는 아예 <b>서버에서 검증</b>하므로 휴대폰에서 소스를 열어봐도 알 수 없고,
+    실제 값은 저장소 어디에도 기록하지 않습니다.
+  </div>
+</section>
+
+<!-- ══ 3 ══ -->
+<section id="s3">
+  <div class="sec-head"><span class="sec-num">03</span><h2>화면 구성</h2></div>
+  <p class="sec-lede">헤더 4줄 · 공사 카드 목록 · 아래에서 올라오는 입력 화면.</p>
+
+  <h3>헤더</h3>
+<pre>1줄  [MMEEC 로고]  포켓보드 <span class="hl">PRO</span>                    ◑   📖   ❓
+2줄  공사 코드  [default]           (레벨2만) 초기화 · 파일변경
+3줄  🌤️  ◀ 8/6(목) ▶     오늘 공사 12건 표시 중        🏭 내 공장
+4줄  [+ 공사추가] [전체] [1공장] [2공장] …  ← 좌우 스크롤</pre>
+
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:64px">아이콘</th><th style="width:60px">위치</th><th>기능</th></tr>
+    <tr><td class="k">◑</td><td class="k">1줄</td><td>다크모드 켜기/끄기</td></tr>
+    <tr><td class="k">📖</td><td class="k">1줄</td><td>도움말 — 화면별 FAQ 8개</td></tr>
+    <tr><td class="k">❓</td><td class="k">1줄</td><td>앱 정보 — 목적·사용대상·버전</td></tr>
+    <tr><td class="k">🌤️</td><td class="k">3줄</td><td>기상 정보 — 울산 양정동 기온·습도·특보</td></tr>
+    <tr><td class="k">🏭</td><td class="k">3줄</td><td>내 담당 공장 설정</td></tr>
+  </table>
+  </div>
+  <div class="note">
+    로고 자리는 최고관리자만 눌러 회사명을 바꿀 수 있고, 그 외에는 눌러도 반응이 없습니다.
+    공사추가 버튼은 탭과 달리 스크롤되지 않고 항상 맨 앞에 고정됩니다.
+  </div>
+
+  <h3>공사 카드</h3>
+  <p>카드 하나가 공사 하나입니다. 진행 중이거나 오늘 배정된 공사는 펼쳐진 채로,
+     나머지는 제목만 접혀서 표시됩니다.</p>
+  <ul class="plain">
+    <li>NO. · 등급 배지 · 공장 배지(전체 탭에서만)</li>
+    <li><b>상태 배지</b> — 공사전 / 공사중 / 연장중 / 종료 / OO시연장</li>
+    <li><b>★</b> 즐겨찾기 · <b>TODAY 배지</b>(2일째부터 "TODAY 2일째") · 체감온도 칩</li>
+  </ul>
+  <div class="note">목록은 공장·시간 순서를 그대로 두되, <b>즐겨찾기한 공사만 맨 위로</b> 올라옵니다.</div>
+
+  <h3>공사 세부 화면</h3>
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:34%">입력 항목</th><th>설명</th></tr>
+    <tr><td>공사위치</td><td>층수 탭(B1·1층·2층·2.5층·3층·옥상·옥외) 또는 직접 입력</td></tr>
+    <tr><td>감독자</td><td>명단에서 선택 또는 직접 입력</td></tr>
+    <tr><td>인원</td><td>직영 / 일용 / 협력업체명 + 인원</td></tr>
+    <tr><td>65세 이상 고령자</td><td>여부 + 인원수</td></tr>
+    <tr><td>작업유형</td><td>고소·중량물·화기·밀폐·건설기계·전기·자동화·청소·운반·도색 (복수)</td></tr>
+    <tr><td>⏰ 작업연장</td><td>−/+ 버튼으로 18시 ~ 다음날 05시</td></tr>
+    <tr><td>🌡️ 체감온도</td><td>기온·습도 입력 → 자동 계산</td></tr>
+    <tr><td>보고 단계</td><td>공사 전 / 중 / 후</td></tr>
+  </table>
+  </div>
+  <div class="card flag">
+    <p><b>공사위치와 감독자를 모두 채우면</b> 그 공사가 자동으로 "공사중"으로 바뀝니다.
+       둘 중 하나라도 비면 "공사전"으로 남습니다.</p>
+  </div>
+</section>
+
+<!-- ══ 4 ══ -->
+<section id="s4">
+  <div class="sec-head"><span class="sec-num">04</span><h2>기능 총망라</h2></div>
+  <p class="sec-lede">15개 기능군. 굵은 것이 매일 쓰는 핵심입니다.</p>
+
+  <div class="grid">
+    <div class="f">
+      <div class="f-top"><b>공사 목록 불러오기</b><span class="badge b-lv2">레벨 2</span></div>
+      <p>하계공사 엑셀을 그대로 올리면 카드로 변환. 공사번호·공장·위치·공사명·업체·감독자·등급·
+         <b>날짜별 배정 인원</b>을 읽고, 제목행에서 <b>월 정보까지</b> 추출해 월 걸치는 공사도 정확히 처리</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>점검 기록</b><span class="badge b-all">전원</span></div>
+      <p>저장하면 ① 상태가 공사중으로 ② TODAY 자동 활성 ③ 같은 공사코드를 쓰는
+         <b>모든 사람 화면에 반영</b></p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>안전보고문 생성</b><span class="badge b-all">전원</span></div>
+      <p>단계별 문서를 자동 작성해 <b>편집 가능한 팝업</b>으로 표시. 고친 뒤 클립보드로 복사.
+         카드의 단축 버튼은 5공장 시범 운영, 세부 화면 안의 기능은 전 공장 공통</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>카톡 복사</b><span class="badge b-all">전원</span></div>
+      <p>카톡방에 그대로 붙여넣을 짧은 문구 생성 — 공사명·연장·위치·감독자·인원</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>작업연장</b><span class="badge b-all">전원</span></div>
+      <p>−/+ 버튼으로 18시~다음날 05시. 카드 배지·카톡 복사·안전보고문에 자동 반영</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>즐겨찾기 ★</b><span class="badge b-all">전원</span></div>
+      <p>개수 제한 없음. ★ 재클릭으로만 해제. 목록 맨 위로 모아 표시</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>TODAY · n일째</b><span class="badge b-all">전원</span></div>
+      <p>오늘 배정된 공사에 파란 배지. 터치로 파랑↔회색 전환. <b>실제로 일한 날만</b> 세어 2일째부터 표시</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>긴급공사 추가</b><span class="badge b-all">전원</span></div>
+      <p>엑셀에 없던 공사를 현장에서 직접 등록. 공사명은 입력 내용을 조합해 자동 생성</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>기상 정보</b><span class="badge b-all">전원</span></div>
+      <p>울산 양정동 실황 기온·습도 + 특보 배지(중대경보→경보→주의보 순).
+         1시간마다 자동 갱신, 조회 실패 시 직전 정보 유지</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>날짜 넘겨보기</b><span class="badge b-all">전원</span></div>
+      <p>◀ ▶로 다른 날 공사를 미리 확인. 가운데 날짜를 터치하면 오늘로 복귀</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>내 공장 필터</b><span class="badge b-all">전원</span></div>
+      <p>담당 공장만 걸러 보고 첫 화면으로 자동 표시. 미설정 시 최초 실행에 설정 팝업</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>엑셀 · 자동 백업</b><span class="badge b-lv2">일부 레벨 2</span></div>
+      <p>현재 세션 엑셀 저장(전원) / 전체 통합 엑셀(레벨2) /
+         <b>매일 06시</b> 구글시트 자동 백업 / 체감온도는 측정 즉시 전송</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>공지사항</b><span class="badge b-lv1">레벨 1</span></div>
+      <p>작성하면 전원 화면에 팝업. 5분마다 확인하고 화면 복귀 시에도 확인</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>감독자 연락처</b><span class="badge b-lv1">레벨 1</span></div>
+      <p>이름 옆 📞 터치로 즉시 전화. 관리자 인증 기기에서만 표시</p>
+    </div>
+    <div class="f">
+      <div class="f-top"><b>접속 현황</b><span class="badge b-lv2">레벨 2</span></div>
+      <p>오늘 접속 대수, 최근 7일 추이, 공장별 집계.
+         기기 식별은 브라우저가 만든 난수이며 <b>개인 식별이 아님</b></p>
+    </div>
+  </div>
+
+  <h3>체감온도 계산 — 기상청 2022년 개정 산출식</h3>
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:88px">단계</th><th style="width:88px">기준</th><th>조치 문구</th></tr>
+    <tr><td><span class="dot" style="background:var(--k-normal)"></span>보통</td><td class="k">31℃ 미만</td><td>쾌적한 작업 환경</td></tr>
+    <tr><td><span class="dot" style="background:var(--k-care)"></span>관심</td><td class="k">31℃ 이상</td><td>충분한 물 섭취, 주기적 휴식</td></tr>
+    <tr><td><span class="dot" style="background:var(--k-warn)"></span>주의</td><td class="k">33℃ 이상</td><td>2시간 작업 시 20분 휴식</td></tr>
+    <tr><td><span class="dot" style="background:var(--k-alert)"></span>경고</td><td class="k">35℃ 이상</td><td>매시간 15분 휴식 권고</td></tr>
+    <tr><td><span class="dot" style="background:var(--k-danger)"></span>위험</td><td class="k">38℃ 이상</td><td>작업 중지 권고, 즉시 대피</td></tr>
+  </table>
+  </div>
+
+  <h3>안전보고문 출력 형식</h3>
+<pre>공사 중 안전작업 이행결과
+*업 체 명 : MMEEC
+*허가번호 : 2607
+*작업위치 : 2층 압축기실
+*작업유형 : 고소작업, 화기작업
+*작업내용 : OO설비 배관 교체
+*작업연장 : <span class="hl">22시연장</span>
+*안전대책 :
+  - (작업유형별 대책 자동 삽입)
+  - (공통 안전수칙 자동 삽입)
+*폭염대책 : 체감온도 <span class="hl">33.4℃ (주의)</span>
+  - 2시간 작업 시 20분 휴식
+*65세이상 고령자 : 65세 이상 작업자 없음
+* TBM 실시 후 작업 시작합니다.</pre>
+
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:88px">단계</th><th style="width:44%">체감온도 기준</th><th>특징</th></tr>
+    <tr><td>공사 전</td><td>그날 <b>최초</b> 기록</td><td>안전대책 전체 포함</td></tr>
+    <tr><td>공사 중</td><td><b>12:00~14:00 최초</b> 기록</td><td>안전대책 전체 포함</td></tr>
+    <tr><td>공사 후</td><td>없음</td><td>짧은 종료 문구로 대체</td></tr>
+  </table>
+  </div>
+  <div class="note">
+    v2.24부터 체감온도를 측정하지 않아도 보고문을 만들 수 있습니다.
+    기록이 있으면 폭염대책 줄이 들어가고, 없으면 그 줄만 빠집니다.
+  </div>
+</section>
+
+<!-- ══ 5 ══ 대표 요소 -->
+<section id="s5">
+  <div class="sec-head"><span class="sec-num">05</span><h2>06시 일일 사이클</h2></div>
+  <p class="sec-lede">이 앱의 심장. 하루는 06:00에 시작해 다음날 05:59에 끝납니다.</p>
+
+  <div class="card warn">
+    <h4>왜 자정이 아닌가</h4>
+    <p>공사가 밤을 넘겨 새벽 2~3시까지 이어지는 일이 흔합니다. 자정을 기준으로 하루를 나누면
+       <b>밤 12시가 지나는 순간 진행 중이던 공사가 "어제 것"이 되어 체크가 풀려버립니다.</b>
+       새벽 3시에 일하고 있어도 여전히 "어제 시작한 그 하루"여야 합니다.</p>
+  </div>
+
+  <div class="dial-wrap">
+    <svg class="dial" viewBox="0 0 200 200" role="img"
+         aria-label="24시간 다이얼. 06시가 하루의 시작이며 위쪽에 표시됩니다.">
+      <g transform="rotate(-90 100 100)">
+        <circle class="track" cx="100" cy="100" r="70"></circle>
+        <!-- 주간 06→17 (165°) -->
+        <circle class="seg" data-seg="day" cx="100" cy="100" r="70"
+                stroke="#7C8894" stroke-dasharray="201.6 238.2" stroke-dashoffset="0"></circle>
+        <!-- 종료 판정 17→18 (15°) -->
+        <circle class="seg" data-seg="cut" cx="100" cy="100" r="70"
+                stroke="#FFC400" stroke-dasharray="18.3 421.5" stroke-dashoffset="-201.6"></circle>
+        <!-- 연장 구간 18→06 (180°) -->
+        <circle class="seg" data-seg="ext" cx="100" cy="100" r="70"
+                stroke="#33468F" stroke-dasharray="219.9 219.9" stroke-dashoffset="-219.9"></circle>
+        <line class="now" id="hand" x1="100" y1="100" x2="100" y2="42"></line>
+      </g>
+      <circle class="nowdot" cx="100" cy="100" r="3.5"></circle>
+      <text x="100" y="26" text-anchor="middle">06시 · 하루 시작</text>
+      <text x="176" y="104" text-anchor="middle">12</text>
+      <text x="100" y="186" text-anchor="middle">18시</text>
+      <text x="24" y="104" text-anchor="middle">24</text>
+      <text class="core-t" id="nowLabel" x="100" y="128" text-anchor="middle">--:--</text>
+      <text class="core-l" x="100" y="142" text-anchor="middle">NOW</text>
+    </svg>
+    <ul class="legend" id="legend">
+      <li data-seg="day"><span class="sw" style="background:#7C8894"></span>
+        <div><b>06 – 17시 · 주간 작업</b><span>점검 기록, 체감온도 측정, 카톡 보고가 이뤄지는 시간대</span></div></li>
+      <li data-seg="cut"><span class="sw" style="background:#FFC400"></span>
+        <div><b>17시 · 종료 판정</b><span>이 시각을 넘기면 연장을 지정하지 않은 공사는 "종료"로 표시</span></div></li>
+      <li data-seg="ext"><span class="sw" style="background:#33468F"></span>
+        <div><b>18 – 05시 · 연장 가능 구간</b><span>−/+ 버튼으로 고를 수 있는 범위. 하루의 정확히 절반</span></div></li>
+    </ul>
+  </div>
+
+  <h3>06시에 자동으로 일어나는 일</h3>
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:34%">대상</th><th>처리</th></tr>
+    <tr><td>공사 상태</td><td>공사중 → <b>공사전(재확인)</b>으로 되돌림</td></tr>
+    <tr><td>작업연장</td><td>초기화</td></tr>
+    <tr><td>TODAY 배지</td><td>취소 상태 해제 — 다시 활성으로 복귀 가능</td></tr>
+    <tr><td>작업일수</td><td>전날 TODAY가 켜져 있었다면 <b>"n일째" +1 확정</b></td></tr>
+    <tr><td>체감온도</td><td>화면에서 숨김. <b>데이터는 보존</b>되어 백업·이력에 사용</td></tr>
+    <tr><td>공사기간 끝난 카드</td><td>목록에서 <b>완전 제거</b></td></tr>
+  </table>
+  </div>
+  <div class="note">앱을 켜둔 상태에서도 분 단위로 감지해 자동 전환됩니다. 06시에 앱을 다시 켤 필요가 없습니다.</div>
+
+  <h3>이 사이클과 얽힌 사고 사례</h3>
+  <p>06시 사이클은 앱 전체에서 가장 많은 버그의 원인이었습니다.
+     아래 두 건은 실제로 발생해 수정된 사례이며, <b>앞으로 코드를 고칠 사람이 반드시 알아야 할 내용</b>입니다.</p>
+
+  <div class="card warn">
+    <h4>사례 1 — 체크가 저절로 풀리던 문제 <span class="badge b-star">v2.24b 수정</span></h4>
+    <p>각 공사에는 "마지막으로 06시 처리를 한 날짜"가 함께 저장됩니다. 그런데 점검 기록을 저장할 때
+       <b>상태만 바뀌고 이 날짜는 갱신되지 않았습니다.</b> 여러 사람이 같은 목록을 함께 보는 구조라,
+       누군가의 화면에서 목록이 다시 불러와질 때마다 "이 공사는 날짜가 옛날이니 하루 지났다"고
+       잘못 판단해 방금 저장한 체크를 되돌렸습니다.</p>
+    <p>→ 저장할 때 날짜도 함께 오늘로 찍도록 수정. 실제로는 <b>v2.0(06시 체계 도입) 때부터
+       잠재해 있던 구조적 문제</b>였습니다.</p>
+  </div>
+
+  <div class="card warn">
+    <h4>사례 2 — 즐겨찾기가 앱 재실행 시 풀리던 문제 <span class="badge b-star">v2.24a 수정</span></h4>
+    <p>"없어진 공사의 즐겨찾기를 자동 정리"하는 기능이 서버에서 목록을 받아오기 <b>전에도</b>
+       실행됐습니다. 그 순간 목록이 비어 있으니 "즐겨찾기한 공사가 전부 사라졌다"고 오판해
+       지워버렸습니다. → 목록을 다 받아온 뒤에만 정리가 돌도록 3중 안전장치 추가.</p>
+  </div>
+
+  <div class="card flag">
+    <h4>교훈</h4>
+    <p>06시 사이클이나 자동 정리 로직을 건드릴 때는 <b>"목록을 아직 못 받아온 상태"</b>와
+       <b>"방금 저장한 직후"</b> 두 순간을 반드시 함께 검증해야 합니다.</p>
+  </div>
+</section>
+
+<!-- ══ 6 ══ -->
+<section id="s6">
+  <div class="sec-head"><span class="sec-num">06</span><h2>시스템 구조</h2></div>
+  <p class="sec-lede">모두 무료 요금제로 운영됩니다.</p>
+
+<pre>     [감독자 휴대폰]  ← 인터넷 주소만 열면 됨
+            │
+   ┌────────▼───────────┐
+   │  Cloudflare Pages  │  앱 화면을 배달 (무료·대역폭 무제한)
+   └────────┬───────────┘
+            ├──────► <span class="hl">Supabase</span>          공사 기록 · 연락처 · 공지
+            ├──────► <span class="hl">구글 앱스스크립트</span>  매일 06시 시트 자동백업
+            └──────► <span class="hl">기상청 오픈API</span>     기온 · 습도 · 특보</pre>
+
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:30%">요소</th><th>하는 일</th></tr>
+    <tr><td>Cloudflare Pages</td><td>앱 화면 배달. GitHub에 올리면 자동 배포</td></tr>
+    <tr><td>Supabase</td><td>공사 기록·감독자 연락처·공지 저장</td></tr>
+    <tr><td>구글 앱스스크립트</td><td>매일 06시 자동 백업, 체감온도 기록</td></tr>
+    <tr><td>기상청 오픈API</td><td>실황 기온·습도, 기상특보 (울산 양정동)</td></tr>
+    <tr><td>GitHub</td><td>소스코드 보관·이력 관리 (비공개)</td></tr>
+  </table>
+  </div>
+
+  <h3>파일 구성</h3>
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:96px">폴더</th><th>내용</th><th style="width:88px">웹 공개</th></tr>
+    <tr><td class="k">public/</td><td>index.html, config.js, data.js, storage.js, manifest, 아이콘</td><td><b>이것만 배포</b></td></tr>
+    <tr><td class="k">server/</td><td>Supabase SQL, 앱스스크립트</td><td>비공개</td></tr>
+    <tr><td class="k">docs/</td><td>README, 백서, 변경이력, 백로그</td><td>비공개</td></tr>
+  </table>
+  </div>
+  <div class="card warn">
+    <p>새 파일을 추가할 때 <b>웹에 공개돼도 되는 것만 <code>public/</code>에</b> 넣습니다.
+       과거에 감독자 연락처가 담긴 SQL 파일이 웹 주소로 접근 가능했던 사고가 있었고,
+       그때 이 3분할 구조가 만들어졌습니다.</p>
+  </div>
+
+  <h3>기술적 특징</h3>
+  <ul class="plain">
+    <li><b>단일 파일 구조</b> — 거의 모든 기능이 <code>index.html</code> 한 파일(약 3,400줄)에.
+        빌드 과정이 없어 수정·배포가 매우 빠름</li>
+    <li><b>명단은 <code>data.js</code>로 분리</b> — 본체를 건드리지 않고 인사 변동에 대응</li>
+    <li><b>캐시 1시간</b> — 배포 후 최대 1시간 내 자동 반영, 새로고침하면 즉시</li>
+  </ul>
+</section>
+
+<!-- ══ 7 ══ -->
+<section id="s7">
+  <div class="sec-head"><span class="sec-num">07</span><h2>버전 변화</h2></div>
+  <p class="sec-lede">
+    <span class="badge b-star">★</span> 표시가 앱의 성격이 바뀐 전환점입니다.
+  </p>
+
+  <div class="rail">
+    <div class="v-item">
+      <span class="v-tag">v1.0</span><span class="v-title">기본 골격</span>
+      <ul><li>엑셀 파싱, 서버 저장, 카톡 복사, 안전보고문, 체감온도 등 22개 이상 기능으로 시작</li></ul>
+    </div>
+    <div class="v-item">
+      <span class="v-tag">v2.1</span><span class="v-title">안정화</span>
+      <ul><li>버그 9건 수정 및 보안 강화</li></ul>
+    </div>
+    <div class="v-item turn">
+      <span class="v-tag">v2.5</span><span class="v-title">첫 번째 대전환 ★</span>
+      <ul>
+        <li><b>06시 일일 체계 도입</b> — 지금까지도 앱의 뼈대</li>
+        <li>폭염 대책 자동 작성, 마스터(관리자) 모드 신설</li>
+        <li>작업연장, TODAY 배지·n일째, 구글시트 자동 백업</li>
+        <li>감독자·공장 정보를 <code>data.js</code>로 분리</li>
+      </ul>
+    </div>
+    <div class="v-item">
+      <span class="v-tag">v2.6–2.9</span><span class="v-title">실전 투입 정비</span>
+      <ul>
+        <li>암호 해시화, 감독자 52명 연락처 등록, 전화 연결</li>
+        <li>공사기간 끝난 카드 자동 제거, 공지사항 팝업</li>
+      </ul>
+    </div>
+    <div class="v-item turn">
+      <span class="v-tag">v2.10</span><span class="v-title">권한 2단계 분리 ★</span>
+      <ul>
+        <li>연락처 삭제·세션 등록소 같은 위험한 기능을 최고관리자로 제한</li>
+        <li>검증을 앱이 아닌 <b>서버에서</b> 수행 — 소스를 열어봐도 코드를 알 수 없음</li>
+      </ul>
+    </div>
+    <div class="v-item">
+      <span class="v-tag">v2.11–2.14</span><span class="v-title">표시 정비와 날짜 버그</span>
+      <ul>
+        <li>공사기간이 월을 넘길 때 조기 삭제되던 버그 수정</li>
+        <li><b>날짜 넘겨보기(◀ ▶)</b>, <b>카드 입력 초기화</b> 신설</li>
+      </ul>
+    </div>
+    <div class="v-item">
+      <span class="v-tag">v2.15–2.18</span><span class="v-title">화면 구조 개편</span>
+      <ul>
+        <li>헤더 4줄 재구성, 공장 탭 좌우 스와이프, 접힌 카드 표시</li>
+        <li>긴급공사 작업유형 4종 추가, 내 공사 북마크, 접속 현황</li>
+      </ul>
+    </div>
+    <div class="v-item turn">
+      <span class="v-tag">v2.19a</span><span class="v-title">날짜 처리 대수술 ★</span>
+      <ul>
+        <li>9일 이상 기간에서 <b>같은 요일 데이터가 덮어써져 공사가 사라지던</b> 문제</li>
+        <li>요일만 비교해 7월에 8월 공사가 오늘 것으로 잡히던 TODAY 오배지</li>
+        <li>→ 엑셀에서 <b>월 정보까지 저장</b>하고 <b>실제 날짜</b>로 비교하도록 전면 수정</li>
+      </ul>
+    </div>
+    <div class="v-item">
+      <span class="v-tag">v2.20–2.22</span><span class="v-title">사용 편의</span>
+      <ul>
+        <li>다크모드, 초기화·파일변경을 최고관리자 전용으로 제한</li>
+        <li>카드에서 바로 체감온도 계산·안전보고문 작성</li>
+        <li>폴드4 전면(약 344px)에서도 안 넘치도록 한 줄 통합</li>
+      </ul>
+    </div>
+    <div class="v-item">
+      <span class="v-tag">v2.22g</span><span class="v-title">기상특보 정확도</span>
+      <ul>
+        <li>"폭염중대경보"가 배지에 안 뜨던 버그 수정</li>
+        <li>특보 인식을 패턴 전체 인식으로 변경 — <b>새 특보명이 생겨도 코드 수정 불필요</b></li>
+      </ul>
+    </div>
+    <div class="v-item turn">
+      <span class="v-tag">v2.22H</span><span class="v-title">도움말 신설 ★</span>
+      <ul><li>📖 버튼과 화면별 FAQ 8개. 감독자가 물어보지 않고 스스로 익히게 하는 것이 목적</li></ul>
+    </div>
+    <div class="v-item">
+      <span class="v-tag">v2.23</span><span class="v-title">즐겨찾기 개편</span>
+      <ul>
+        <li>1개 → 여러 개 제한 없이, 자동 해제 폐지</li>
+        <li>17시 이전에도 연장을 골랐으면 <b>"연장중"</b> 배지로 구분</li>
+      </ul>
+    </div>
+    <div class="v-item">
+      <span class="v-tag">v2.24</span><span class="v-title">연장 UI · 보고문 개편</span>
+      <ul>
+        <li>작업연장을 <b>−/+ 버튼</b>으로 변경</li>
+        <li>안전보고문 체감온도 필수 조건 제거, <b>편집 가능한 팝업</b>으로</li>
+      </ul>
+    </div>
+    <div class="v-item">
+      <span class="v-tag">v2.24a / v2.24b</span><span class="v-title">안정화 · 현재</span>
+      <ul>
+        <li>"⏰ 연장 보고" 버튼 제거, 즐겨찾기가 재실행 시 풀리던 버그 수정</li>
+        <li><b>체크·연장·TODAY가 저절로 되돌아가던 버그 수정</b></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>버전 번호 규칙</h3>
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:42%">변경 종류</th><th style="width:30%">처리</th><th>예시</th></tr>
+    <tr><td>버그 수정만</td><td>끝에 a, b, c…</td><td class="k">2.18 → 2.18a</td></tr>
+    <tr><td>세부 기능·소소한 변화</td><td>+0.01</td><td class="k">2.18 → 2.19</td></tr>
+    <tr><td>내용 수정·큰 변화</td><td>+0.1</td><td class="k">2.18 → 2.2</td></tr>
+    <tr><td>알파벳 상태에서 기능 추가</td><td>알파벳 떨어짐</td><td class="k">2.18a → 2.19</td></tr>
+    <tr><td>여러 종류가 섞임</td><td>큰 쪽 + 알파벳</td><td class="k">2.18 → 2.19a</td></tr>
+  </table>
+  </div>
+</section>
+
+<!-- ══ 8 ══ -->
+<section id="s8">
+  <div class="sec-head"><span class="sec-num">08</span><h2>데이터 · 보안</h2></div>
+  <p class="sec-lede">전화번호는 공개 파일에 절대 들어가지 않습니다.</p>
+
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:27%">정보</th><th style="width:33%">저장 위치</th><th>볼 수 있는 사람</th></tr>
+    <tr><td>감독자 <b>이름</b></td><td class="k">data.js</td><td>전원</td></tr>
+    <tr><td>감독자 <b>전화번호</b></td><td>Supabase 서버에만</td><td>관리자 인증 기기에만 표시</td></tr>
+    <tr><td>접속 기록</td><td>Supabase</td><td>최고관리자 — <b>기기 난수, 개인 식별 아님</b></td></tr>
+    <tr><td>점검 기록</td><td>Supabase + 구글시트</td><td>같은 공사코드 사용자</td></tr>
+  </table>
+  </div>
+
+  <h3>보안 조치 이력 <span style="font-weight:500;color:var(--mute);font-size:13px">2026-07-26</span></h3>
+  <p>저장소의 모든 파일이 웹에 배포되어, 관리자 코드와 감독자 52명 연락처가 담긴 SQL 파일이
+     인터넷 주소로 직접 접근 가능한 상태였습니다.</p>
+  <ul class="plain">
+    <li>저장소를 <code>public/</code> · <code>server/</code> · <code>docs/</code>로 3분할 → <b><code>public/</code>만 배포</b></li>
+    <li>백업 문서를 인증정보 제거본으로 교체</li>
+    <li>소스 주석에 남아 있던 관리자 코드 문자열 제거 — <b>주석도 소스보기로 노출됨</b></li>
+    <li>관리자 코드·백업 토큰 전면 교체 (2026-07-27 완료), 새 값은 저장소에 기록하지 않음</li>
+  </ul>
+
+  <h3>개발 원칙</h3>
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:44px">#</th><th style="width:40%">원칙</th><th>왜</th></tr>
+    <tr><td class="k">1</td><td>구버전 데이터 호환 필수</td><td>이미 저장된 기록이 새 코드에서 깨지면 안 됨</td></tr>
+    <tr><td class="k">2</td><td>런타임 모호함은 안전한 쪽으로</td><td>조회 실패 시 "잘못된 것 표시"보다 "기존 값 유지"</td></tr>
+    <tr><td class="k">3</td><td>엣지 케이스는 실제 파일로 검증</td><td>코드만 보고 "될 것 같다"로 넘기지 않음</td></tr>
+    <tr><td class="k">4</td><td>한 곳 고치면 연쇄 영향 전수 조사</td><td>같은 데이터를 쓰는 다른 곳까지 함께 확인</td></tr>
+    <tr><td class="k">5</td><td>완성 후 객관적 재검토 별도 수행</td><td>"다 됐습니다"로 끝내지 않고 버그 관점 재점검</td></tr>
+    <tr><td class="k">6</td><td>요구사항 모호하면 선택지 제시</td><td>임의 판단 금지</td></tr>
+    <tr><td class="k">7</td><td>설명은 쉽고 간결하게</td><td>사용자는 개발자가 아닌 현장 안전 실무자</td></tr>
+  </table>
+  </div>
+  <div class="note">
+    추가로, <b>"코드 작성"이라는 지시가 나오기 전까지는 실제 코드를 건드리지 않습니다.</b>
+    "반영하자", "고치자" 같은 말은 방향 합의일 뿐 착수 신호가 아닙니다.
+  </div>
+</section>
+
+<!-- ══ 9 ══ -->
+<section id="s9">
+  <div class="sec-head"><span class="sec-num">09</span><h2>앞으로의 계획</h2></div>
+  <p class="sec-lede">사양은 확정, 착수 지시 대기 중입니다.</p>
+
+  <div class="card flag">
+    <h4>오프라인 지원 <span class="badge b-star">다음 차례</span></h4>
+    <p>지금은 인터넷이 끊기면 <b>화면조차 뜨지 않습니다.</b>
+       공장 지하나 밀폐 공간처럼 신호가 약한 곳에서 치명적입니다.</p>
+    <div class="scroll-x" style="margin-top:10px">
+    <table class="tbl">
+      <tr><th style="width:44%">온라인 때</th><th>오프라인에서</th></tr>
+      <tr><td>목록 조회</td><td>마지막으로 받아둔 목록 그대로 표시</td></tr>
+      <tr><td>점검 입력</td><td><b>완전히 동일하게</b> 입력 가능</td></tr>
+      <tr><td>저장</td><td>기기에 저장 + "오프라인 저장됨" 표시</td></tr>
+      <tr><td>—</td><td>인터넷 복귀 시 <b>자동으로 순서대로 전송</b></td></tr>
+    </table>
+    </div>
+    <p style="margin-top:11px"><b>핵심 전제</b> — 공사 1개는 감독자 1명이 항상 전담하므로
+       기록이 충돌해 합쳐야 하는 상황이 없습니다. 복잡한 병합 없이 순서대로 다시 보내면 됩니다.</p>
+    <p><b>제약</b> — <code>public/sw.js</code>라는 새 파일이 반드시 필요합니다.
+       브라우저 규격상 index.html 안에 숨겨 넣을 수 없어(보안상 금지),
+       컴퓨터 작업이 가능할 때 착수합니다.</p>
+  </div>
+
+  <div class="card flag">
+    <h4>사진 촬영 + 구글 드라이브 백업 <span class="badge b-lv1">v2.26 예정</span></h4>
+    <ul class="plain">
+      <li><b>권한</b> — 관리자(레벨1) 이상 / <b>방식</b> — 카메라 즉석 촬영만 (갤러리 선택 불가)</li>
+      <li><b>저장</b> — 구글 드라이브에 공장별 폴더 자동 생성, 파일명 <code>공사명_촬영일자_순번</code></li>
+      <li><b>순번 중복 방지</b> — 여러 감독자가 같은 날 같은 공사를 찍어도 겹치지 않도록
+          서버가 저장 직전 기존 파일을 확인해 다음 번호를 매김</li>
+      <li><b>열람</b> — 폴더 주인은 전체 열람, 감독자끼리는 서로 못 봄</li>
+      <li><b>장수 제한 없음</b> — 10장 넘으면 안내 문구만 표시 (차단 아님)</li>
+    </ul>
+    <div class="note" style="margin-bottom:0">
+      분기 아이디어 — 드라이브 사진을 <b>구글 슬라이드로 자동 정리</b>(사진 1장 = 슬라이드 1장).
+      생성 시점·묶음 단위 미확정.
+    </div>
+  </div>
+
+  <h3>조건이 갖춰지면 착수</h3>
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th style="width:30%">과제</th><th>내용</th><th style="width:26%">착수 조건</th></tr>
+    <tr><td><b>B-2</b> 명단 서버화</td><td><code>data.js</code> 하드코딩 → Supabase 테이블. 배포 없이 앱에서 명단 관리</td><td>아래 둘의 <b>선행 작업</b></td></tr>
+    <tr><td><b>위크매치 연동</b></td><td>평일 배정 앱과 양방향 연결. 매칭 기준은 <b>공사명 + 공장</b></td><td>B-2 완료 후</td></tr>
+    <tr><td><b>C</b> 세션 재설계</td><td>여러 팀이 같은 목록을 보되 진행상황은 팀별로 분리</td><td>여러 팀이 나눠 쓸 때</td></tr>
+    <tr><td><b>A</b> 구글 로그인</td><td>개인별 계정 도입 (규모 2~3주 상당)</td><td>확장 계획이 생기면</td></tr>
+  </table>
+  </div>
+  <div class="note">
+    위크매치 연동은 처음엔 공사명만으로 짝을 맞추려 했으나, 실제 엑셀을 열어보니
+    <b>같은 이름의 공사가 여러 개</b> 있어 "공사명 + 공장" 두 가지를 함께 봐야 한다는 것이
+    확인됐습니다. 공장 구조는 포켓보드 것을 기준으로 삼습니다.
+  </div>
+</section>
+
+</main>
+
+<div class="hazard-band"></div>
+<footer>
+  <p style="margin:0 0 6px">MMEEC 포켓보드 PRO 백서 · v2.24b 기준 · 2026-08-06</p>
+  <p style="margin:0">관련 문서 — README.md · CHANGELOG.md · BACKLOG.md · CLAUDE.md · WEEKMATCH_연동설계.md</p>
+</footer>
+
+<button class="top-btn" id="topBtn" aria-label="맨 위로">↑</button>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ── 06시 다이얼: 현재 시각 바늘 ── */
+  function drawNow(){
+    var hand = document.getElementById("hand");
+    var label = document.getElementById("nowLabel");
+    if(!hand || !label) return;
+    var d = new Date();
+    var h = d.getHours(), m = d.getMinutes();
+    // 06시를 12시 방향(0°)에 두고 시계방향
+    var deg = (((h + m/60) - 6 + 24) % 24) * 15;
+    hand.setAttribute("transform", "rotate(" + deg + " 100 100)");
+    label.textContent = String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+  }
+  drawNow();
+  setInterval(drawNow, 30000);
+
+  /* ── 범례 ↔ 다이얼 강조 ── */
+  var segs = document.querySelectorAll(".dial .seg");
+  var legend = document.getElementById("legend");
+  if(legend){
+    legend.addEventListener("mouseover", function(e){
+      var li = e.target.closest("li[data-seg]");
+      if(!li) return;
+      segs.forEach(function(s){
+        s.classList.toggle("dim", s.dataset.seg !== li.dataset.seg);
+      });
+    });
+    legend.addEventListener("mouseleave", function(){
+      segs.forEach(function(s){ s.classList.remove("dim"); });
+    });
+  }
+
+  /* ── 현재 위치 탭 표시 ── */
+  var links = Array.prototype.slice.call(document.querySelectorAll(".tabs a"));
+  var tabsEl = document.getElementById("tabs");
+  var secs = links.map(function(a){ return document.querySelector(a.getAttribute("href")); });
+
+  function markActive(id){
+    links.forEach(function(a){
+      var on = a.getAttribute("href") === "#" + id;
+      a.classList.toggle("on", on);
+      if(on && tabsEl){
+        var l = a.offsetLeft - tabsEl.clientWidth/2 + a.clientWidth/2;
+        tabsEl.scrollTo({left: Math.max(0,l), behavior:"smooth"});
+      }
+    });
+  }
+
+  if("IntersectionObserver" in window){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting) markActive(en.target.id);
+      });
+    }, {rootMargin:"-52px 0px -68% 0px", threshold:0});
+    secs.forEach(function(s){ if(s) io.observe(s); });
+  } else {
+    markActive("s1");
+  }
+
+  /* ── 맨 위로 ── */
+  var btn = document.getElementById("topBtn");
+  window.addEventListener("scroll", function(){
+    btn.classList.toggle("show", window.scrollY > 640);
+  }, {passive:true});
+  btn.addEventListener("click", function(){
+    window.scrollTo({top:0, behavior:"smooth"});
+  });
+})();
+</script>
+</body>
+</html>

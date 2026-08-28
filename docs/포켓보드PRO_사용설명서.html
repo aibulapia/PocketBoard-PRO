@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>포켓보드 PRO — 사용 설명서 (v2.55)</title>
+<style>
+  :root{
+    --ink:#1e293b; --sub:#64748b; --line:#e2e8f0; --bg:#f8fafc;
+    --amber:#f59e0b; --amber-bg:#fffbeb; --sky:#0ea5e9; --sky-bg:#f0f9ff;
+    --emerald:#10b981; --emerald-bg:#ecfdf5; --rose:#f43f5e; --rose-bg:#fff1f2;
+    --purple:#8b5cf6; --purple-bg:#f5f3ff; --card:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.65; padding-bottom:80px;
+  }
+  .wrap{max-width:840px; margin:0 auto; padding:0 20px;}
+  header.top{
+    background:linear-gradient(135deg,#0f172a,#1e293b); color:#fff; padding:48px 20px 40px;
+    text-align:center;
+  }
+  header.top .logo{font-size:14px; font-weight:800; color:#fbbf24; letter-spacing:.5px;}
+  header.top h1{font-size:30px; margin:8px 0 6px; font-weight:900;}
+  header.top p{margin:0; color:#94a3b8; font-size:14px;}
+  header.top .badge{
+    display:inline-block; margin-top:18px; background:rgba(251,191,36,.15); color:#fbbf24;
+    border:1px solid rgba(251,191,36,.35); padding:6px 16px; border-radius:999px; font-size:13px; font-weight:700;
+  }
+  nav.toc{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 22px;
+    margin:-28px auto 36px; max-width:800px; box-shadow:0 8px 24px rgba(15,23,42,.06);
+  }
+  nav.toc h2{font-size:13px; color:var(--sub); margin:0 0 10px; font-weight:800; letter-spacing:.3px;}
+  nav.toc ol{margin:0; padding-left:20px; columns:2; gap:24px; font-size:14px;}
+  nav.toc li{margin-bottom:6px;}
+  nav.toc a{color:var(--ink); text-decoration:none; font-weight:600;}
+  nav.toc a:hover{color:var(--amber);}
+  section{margin:44px 0;}
+  section > h2{
+    font-size:22px; font-weight:900; margin:0 0 6px; padding-bottom:12px; border-bottom:3px solid var(--ink);
+    display:flex; align-items:center; gap:10px;
+  }
+  section > .lead{color:var(--sub); font-size:14px; margin:10px 0 20px;}
+  h3.sub{font-size:16px; font-weight:800; margin:26px 0 10px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:14px 0;
+  }
+  .card p{margin:6px 0;}
+  .card .tag{
+    display:inline-block; font-size:11px; font-weight:800; padding:3px 10px; border-radius:999px; margin-bottom:8px;
+  }
+  .tag.lv0{background:#f1f5f9; color:#475569;}
+  .tag.lv1{background:var(--sky-bg); color:var(--sky);}
+  .tag.lv2{background:var(--purple-bg); color:var(--purple);}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  @media (max-width:640px){ .grid2{grid-template-columns:1fr;} nav.toc ol{columns:1;} }
+  table{width:100%; border-collapse:collapse; font-size:13.5px; margin:14px 0;}
+  th, td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top;}
+  th{background:#f1f5f9; font-weight:800; color:var(--ink);}
+  tr:nth-child(even) td{background:#fafbfc;}
+  .callout{
+    border-left:4px solid var(--amber); background:var(--amber-bg); border-radius:0 12px 12px 0;
+    padding:14px 18px; margin:16px 0; font-size:14px;
+  }
+  .callout.blue{border-color:var(--sky); background:var(--sky-bg);}
+  .callout.red{border-color:var(--rose); background:var(--rose-bg);}
+  .callout.green{border-color:var(--emerald); background:var(--emerald-bg);}
+  .callout b{display:block; margin-bottom:4px;}
+  .steps{list-style:none; padding:0; margin:14px 0; counter-reset:step;}
+  .steps li{
+    counter-increment:step; position:relative; padding:8px 0 8px 38px; font-size:14px; border-bottom:1px dashed var(--line);
+  }
+  .steps li:last-child{border-bottom:none;}
+  .steps li::before{
+    content:counter(step); position:absolute; left:0; top:6px; width:24px; height:24px; border-radius:50%;
+    background:var(--ink); color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center;
+  }
+  .badge-row{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0;}
+  .chip{font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; background:#f1f5f9; color:#475569;}
+  .chip.today{background:#dbeafe; color:#1d4ed8;}
+  .chip.star{background:#fef3c7; color:#b45309;}
+  .chip.done{background:#e2e8f0; color:#64748b;}
+  .chip.ext{background:#e0e7ff; color:#4338ca;}
+  .faq details{
+    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin:10px 0;
+  }
+  .faq summary{font-weight:700; cursor:pointer; font-size:14.5px;}
+  .faq p{margin:10px 0 0; color:var(--sub); font-size:13.5px;}
+  .foot{
+    text-align:center; color:#94a3b8; font-size:12.5px; margin-top:60px; padding-top:24px; border-top:1px solid var(--line);
+  }
+  code{background:#f1f5f9; padding:1px 6px; border-radius:6px; font-size:12.5px;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="logo">MMEEC</div>
+  <h1>포켓보드 PRO 사용 설명서</h1>
+  <p>주말·공휴일 공사 현장 안전점검 도구</p>
+  <div class="badge">v2.55 · 2026-08-27</div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#s1">시작하기</a></li>
+    <li><a href="#s2">공사 목록 보기</a></li>
+    <li><a href="#s3">공사 점검하기</a></li>
+    <li><a href="#s4">체감온도 측정</a></li>
+    <li><a href="#s5">안전보고문 · 카톡 보고</a></li>
+    <li><a href="#s6">긴급공사 등록</a></li>
+    <li><a href="#s7">TODAY · 즐겨찾기</a></li>
+    <li><a href="#s8">06시 일일 초기화</a></li>
+    <li><a href="#s9">관리자 기능</a></li>
+    <li><a href="#s10">자주 묻는 질문</a></li>
+  </ol>
+</nav>
+
+<section id="s1">
+  <h2>1. 시작하기</h2>
+  <h3>앱 열기</h3>
+  <p>앱스토어에서 받을 필요 없습니다. <b>링크만 열면 바로 사용</b>할 수 있습니다.</p>
+  <p>주소: <b>https://pocketboardprov2.pages.dev/</b></p>
+
+  <div class="tip">
+    <b>홈 화면에 추가하면 편합니다</b><br>
+    크롬에서 앱을 연 뒤 오른쪽 위 ⋮ 메뉴 → "홈 화면에 추가"를 누르면
+    앱 아이콘처럼 바로 열 수 있습니다.
+  </div>
+
+  <h3>처음 한 번 — 내 담당 공장 선택</h3>
+  <p>앱을 처음 열면 <b>담당 공장을 고르는 창</b>이 뜹니다.
+  감독자는 <b>1개만</b> 선택할 수 있습니다. 선택해야 다음으로 넘어갑니다.</p>
+  <p>나중에 바꾸려면 상단의 <b>🏭 내 공장</b> 버튼을 누르면 됩니다.</p>
+</section>
+
+<section id="s2">
+  <h2>2. 공사 목록 보기</h2>
+
+  <h3>화면 구성</h3>
+  <table>
+    <tr><th>위치</th><th>내용</th></tr>
+    <tr><td>상단 탭</td><td>내가 선택한 공장. 옆 숫자는 "진행중 / 전체" 건수</td></tr>
+    <tr><td>날짜 표시</td><td>◀ ▶ 로 다른 날 예정 공사를 미리 볼 수 있음</td></tr>
+    <tr><td>공사 카드</td><td>등급 · NO · TODAY 배지 · 진행 상태 · 공사명</td></tr>
+  </table>
+
+  <h3>배지 읽는 법</h3>
+  <table>
+    <tr><th>배지</th><th>뜻</th></tr>
+    <tr><td><b>A급 / B급 / C급</b></td><td>공사 위험 등급</td></tr>
+    <tr><td><b>TODAY</b></td><td>오늘 인원이 배정된 공사</td></tr>
+    <tr><td><b>공사전</b></td><td>아직 점검 시작 안 함</td></tr>
+    <tr><td><b>공사중</b></td><td>점검 완료, 작업 진행 중</td></tr>
+  </table>
+
+  <div class="tip">
+    <b>목록 순서</b><br>
+    · <b>내 공장 탭</b> — 사업장(프레스 → 차체 → 도장 → 의장 → 엔진 → 변속기 → 실린더 → PDI) 순<br>
+    · <b>전체 탭</b> — 엑셀에 적힌 순서 그대로
+  </div>
+</section>
+
+<section id="s3">
+  <h2>3. 공사 점검하기</h2>
+  <p>공사 카드를 누르면 상세 화면이 열립니다.</p>
+
+  <table>
+    <tr><th>항목</th><th>설명</th></tr>
+    <tr><td>공사위치</td><td>실제 작업 위치를 입력 (예: 1층 d11)</td></tr>
+    <tr><td>담당 감독자</td><td>목록에서 선택. 관리자 이상은 전화 버튼도 표시됨</td></tr>
+    <tr><td>인원</td><td>직영 · 일용 · 협력업체 인원수</td></tr>
+    <tr><td>65세 이상</td><td>고령자 있으면 체크 후 인원 입력</td></tr>
+    <tr><td>메모</td><td>특이사항 기록</td></tr>
+    <tr><td>작업 연장</td><td>예정 시간을 넘길 때 연장 시각 기록</td></tr>
+  </table>
+
+  <div class="tip">
+    <b>잘못 입력했다면</b><br>
+    상세 화면 아래 <b>🗑️ 버튼</b>을 누르면 그 공사만 처음 상태로 되돌립니다.
+    (체감온도 기록은 지워지지 않습니다)
+  </div>
+</section>
+
+<section id="s4">
+  <h2>4. 체감온도 측정</h2>
+  <p>공사 상세 화면에서 <b>🌡️ 체감온도 계산</b>을 누릅니다.</p>
+  <ol>
+    <li>현재 <b>온도</b>와 <b>습도</b>를 입력</li>
+    <li>체감온도와 폭염 단계(관심 / 주의 / 경고 / 위험)가 자동 계산</li>
+    <li>기록하면 안전보고문에 자동으로 들어갑니다</li>
+  </ol>
+  <p>상단 <b>🌤️ 아이콘</b>을 누르면 현재 기상 정보와 기상특보도 확인할 수 있습니다.</p>
+</section>
+
+<section id="s5">
+  <h2>5. 안전보고문 · 카톡 보고</h2>
+  <p>입력을 마치면 <b>보고문이 자동으로 완성</b>됩니다. 형식을 외울 필요가 없습니다.</p>
+
+  <h3>단계별 보고문</h3>
+  <table>
+    <tr><th>단계</th><th>언제</th></tr>
+    <tr><td>공사 전</td><td>작업 시작 전 TBM 실시 후</td></tr>
+    <tr><td>공사 중</td><td>작업 진행 중 점검 시</td></tr>
+    <tr><td>공사 후</td><td>작업 종료 후 정리정돈 확인</td></tr>
+  </table>
+
+  <h3>카톡으로 보내기</h3>
+  <ol>
+    <li>보고문 아래 <b>복사</b> 버튼 누르기</li>
+    <li>카톡 열어서 붙여넣기</li>
+  </ol>
+
+  <div class="warn">
+    <b>필수 입력 항목</b><br>
+    공사명 · 공사위치 · 담당 감독자를 입력해야 보고문이 만들어집니다.
+  </div>
+</section>
+
+<section id="s6">
+  <h2>6. 긴급공사 등록</h2>
+  <p>목록에 없던 공사가 갑자기 생겼을 때 현장에서 바로 등록합니다.</p>
+  <p>상단 <b>+ 공사추가</b> → <b>긴급공사 등록</b></p>
+
+  <h3>5단계로 등록</h3>
+  <ol>
+    <li>공장 선택</li>
+    <li>작업 위치</li>
+    <li>작업 내용</li>
+    <li>작업 구분</li>
+    <li>담당 감독자</li>
+  </ol>
+  <p>선택만 하면 <b>공사명이 자동으로 만들어집니다.</b></p>
+
+  <div class="tip">
+    등록된 긴급공사는 일반 공사와 똑같이 점검·보고할 수 있고,
+    그 주 공사기간이 끝나면 자동으로 정리됩니다.
+  </div>
+</section>
+
+<section id="s7">
+  <h2>7. TODAY · 즐겨찾기</h2>
+
+  <h3>TODAY 배지</h3>
+  <p>오늘 인원이 배정된 공사에 자동으로 붙습니다.
+  인원 배정이 없는 공사를 오늘 목록에 추가하려면
+  <b>+ 공사추가 → 당일 공사 추가</b>를 사용합니다.</p>
+
+  <h3>즐겨찾기 ★</h3>
+  <p>관심 있는 공사를 찜해두면 <b>내 공장 탭에서 맨 위</b>로 올라옵니다.
+  ★를 다시 누르면 해제됩니다.</p>
+  <p>공사기간이 끝나거나 전체 초기화하면 자동으로 정리됩니다.</p>
+</section>
+
+<section id="s8">
+  <h2>8. 06시 일일 초기화</h2>
+
+  <div class="warn">
+    <b>이 앱의 하루는 자정이 아니라 오전 6시에 바뀝니다.</b>
+  </div>
+
+  <p>주말 공사는 밤을 넘겨 새벽까지 이어지는 경우가 많습니다.
+  자정에 날짜가 바뀌면 새벽 작업 중에 화면이 다음 날로 넘어가버립니다.
+  그래서 <b>오전 6시</b>를 하루의 경계로 삼습니다.</p>
+
+  <table>
+    <tr><th>실제 시각</th><th>앱이 보는 날짜</th></tr>
+    <tr><td>8월 27일 새벽 3시</td><td>8월 <b>26일</b> (아직 전날 근무)</td></tr>
+    <tr><td>8월 27일 오전 7시</td><td>8월 <b>27일</b></td></tr>
+  </table>
+
+  <h3>06시에 자동으로 일어나는 일</h3>
+  <ul>
+    <li>공사중 → 공사전으로 초기화</li>
+    <li>작업 연장 기록 해제</li>
+    <li>수동으로 켠 TODAY 해제</li>
+    <li>기간이 끝난 공사는 목록에서 정리</li>
+  </ul>
+  <p><b>체감온도 기록은 지워지지 않습니다.</b></p>
+</section>
+
+<section id="s9">
+  <h2>9. 관리자 기능</h2>
+  <p>❓ 버튼 → <b>🔑 관리자 모드 활성</b>에서 코드를 입력하면 열립니다.
+  한 번 인증하면 그 휴대폰에서는 계속 유지됩니다.</p>
+
+  <h3>관리자 (레벨2)</h3>
+  <ul>
+    <li>감독자 연락처 조회 · <b>전화 바로 걸기</b></li>
+    <li>공지사항 작성</li>
+  </ul>
+
+  <h3>마스터 (레벨3)</h3>
+  <ul>
+    <li>주말공사 엑셀 업로드</li>
+    <li>전체 초기화 (암호 재확인 필요)</li>
+    <li>접속 현황 조회</li>
+    <li>연락처 관리 · 전체 내보내기</li>
+  </ul>
+</section>
+
+<section id="s10">
+  <h2>10. 자주 묻는 질문</h2>
+
+  <h3>내가 체크한 게 다른 사람에게도 보이나요?</h3>
+  <p>네. 모든 감독자가 <b>같은 목록</b>을 함께 봅니다.
+  다만 여러 사람이 동시에 입력해도 서로 지워지지 않도록 처리되어 있습니다.</p>
+
+  <h3>공사 목록이 안 보입니다</h3>
+  <p>두 가지 경우입니다.</p>
+  <ul>
+    <li><b>"휴일 공사 기간이 아닙니다"</b> — 상단 날짜를 옮기면 예정 공사를 볼 수 있습니다.
+    공사 목록은 매주 수요일 오후에 업데이트되고, 금요일 오후에 추가 반영됩니다.</li>
+    <li><b>"공사 목록이 확정되지 않았습니다"</b> — 아직 엑셀이 올라오지 않은 상태입니다.</li>
+  </ul>
+
+  <h3>다른 공장 공사도 보고 싶습니다</h3>
+  <p>감독자는 담당 공장 1개만 볼 수 있습니다. 변경이 필요하면
+  <b>🏭 내 공장</b>에서 다른 공장으로 바꾸면 됩니다.</p>
+
+  <h3>화면이 안 열리거나 검은 화면이 뜹니다</h3>
+  <p>예전 버전이 휴대폰에 남아 생기는 문제입니다.</p>
+  <ol>
+    <li>홈 화면 아이콘 삭제</li>
+    <li>크롬 → 설정 → 인터넷 사용 기록 삭제</li>
+    <li>주소를 다시 입력해 접속</li>
+  </ol>
+
+  <h3>건의사항이 있습니다</h3>
+  <p>❓ 버튼 → <b>💬 문의·불편사항</b>에서 <b>익명 게시판</b>으로 남기실 수 있습니다.
+  로그인이 필요 없고 누가 썼는지 표시되지 않습니다.</p>
+</section>
+
+<footer style="text-align:center; color:#94a3b8; font-size:13px; padding:40px 0 20px; border-top:1px solid #e2e8f0; margin-top:50px;">
+  MMEEC 포켓보드 PRO v2.55 · 문의: 익명 게시판 이용<br>
+  제작자의 동의 없이 상기 내용의 무단 복제를 금합니다.
+</footer>
+
+</div>
+</body>
+</html>
