@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.55</title>
+ <title>MMEEC 현장 점검 포켓보드 2.55a</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.55";
+const APP_VERSION = "2.55a";
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
 // 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
 // (server/supabase-admin-confirm-code-v1.sql 참고).
@@ -409,7 +409,6 @@ function App() {
   const [companyName, setCompanyName] = useState(() => localStorage.getItem("MMEEC_COMPANY_NAME") || "MMEEC");
   const [companyNameDraft, setCompanyNameDraft] = useState("");
   const [showInfo, setShowInfo] = useState(false);
-  const [showQrZoom, setShowQrZoom] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [openHelpId, setOpenHelpId] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -1455,6 +1454,10 @@ function App() {
     }
   };
   const toggleFilterFactory = f => {
+    if (masterLevel < 1) {
+      setFilterDraft([f]);
+      return;
+    }
     setFilterDraft(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
   };
   const saveFactoryFilter = () => {
@@ -1672,6 +1675,13 @@ function App() {
   useEffect(() => {
     document.title = `MMEEC 현장 점검 ${appDisplayName} ${APP_VERSION}`;
   }, [appDisplayName]);
+  useEffect(() => {
+    if (masterLevel < 1 && myFactories && myFactories.length > 1) {
+      const trimmed = [myFactories[0]];
+      setMyFactories(trimmed);
+      localStorage.setItem("MMEEC_MY_FACTORIES", JSON.stringify(trimmed));
+    }
+  }, [masterLevel, myFactories]);
   const [masterContacts, setMasterContacts] = useState(null);
   const [masterBusy, setMasterBusy] = useState(false);
   const [ctName, setCtName] = useState("");
@@ -1770,13 +1780,17 @@ function App() {
         if (window.__KAKAO_IOS__) return;
         const cfg = window.APP_CONFIG || {};
         if (!cfg.supabaseUrl) return;
+        // (v2.55a) 공장 선택 전(최초 실행 등)에는 기록하지 않음 — "미설정" 오집계 방지.
+        // myFactories가 채워지는 순간 아래 deps([isLoading, myFactories])에 의해
+        // effect가 다시 돌면서 그때 정상적으로 기록된다.
+        if (!myFactories || myFactories.length === 0) return;
         let dev = localStorage.getItem("MMEEC_DEVICE_ID");
         if (!dev) {
           dev = window.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2).padEnd(16, "0");
           localStorage.setItem("MMEEC_DEVICE_ID", dev);
         }
-        const my = myFactories && myFactories.length ? myFactories[0] : "";
-        const myAll = myFactories && myFactories.length ? myFactories.map(f => factoryDisplay(f)).join(",") : "";
+        const my = myFactories[0];
+        const myAll = myFactories.map(f => factoryDisplay(f)).join(",");
         await rpc("log_access", {
           p_device: dev,
           p_factory: my,
@@ -1785,7 +1799,7 @@ function App() {
         });
       } catch (e) {}
     })();
-  }, [isLoading]);
+  }, [isLoading, myFactories]);
   const loadAccessStats = async () => {
     const code = accessCode.trim();
     if (!code) return;
@@ -2077,7 +2091,7 @@ function App() {
   }), React.createElement("button", {
     onClick: openFactoryFilter,
     class: `flex-shrink-0 text-xs px-2.5 py-2 rounded-lg font-medium active:scale-95 transition-all whitespace-nowrap ${myFactories ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`
-  }, "🏭 내 공장"))), items.length > 0 && inPeriod && React.createElement("div", {
+  }, "🏭 내 공장"))), inPeriod && React.createElement("div", {
     class: "bg-white border-b border-slate-100 sticky top-0 z-30 px-4 py-2 flex items-center gap-2 shadow-xs"
   }, React.createElement("button", {
     onClick: () => {
@@ -2097,7 +2111,7 @@ function App() {
     "stroke-linejoin": "round"
   })), "공사추가"), React.createElement("div", {
     class: "flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0"
-  }, activeFactories.map(factory => {
+  }, (masterLevel < 1 ? activeFactories.filter(f => f !== "전체") : activeFactories).map(factory => {
     const scope = factory === "전체" ? items : items.filter(i => factoryDisplay(i.factory) === factory);
     const count = scope.length;
     const activeCount = scope.filter(isCardOpen).length;
@@ -2841,20 +2855,7 @@ function App() {
   }, linkifyText(notice.body))), React.createElement("button", {
     onClick: dismissNotice,
     class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all"
-  }, "확인"))), showQrZoom && React.createElement("div", {
-    class: "fixed inset-0 bg-black/70 z-[60] flex items-center justify-center px-6",
-    onClick: () => setShowQrZoom(false)
-  }, React.createElement("div", {
-    class: "bg-white rounded-3xl p-6 shadow-2xl text-center"
-  }, React.createElement("img", {
-    src: "qr-code.png",
-    alt: "앱 주소 QR코드 확대",
-    class: "w-[260px] h-[260px] rounded-xl mx-auto"
-  }), React.createElement("p", {
-    class: "text-sm text-slate-500 mt-4"
-  }, "pocketboardprov2.pages.dev"), React.createElement("p", {
-    class: "text-xs text-slate-400 mt-1"
-  }, "화면을 누르면 닫힙니다"))), showHelp && React.createElement("div", {
+  }, "확인"))), showHelp && React.createElement("div", {
     class: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6"
   }, React.createElement("div", {
     class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl max-h-[80vh] flex flex-col"
@@ -2902,12 +2903,7 @@ function App() {
     }
   }, "⚡"), React.createElement("h2", {
     class: "text-xl font-black text-slate-900"
-  }, companyName, " ", appDisplayName), React.createElement("img", {
-    src: "qr-code.png",
-    alt: "앱 주소 QR코드",
-    onClick: () => setShowQrZoom(true),
-    class: "mx-auto mt-3 w-[120px] h-[120px] rounded-xl border border-slate-100 cursor-pointer active:scale-95 transition-transform"
-  }), React.createElement("p", {
+  }, companyName, " ", appDisplayName), React.createElement("p", {
     class: "text-base text-slate-500 mt-1"
   }, "Ver. ", APP_VERSION, masterLevel >= 2 ? " (마스터)" : masterLevel >= 1 ? " (관리자)" : ""), React.createElement("button", {
     type: "button",
