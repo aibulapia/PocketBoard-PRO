@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.55a</title>
+ <title>MMEEC 현장 점검 포켓보드 2.55b</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.55a";
+const APP_VERSION = "2.55b";
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
 // 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
 // (server/supabase-admin-confirm-code-v1.sql 참고).
@@ -2091,7 +2091,7 @@ function App() {
   }), React.createElement("button", {
     onClick: openFactoryFilter,
     class: `flex-shrink-0 text-xs px-2.5 py-2 rounded-lg font-medium active:scale-95 transition-all whitespace-nowrap ${myFactories ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`
-  }, "🏭 내 공장"))), inPeriod && React.createElement("div", {
+  }, "🏭 내 공장"))), React.createElement("div", {
     class: "bg-white border-b border-slate-100 sticky top-0 z-30 px-4 py-2 flex items-center gap-2 shadow-xs"
   }, React.createElement("button", {
     onClick: () => {
