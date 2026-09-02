@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.55b</title>
+ <title>MMEEC 현장 점검 포켓보드 2.55c</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.55b";
+const APP_VERSION = "2.55c";
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
 // 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
 // (server/supabase-admin-confirm-code-v1.sql 참고).
@@ -409,6 +409,7 @@ function App() {
   const [companyName, setCompanyName] = useState(() => localStorage.getItem("MMEEC_COMPANY_NAME") || "MMEEC");
   const [companyNameDraft, setCompanyNameDraft] = useState("");
   const [showInfo, setShowInfo] = useState(false);
+  const [showQrZoom, setShowQrZoom] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [openHelpId, setOpenHelpId] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -2265,7 +2266,7 @@ function App() {
       }, React.createElement("path", {
         d: "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
       }))) : null;
-    })())), item.memo && React.createElement("div", {
+    })())), masterLevel >= 1 && item.memo && React.createElement("div", {
       class: "text-sm text-amber-700 bg-amber-50/50 p-1.5 rounded-lg mt-1 border border-amber-100/50"
     }, "📝 ", item.memo), item.lastHeatStatus && (!item.lastHeatStatus.workday || item.lastHeatStatus.workday === workday) && React.createElement("div", {
       class: `flex items-center justify-between mt-2 px-3 py-2 rounded-xl ${item.lastHeatStatus.color === "red" ? "bg-red-600" : item.lastHeatStatus.color === "orange" ? "bg-orange-400" : item.lastHeatStatus.color === "yellow" ? "bg-yellow-400" : item.lastHeatStatus.color === "sky" ? "bg-sky-400" : "bg-slate-100"}`
@@ -2559,7 +2560,7 @@ function App() {
     class: `w-11 h-11 rounded-full text-xl font-bold flex items-center justify-center transition-all active:scale-95 ${extendHour === EXTEND_HOURS[EXTEND_HOURS.length - 1] ? "bg-slate-100 text-slate-300" : "bg-indigo-500 text-white"}`
   }, "+")), extendHour != null && React.createElement("p", {
     class: "text-sm text-indigo-600 font-bold text-center"
-  }, "→ ", fmtExtend(extendHour), " 으로 표시됩니다")), React.createElement("div", {
+  }, "→ ", fmtExtend(extendHour), " 으로 표시됩니다")), masterLevel >= 1 && React.createElement("div", {
     class: "space-y-1.5"
   }, React.createElement("label", {
     class: "text-base font-bold text-slate-800"
@@ -2855,7 +2856,20 @@ function App() {
   }, linkifyText(notice.body))), React.createElement("button", {
     onClick: dismissNotice,
     class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all"
-  }, "확인"))), showHelp && React.createElement("div", {
+  }, "확인"))), showQrZoom && React.createElement("div", {
+    class: "fixed inset-0 bg-black/70 z-[60] flex items-center justify-center px-6",
+    onClick: () => setShowQrZoom(false)
+  }, React.createElement("div", {
+    class: "bg-white rounded-3xl p-6 shadow-2xl text-center"
+  }, React.createElement("img", {
+    src: "qr-code.png",
+    alt: "앱 주소 QR코드 확대",
+    class: "w-[260px] h-[260px] rounded-xl mx-auto"
+  }), React.createElement("p", {
+    class: "text-sm text-slate-500 mt-4"
+  }, "pocketboardprov2.pages.dev"), React.createElement("p", {
+    class: "text-xs text-slate-400 mt-1"
+  }, "화면을 누르면 닫힙니다"))), showHelp && React.createElement("div", {
     class: "fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6"
   }, React.createElement("div", {
     class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl max-h-[80vh] flex flex-col"
@@ -2903,7 +2917,12 @@ function App() {
     }
   }, "⚡"), React.createElement("h2", {
     class: "text-xl font-black text-slate-900"
-  }, companyName, " ", appDisplayName), React.createElement("p", {
+  }, companyName, " ", appDisplayName), React.createElement("img", {
+    src: "qr-code.png",
+    alt: "앱 주소 QR코드",
+    onClick: () => setShowQrZoom(true),
+    class: "mx-auto mt-3 w-[120px] h-[120px] rounded-xl border border-slate-100 cursor-pointer active:scale-95 transition-transform"
+  }), React.createElement("p", {
     class: "text-base text-slate-500 mt-1"
   }, "Ver. ", APP_VERSION, masterLevel >= 2 ? " (마스터)" : masterLevel >= 1 ? " (관리자)" : ""), React.createElement("button", {
     type: "button",
