@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.56a</title>
+ <title>MMEEC 현장 점검 포켓보드 2.57</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.56a";
+const APP_VERSION = "2.57";
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
 // 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
 // (server/supabase-admin-confirm-code-v1.sql 참고).
@@ -624,11 +624,23 @@ function App() {
   useEffect(() => {
     setDateOffset(0);
   }, [workday]);
-  const isTodayActive = item => item.todayOn === workday;
-  const isOngoingItem = i => i.status === "checked" && (!after17 || i.extendHour != null);
-  const isCardOpen = i => isTodayActive(i) || isOngoingItem(i);
   const hasWorkToday = item => workersOn(item.dateWorkers, getWorkdayDate()) > 0;
   const hasWorkOn = (item, d) => workersOn(item.dateWorkers, d) > 0;
+  // (v2.57) TODAY 켜짐 규칙
+  //  1) 사람이 직접 끈 공사(todayForceOff)는 무조건 꺼짐 — 날이 바뀌어도 계속 꺼진 채.
+  //  2) 사람이 직접 켠 공사(todayOn=오늘)는 켜짐.
+  //  3) 위 둘 다 아니면 엑셀에 오늘 인원이 있는지로 자동 판단.
+  // 구버전 자료엔 todayForceOff가 없어 undefined → 1)에 걸리지 않으므로 그대로 동작한다.
+  const isTodayActive = item => {
+    if (item.todayForceOff === true) return false;
+    if (item.todayOn === workday) return true;
+    return hasWorkToday(item);
+  };
+  // 사람이 직접 켠 것만. 카드를 자동으로 펼치는 판단에는 이쪽을 쓴다.
+  // (자동 켜짐까지 포함하면 오늘 작업 있는 카드가 전부 펼쳐져 목록이 지나치게 길어짐)
+  const isTodayManualOn = item => item.todayForceOff !== true && item.todayOn === workday;
+  const isOngoingItem = i => i.status === "checked" && (!after17 || i.extendHour != null);
+  const isCardOpen = i => isTodayManualOn(i) || isOngoingItem(i);
   const workDayCount = item => (item.pastWorkDays || 0) + (isTodayActive(item) ? 1 : 0);
   const applyDailyCycle = list => {
     const wd = getWorkdayKey();
@@ -664,7 +676,8 @@ function App() {
           if (it.lastHeatStatus && it.lastHeatStatus.workday && it.lastHeatStatus.workday !== wd) it.lastHeatStatus = null;
         }
       }
-      const active = it.todayOn === wd;
+      // (v2.57) 자동 켜짐 규칙과 동일하게 판단해야 "며칠째" 날수가 맞는다.
+      const active = it.todayForceOff === true ? false : it.todayOn === wd || workersOn(it.dateWorkers, getWorkdayDate()) > 0;
       if (active && it.activeMark !== wd) {
         mut();
         it.activeMark = wd;
@@ -720,13 +733,21 @@ function App() {
   const toggleTodayOff = (item, e) => {
     if (e) e.stopPropagation();
     const wd = getWorkdayKey();
+    // (v2.57) 지금 켜져 있으면 끄고, 꺼져 있으면 켠다.
+    // 자동으로 켜진 것을 끌 때는 todayForceOff에 기록을 남겨야 다시 자동으로 켜지지 않는다.
+    const turningOn = !isTodayActive(item);
     const updated = items.map(it => {
       if (it.id !== item.id) return it;
-      const on = it.todayOn === wd ? null : wd;
-      return {
+      return turningOn ? {
         ...it,
-        todayOn: on,
-        activeMark: on ? wd : null
+        todayOn: wd,
+        todayForceOff: false,
+        activeMark: wd
+      } : {
+        ...it,
+        todayOn: null,
+        todayForceOff: true,
+        activeMark: null
       };
     });
     persistItems(updated);
@@ -1365,6 +1386,7 @@ function App() {
           status: isChecked ? "checked" : "pending",
           dayKey: workday,
           todayOn: workday,
+          todayForceOff: false,
           activeMark: workday,
           dateWorkers: hasWorkToday(item) ? item.dateWorkers : withTodayAssigned(item)
         };
@@ -2269,7 +2291,26 @@ function App() {
     }, React.createElement("div", {
       class: "flex items-center gap-1.5 flex-wrap min-w-0"
     },
-    // (v2.56) 마스터: ★중요(눌러서 켜고 끔) / 그 외: 기존 즐겨찾기 배지
+    // (v2.57) TODAY 배지를 맨 앞으로. 오늘 화면에서만, 모든 공사에 표시한다.
+    // 다른 날짜를 넘겨볼 때는 윗줄에 이미 날짜가 있으므로 배지를 띄우지 않는다.
+    dateOffset === 0 && React.createElement("span", {
+      onClick: e => toggleTodayOff(item, e),
+      class: `text-sm px-2 py-0.5 rounded-md font-black tracking-wide select-none transition-all flex-shrink-0 whitespace-nowrap cursor-pointer active:scale-95 ${isTodayActive(item) ? "bg-sky-500 text-white" : "bg-slate-200 text-slate-400 italic"}`
+    }, `TODAY${isTodayActive(item) && workDayCount(item) >= 2 ? ` ${workDayCount(item)}일째` : ""}`), React.createElement("span", {
+      class: `text-base px-2 py-0.5 rounded-md font-extrabold tracking-wide whitespace-nowrap ${item.grade === "긴급" ? "bg-rose-600 text-white" : (item.grade || "B").startsWith("A") ? "bg-rose-100 text-rose-700" : (item.grade || "B").startsWith("P") ? "keep-light bg-purple-100 text-purple-700" : "keep-light bg-amber-100 text-amber-800"}`
+    }, item.grade === "긴급" ? "⚡ 긴급" : `${item.grade || "B"}급`),
+    // (v2.57) 작업 구분(화·고·중 등)을 등급 옆에 표시. 값이 없으면 배지 자체를 띄우지 않는다.
+    (item.workType || "").trim() && React.createElement("span", {
+      class: "text-base keep-light bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold whitespace-nowrap",
+      title: "작업 구분"
+    }, String(item.workType).trim()), activeTab === "전체" && React.createElement("span", {
+      class: "text-base bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold"
+    }, factoryDisplay(item.factory))), React.createElement("div", {
+      class: "flex items-center gap-1.5 flex-shrink-0"
+    }, React.createElement("span", {
+      class: `text-base px-2 py-0.5 rounded-full font-bold flex-shrink-0 whitespace-nowrap ${isPending ? "bg-amber-500 text-white" : !after17 ? item.extendHour != null ? "bg-indigo-500 text-white" : "bg-emerald-500 text-white" : item.extendHour != null ? "bg-indigo-500 text-white" : "bg-slate-400 text-white"}`
+    }, isPending ? "공사전" : !after17 ? item.extendHour != null ? "연장중" : "공사중" : item.extendHour != null ? fmtExtend(item.extendHour) : "종료"),
+    // (v2.57) ★는 맨 오른쪽 끝. 마스터는 눌러서 켜고 끔 / 그 외는 즐겨찾기 표시만.
     masterLevel >= 2 ? React.createElement("span", {
       onClick: e => toggleStar(item, e),
       class: `text-base flex-shrink-0 select-none cursor-pointer active:scale-90 transition-all ${isStarred(item) ? "text-amber-500" : "text-slate-300"}`,
@@ -2277,22 +2318,7 @@ function App() {
     }, "★") : bookmarkIds.includes(item.id) && React.createElement("span", {
       class: "text-base text-amber-500 flex-shrink-0",
       title: "즐겨찾기"
-    }, "★"), React.createElement("span", {
-      class: `text-base px-2 py-0.5 rounded-md font-extrabold tracking-wide whitespace-nowrap ${item.grade === "긴급" ? "bg-rose-600 text-white" : (item.grade || "B").startsWith("A") ? "bg-rose-100 text-rose-700" : (item.grade || "B").startsWith("P") ? "keep-light bg-purple-100 text-purple-700" : "keep-light bg-amber-100 text-amber-800"}`
-    }, item.grade === "긴급" ? "⚡ 긴급" : `${item.grade || "B"}급`), React.createElement("span", {
-      class: "text-base font-bold text-slate-400"
-    }, "NO.", item.no), activeTab === "전체" && React.createElement("span", {
-      class: "text-base bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold"
-    }, factoryDisplay(item.factory))), React.createElement("div", {
-      class: "flex items-center gap-1.5 flex-shrink-0"
-    }, hasWorkOn(item, selectedDate) && React.createElement("span", {
-      onClick: e => {
-        if (dateOffset === 0) toggleTodayOff(item, e);else e.stopPropagation();
-      },
-      class: `text-sm px-2 py-0.5 rounded-md font-black tracking-wide select-none transition-all flex-shrink-0 whitespace-nowrap ${dateOffset !== 0 ? "bg-sky-100 text-sky-600" : isTodayActive(item) ? "bg-sky-500 text-white cursor-pointer active:scale-95" : "bg-slate-200 text-slate-400 italic cursor-pointer active:scale-95"}`
-    }, dateOffset !== 0 ? `${selectedDate.getMonth() + 1}/${selectedDate.getDate()}` : `TODAY${isTodayActive(item) && workDayCount(item) >= 2 ? ` ${workDayCount(item)}일째` : ""}`), React.createElement("span", {
-      class: `text-base px-2 py-0.5 rounded-full font-bold flex-shrink-0 whitespace-nowrap ${isPending ? "bg-amber-500 text-white" : !after17 ? item.extendHour != null ? "bg-indigo-500 text-white" : "bg-emerald-500 text-white" : item.extendHour != null ? "bg-indigo-500 text-white" : "bg-slate-400 text-white"}`
-    }, isPending ? "공사전" : !after17 ? item.extendHour != null ? "연장중" : "공사중" : item.extendHour != null ? fmtExtend(item.extendHour) : "종료"))), React.createElement("h4", {
+    }, "★"))), React.createElement("h4", {
       class: `text-lg font-bold text-slate-900 leading-snug ${cardOpen ? "mb-1" : ""}`
     }, item.title), !cardOpen ? null : React.createElement("p", {
       class: "text-base text-slate-500 mb-2 font-medium"

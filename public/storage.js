@@ -261,6 +261,9 @@ function mergeItems(existing, parsed, urgentOnly) {
       pastWorkDays: old.pastWorkDays || 0,
       activeMark: old.activeMark || null,
       todayOff: old.todayOff || null,
+      // (v2.57) 사람이 직접 끈 TODAY는 엑셀을 다시 올려도 꺼진 채로 유지된다.
+      // 예전에 저장된 자료엔 이 값이 없으므로(undefined) 그대로 두고, 그 경우엔 자동 판단을 따른다.
+      todayForceOff: (old.todayForceOff ?? null),
       extendHour: (old.extendHour ?? null),
       dayKey: old.dayKey || null,
       reportStage: old.reportStage || "전",
