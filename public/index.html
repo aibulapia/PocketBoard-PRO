@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.55c</title>
+ <title>MMEEC 현장 점검 포켓보드 2.56</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.55c";
+const APP_VERSION = "2.56";
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
 // 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
 // (server/supabase-admin-confirm-code-v1.sql 참고).
@@ -209,8 +209,8 @@ const HELP_ITEMS = [{
 }, {
   id: "h5",
   group: "📝 공사 세부 화면",
-  q: "즐겨찾기는 뭔가요?",
-  a: "관심 있는 공사를 여러 개 찜해두면 목록 맨 위에 모아 보여줍니다. ★를 다시 누르면 해제되고, 공사기간이 끝나거나 전체 초기화하면 자동으로 정리됩니다."
+  q: "★ 표시는 뭔가요?",
+  a: "관심 있는 공사를 찜해두면 목록 맨 위에 모아 보여줍니다. ★를 다시 누르면 해제되고, 공사기간이 끝나거나 전체 초기화하면 자동으로 정리됩니다. 마스터 화면에서는 '중요 표시'로 쓰이며, 엑셀에서 공사명·등급·작업 칸에 색을 칠해둔 공사에 ★가 자동으로 붙습니다. 목록에서 ★를 직접 눌러 켜고 끌 수 있고, 손으로 정한 값은 새 엑셀을 올려도 그대로 유지됩니다."
 }, {
   id: "h6",
   group: "📝 공사 세부 화면",
@@ -886,7 +886,8 @@ function App() {
     reader.onload = evt => {
       const data = new Uint8Array(evt.target.result);
       const workbook = XLSX.read(data, {
-        type: 'array'
+        type: 'array',
+        cellStyles: true // (v2.56) 셀 배경색 읽기용 — ★중요 자동 표시에 사용
       });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
@@ -894,6 +895,45 @@ function App() {
         header: 1
       });
       const normCell = c => String(c ?? "").replace(/\s/g, "");
+      // ── (v2.56) 셀 배경색이 "강조색"인지 판별 ──
+      // 흰색(FFFFFF / theme0)과 줄무늬용 연회색(F2F2F2 등)은 강조가 아님.
+      // 색을 못 읽는 상황(구버전 파일·xls·csv 등)에서는 무조건 false를 돌려
+      // "엉뚱한 곳에 ★가 붙는 것"보다 "안 붙는 것"을 택한다.
+      const NON_ACCENT_FILLS = new Set(["FFFFFF", "FFFFFFFF", "FFFFFF00".slice(0, 0)]);
+      const isAccentFill = cell => {
+        try {
+          const s = cell && cell.s;
+          if (!s || !s.patternType || s.patternType === "none") return false;
+          const fg = s.fgColor;
+          if (!fg) return false;
+          let rgb = typeof fg.rgb === "string" ? fg.rgb.toUpperCase() : null;
+          if (!rgb) return false; // theme 색(theme0=흰 배경 등)은 강조로 보지 않음
+          if (rgb.length === 8) rgb = rgb.slice(2); // ARGB → RGB
+          if (rgb.length !== 6) return false;
+          if (NON_ACCENT_FILLS.has(rgb)) return false;
+          const r = parseInt(rgb.slice(0, 2), 16);
+          const g = parseInt(rgb.slice(2, 4), 16);
+          const b = parseInt(rgb.slice(4, 6), 16);
+          if ([r, g, b].some(n => Number.isNaN(n))) return false;
+          const mx = Math.max(r, g, b);
+          const mn = Math.min(r, g, b);
+          // 무채색(흰·회·검)은 제외 — 색끼리 차이가 거의 없으면 회색 계열
+          if (mx - mn < 24) return false;
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      const cellAt = (r, c) => {
+        try {
+          return worksheet[XLSX.utils.encode_cell({
+            r,
+            c
+          })] || null;
+        } catch {
+          return null;
+        }
+      };
       let headerRowIndex = -1;
       for (let i = 0; i < rows.length; i++) {
         if (!rows[i]) continue;
@@ -1023,7 +1063,10 @@ function App() {
           const diffDays = (curMonth - dwMonth + (curMonth < dwMonth ? 12 : 0)) * 31 + (curDay - dw.day);
           if (diffDays > 0 && diffDays <= 7) initialPast++;
         });
+        // (v2.56) 공사명·등급·작업 중 한 칸이라도 강조색이면 ★중요 자동 표시
+        const excelStar = [nameIdx, gradeIdx, workIdx].some(ci => ci >= 0 && isAccentFill(cellAt(i, ci)));
         parsedList.push({
+          excelStar,
           id: `mmeec-${row[noIdx]}-${normalizedFactory}-${String(row[nameIdx] || "").slice(0, 20)}`,
           no: row[noIdx],
           factory: normalizedFactory,
@@ -1171,6 +1214,26 @@ function App() {
     saveBookmarkIds(next);
     showToast(has ? "즐겨찾기 저장을 해제했습니다." : "즐겨찾기로 저장했습니다.");
   };
+  // ── (v2.56) ★중요 표시 (마스터 전용) ──
+  // 손으로 정한 값(starManual)이 있으면 그게 우선, 없으면 엑셀 색(excelStar).
+  // 둘 다 없는 예전 자료는 false — 기존 데이터도 오류 없이 그대로 동작한다.
+  const isStarred = item => {
+    if (!item) return false;
+    if (item.starManual === true) return true;
+    if (item.starManual === false) return false;
+    return item.excelStar === true;
+  };
+  const toggleStar = (item, e) => {
+    if (e) e.stopPropagation(); // 카드가 같이 열리지 않도록
+    if (!item || masterLevel < 2) return;
+    const next = !isStarred(item);
+    const updated = items.map(it => it.id === item.id ? {
+      ...it,
+      starManual: next
+    } : it);
+    persistItems(updated);
+    showToast(next ? "★ 중요 표시했습니다." : "중요 표시를 해제했습니다.");
+  };
   useEffect(() => {
     if (isLoading) return;
     if (items.length === 0) return;
@@ -1212,12 +1275,13 @@ function App() {
       const ta = hasWorkOn(a.item, selectedDate) ? 0 : 1;
       const tb = hasWorkOn(b.item, selectedDate) ? 0 : 1;
       if (ta !== tb) return ta - tb;
-      const ba = bookmarkIds.includes(a.item.id) ? 0 : 1;
-      const bb = bookmarkIds.includes(b.item.id) ? 0 : 1;
+      // (v2.56) 마스터는 즐겨찾기 대신 ★중요로 정렬 — 그 외 등급은 종전대로 즐겨찾기
+      const ba = masterLevel >= 2 ? isStarred(a.item) ? 0 : 1 : bookmarkIds.includes(a.item.id) ? 0 : 1;
+      const bb = masterLevel >= 2 ? isStarred(b.item) ? 0 : 1 : bookmarkIds.includes(b.item.id) ? 0 : 1;
       if (ba !== bb) return ba - bb;
       return a.idx - b.idx;
     }).map(x => x.item);
-  }, [filteredItems, activeTab, bookmarkIds, selectedDateKey]);
+  }, [filteredItems, activeTab, bookmarkIds, selectedDateKey, masterLevel]);
   const scheduledCount = useMemo(() => {
     const viewingToday = dateOffset === 0;
     return filteredItems.filter(item => hasWorkOn(item, selectedDate) || viewingToday && isOngoingItem(item)).length;
@@ -2202,7 +2266,13 @@ function App() {
       class: "flex items-start justify-between gap-2 mb-2.5"
     }, React.createElement("div", {
       class: "flex items-center gap-1.5 flex-wrap min-w-0"
-    }, bookmarkIds.includes(item.id) && React.createElement("span", {
+    },
+    // (v2.56) 마스터: ★중요(눌러서 켜고 끔) / 그 외: 기존 즐겨찾기 배지
+    masterLevel >= 2 ? React.createElement("span", {
+      onClick: e => toggleStar(item, e),
+      class: `text-base flex-shrink-0 select-none cursor-pointer active:scale-90 transition-all ${isStarred(item) ? "text-amber-500" : "text-slate-300"}`,
+      title: isStarred(item) ? "중요 표시 해제" : "중요 표시"
+    }, "★") : bookmarkIds.includes(item.id) && React.createElement("span", {
       class: "text-base text-amber-500 flex-shrink-0",
       title: "즐겨찾기"
     }, "★"), React.createElement("span", {
@@ -2571,7 +2641,7 @@ function App() {
     onChange: e => setMemo(e.target.value),
     class: "w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-base focus:outline-none focus:border-amber-500 focus:bg-white transition-all resize-none"
   })), React.createElement("div", {
-    class: `grid gap-2 pt-2 ${masterLevel >= 2 ? "grid-cols-4" : "grid-cols-3"}`
+    class: "grid gap-2 pt-2 grid-cols-3" // (v2.56) 마스터=초기화·카톡·완료 / 그외=카톡·즐겨찾기·완료 → 둘 다 3칸
   }, masterLevel >= 2 && React.createElement("button", {
     type: "button",
     onClick: () => setShowCardResetConfirm(true),
@@ -2580,7 +2650,9 @@ function App() {
     type: "button",
     onClick: e => handleKakaoCopy(selectedItem, e),
     class: "keep-light w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]"
-  }, "💬 카톡복사"), React.createElement("button", {
+  }, "💬 카톡복사"),
+  // (v2.56) 마스터 화면에서는 즐겨찾기 버튼 제외 — 목록의 ★중요로 대체됨
+  masterLevel < 2 && React.createElement("button", {
     type: "button",
     onClick: toggleBookmark,
     class: `w-full font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px] ${bookmarkIds.includes(selectedItem.id) ? "bg-amber-100 text-amber-700 border-2 border-amber-400" : "bg-slate-100 text-slate-600"}`

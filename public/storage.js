@@ -266,6 +266,10 @@ function mergeItems(existing, parsed, urgentOnly) {
       reportStage: old.reportStage || "전",
       hasElderly: old.hasElderly || false,
       elderlyCount: old.elderlyCount || "1",
+      // (v2.56) ★중요 — 손으로 켜고 끈 값(starManual)이 엑셀 색보다 우선.
+      // 예전에 저장된 자료엔 이 값이 없으므로(undefined) 그대로 두고,
+      // 그 경우엔 새로 읽은 엑셀 색(excelStar)이 쓰인다.
+      starManual: (old.starManual ?? null),
     };
   });
 
