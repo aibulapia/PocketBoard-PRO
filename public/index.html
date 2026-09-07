@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.70</title>
+ <title>MMEEC 현장 점검 포켓보드 2.71</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.70";
+const APP_VERSION = "2.71";
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
 // 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
 // (server/supabase-admin-confirm-code-v1.sql 참고).
@@ -654,6 +654,15 @@ function App() {
   // 사람이 직접 켠 것만. 카드를 자동으로 펼치는 판단에는 이쪽을 쓴다.
   // (자동 켜짐까지 포함하면 오늘 작업 있는 카드가 전부 펼쳐져 목록이 지나치게 길어짐)
   const isOngoingItem = i => i.status === "checked" && (!after17 || i.extendHour != null);
+  // (v2.71) 치운 공사 판정. removedAt이 없는 자료(이 칸이 생기기 전에 저장된 것)는 "안 지움"으로 본다.
+  const isRemovedItem = i => !!i.removedAt;
+  // (v2.71) 기간이 지나 정리 대상이 되는 공사
+  const isExpiredItem = i => {
+    const wd = getWorkdayKey();
+    if (i.endDate && i.endDate < wd) return true;
+    if (i.isUrgent && periodEnd && wd > periodEnd) return true;
+    return false;
+  };
   // (v2.70) TODAY가 켜진 공사는 자동으로 켜졌든 손으로 켰든 모두 펼쳐서 보여준다.
   //  사람이 접으면 collapsedOn에 오늘 날짜를 적어 두고, 날이 바뀌면 값이 달라져 저절로 다시 펼쳐진다.
   //  구버전 자료엔 collapsedOn이 없어 undefined → 접힘으로 보지 않는다.
@@ -710,13 +719,11 @@ function App() {
       }
       return it;
     });
-    const before = out.length;
-    out = out.filter(it => {
-      if (it.endDate && it.endDate < wd) return false;
-      if (it.isUrgent && periodEnd && wd > periodEnd) return false;
-      return true;
-    });
-    if (out.length !== before) changed = true;
+    // (v2.71) 여기서 목록을 지우지 않는다.
+    //  예전에는 기간이 지난 공사를 감독자 기기가 각자 지웠는데,
+    //  저장할 때 서버 최신본과 합치면서 "내게 없는 것은 서버 것을 살린다"는 규칙에 걸려
+    //  지웠다가 되살아나기를 반복(화면 깜빡임)했다.
+    //  이제는 마스터 기기에서만 removedAt 표시를 붙여 정리한다.
     return {
       list: changed ? out : list,
       changed
@@ -1274,6 +1281,40 @@ function App() {
     } catch {}
     return 0;
   });
+  // ── (v2.71) 기간 지난 공사 정리 (마스터 전용) ──
+  //  묻는 창을 이번에 넘긴 경우 이 값이 true가 되어, 화면을 다시 열기 전까지 묻지 않는다.
+  const [cleanupDismissed, setCleanupDismissed] = useState(false);
+  const [showCleanup, setShowCleanup] = useState(false);
+  const REMOVED_KEEP_DAYS = 30;
+  // 정리 대상: 기간이 지났고 아직 치우지 않은 공사
+  const cleanupTargets = useMemo(() => masterLevel < 2 ? [] : items.filter(i => !isRemovedItem(i) && isExpiredItem(i)), [items, masterLevel, workday, periodEnd]);
+  useEffect(() => {
+    if (isLoading || masterLevel < 2 || cleanupDismissed) return;
+    setShowCleanup(cleanupTargets.length > 0);
+  }, [isLoading, masterLevel, cleanupDismissed, cleanupTargets.length]);
+  const purgeExpired = list => {
+    // 치운 지 30일이 지난 것은 완전히 없앤다. 마스터 기기에서만 하므로 되살아나지 않는다.
+    const cutoff = Date.now() - REMOVED_KEEP_DAYS * 24 * 60 * 60 * 1000;
+    return list.filter(i => !(i.removedAt && i.removedAt < cutoff));
+  };
+  useEffect(() => {
+    // 묻는 창과 무관하게, 마스터가 앱을 열면 30일 지난 것은 조용히 없앤다.
+    if (isLoading || masterLevel < 2 || items.length === 0) return;
+    const next = purgeExpired(items);
+    if (next.length !== items.length) persistItems(next);
+  }, [isLoading, masterLevel, items.length]);
+  const runCleanup = () => {
+    const now = Date.now();
+    const ids = new Set(cleanupTargets.map(i => i.id));
+    const next = purgeExpired(items).map(i => ids.has(i.id) ? {
+      ...i,
+      removedAt: now
+    } : i);
+    setShowCleanup(false);
+    setCleanupDismissed(true);
+    persistItems(next);
+    showToast(`공사 ${ids.size}건을 정리했습니다`);
+  };
   // ── (v2.56) ★중요 표시 (마스터 전용) ──
   // 손으로 정한 값(starManual)이 있으면 그게 우선, 없으면 엑셀 색(excelStar).
   // 둘 다 없는 예전 자료는 false — 기존 데이터도 오류 없이 그대로 동작한다.
@@ -1306,7 +1347,9 @@ function App() {
   const inPeriod = !periodStart || !periodEnd || selectedKey >= periodStart && selectedKey <= periodEnd;
   const filteredItems = useMemo(() => {
     if (!inPeriod) return [];
-    return activeTab === "전체" ? items : items.filter(item => factoryDisplay(item.factory) === activeTab);
+    // (v2.71) 치운 공사는 화면에 보이지 않는다.
+    const live = items.filter(i => !isRemovedItem(i));
+    return activeTab === "전체" ? live : live.filter(item => factoryDisplay(item.factory) === activeTab);
   }, [items, activeTab, inPeriod]);
   // 2026-08-27 v2.55: 정렬 기준 개편 (탭에 따라 다르게 적용)
   //  · "전체" 탭      : 엑셀 순서 그대로만. TODAY·공사중·즐겨찾기는 순서를 바꾸지 않고 배지로만 표시
@@ -1622,12 +1665,23 @@ function App() {
     showToast("회사명이 저장됐습니다.");
   };
   const doReset = async () => {
+    // (v2.71) 빈 목록으로 덮어쓰면, 아직 옛 목록을 들고 있는 다른 기기가 저장할 때
+    //  "서버에 없는 것은 살린다"는 병합 규칙에 걸려 통째로 되살아났다.
+    //  이제는 전부 치움 표시를 붙여 저장한다. 표시가 함께 넘어가므로 되살아나지 않는다.
+    const now = Date.now();
+    const cleared = (items || []).map(i => i.removedAt ? i : {
+      ...i,
+      removedAt: now
+    });
     try {
-      await MMEECStorage.clear(sessionId);
+      await persistItems(cleared, {
+        sheetTitle: null,
+        periodStart: null,
+        periodEnd: null
+      });
     } catch (e) {
       console.error(e);
     }
-    setItems([]);
     setSortedOrder([]);
     setSheetTitle("");
     setPeriodStart(null);
@@ -2246,7 +2300,9 @@ function App() {
   })), "공사추가"), React.createElement("div", {
     class: "flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0"
   }, (masterLevel < 1 ? activeFactories.filter(f => f !== "전체") : activeFactories).map(factory => {
-    const scope = factory === "전체" ? items : items.filter(i => factoryDisplay(i.factory) === factory);
+    // (v2.71) 치운 공사는 탭 숫자에서도 빼야 화면과 숫자가 어긋나지 않는다.
+    const liveItems = items.filter(i => !isRemovedItem(i));
+    const scope = factory === "전체" ? liveItems : liveItems.filter(i => factoryDisplay(i.factory) === factory);
     const count = scope.length;
     // (v2.70) 카드를 접어도 숫자는 줄지 않는다. 접기는 보기 편하려는 것일 뿐 공사가 없어진 게 아님.
     const activeCount = scope.filter(isAutoOpen).length;
@@ -2802,6 +2858,43 @@ function App() {
   }, "📋 안전보고문 생성"))))), toast && React.createElement("div", {
     class: "fixed top-6 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-xl z-50 transition-all animate-bounce max-w-[280px] text-center border border-slate-700"
   }, toast),
+  // (v2.71) 기간 지난 공사 정리 묻기 (마스터 전용). 되돌릴 수 없으므로 건수와 공사명을 함께 보여준다.
+  showCleanup && cleanupTargets.length > 0 && React.createElement("div", {
+    onClick: () => {
+      setShowCleanup(false);
+      setCleanupDismissed(true);
+    },
+    class: "fixed inset-0 bg-black/60 z-[65] flex items-center justify-center px-6"
+  }, React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
+  }, React.createElement("h3", {
+    class: "text-lg font-black text-slate-900"
+  }, "기간이 지난 공사 정리"), React.createElement("p", {
+    class: "text-base text-slate-700 leading-relaxed"
+  }, "공사기간이 끝난 공사가 ", React.createElement("b", null, `${cleanupTargets.length}건`), " 있습니다. 목록에서 정리할까요?"), React.createElement("div", {
+    class: "bg-slate-50 rounded-xl p-3 space-y-1 max-h-40 overflow-y-auto"
+  }, cleanupTargets.slice(0, 5).map(i => React.createElement("p", {
+    key: i.id,
+    class: "text-sm text-slate-600 truncate"
+  }, `· ${factoryDisplay(i.factory)} ${i.title || ""}`)), cleanupTargets.length > 5 && React.createElement("p", {
+    class: "text-sm text-slate-400"
+  }, `외 ${cleanupTargets.length - 5}건`)), React.createElement("p", {
+    class: "text-sm text-rose-500 font-semibold"
+  }, "정리하면 되돌릴 수 없습니다. 엑셀을 다시 올리면 목록에 다시 잡힙니다."), React.createElement("div", {
+    class: "grid grid-cols-2 gap-2"
+  }, React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      setShowCleanup(false);
+      setCleanupDismissed(true);
+    },
+    class: "bg-slate-100 text-slate-700 font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all"
+  }, "나중에"), React.createElement("button", {
+    type: "button",
+    onClick: runCleanup,
+    class: "bg-slate-900 text-white font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-all"
+  }, "정리")))),
   // (v2.70) 특이사항 메모 팝업. 바깥을 눌러도 저장하고 닫힌다.
   selectedItem && showMemoModal && React.createElement("div", {
     onClick: closeMemoModal,
