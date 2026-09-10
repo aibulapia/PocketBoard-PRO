@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.72</title>
+ <title>MMEEC 현장 점검 포켓보드 2.72a</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.72";
+const APP_VERSION = "2.72a";
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
 // 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
 // (server/supabase-admin-confirm-code-v1.sql 참고).
@@ -1379,6 +1379,13 @@ function App() {
   //  (이전에는 공사명에 "프레스/차체/도장/의장"이 들어갔는지로 정렬해서
   //   엑셀 순서가 뒤섞여 보이던 문제가 있었음)
   const SAUPJANG_ORDER = ["프레스", "차체", "도장", "의장", "엔진", "변속기", "실린더", "PDI"];
+  // (v2.72a) 공장순 — data.js의 SUPPORTED_FACTORIES 순서(1공장 → … → 9 기타)를 그대로 따른다.
+  //  목록에 없는 공장(옛 표기 등)은 맨 뒤로 보낸다.
+  const factoryRank = item => {
+    const f = factoryDisplay(item.factory);
+    const i = SUPPORTED_FACTORIES.indexOf(f);
+    return i < 0 ? SUPPORTED_FACTORIES.length : i;
+  };
   const saupjangRank = item => {
     const c = item.company || "";
     const i = SAUPJANG_ORDER.findIndex(g => c.includes(g));
@@ -1390,13 +1397,18 @@ function App() {
       item,
       idx
     }));
-    // (v2.72) 전체 탭·개별 공장 탭 모두 같은 규칙.
-    //  1순위 그 날 공사 → 2순위 사업장순 → 3순위 즐겨찾기(마스터는 ★중요) → 4순위 엑셀 순서
-    //  (v2.71까지는 전체 탭이 엑셀 순서만 따랐고, 개별 탭은 사업장순이 1순위였다)
+    // (v2.72a) 전체 탭·개별 공장 탭 모두 같은 규칙.
+    //  1순위 그 날 공사 → 2순위 공장순 → 3순위 사업장순 → 4순위 즐겨찾기(마스터는 ★중요) → 5순위 엑셀 순서
+    //  진한 묶음과 흐린 묶음 각각 안에서 같은 규칙으로 돈다.
+    //  (v2.72에서는 공장순이 없어 전체 탭에서 공장이 뒤섞여 보였다.
+    //   개별 공장 탭은 한 공장뿐이라 공장순이 결과에 영향을 주지 않는다.)
     return base.sort((a, b) => {
       const ta = isDayItem(a.item, selectedDate) ? 0 : 1;
       const tb = isDayItem(b.item, selectedDate) ? 0 : 1;
       if (ta !== tb) return ta - tb;
+      const fa = factoryRank(a.item),
+        fb = factoryRank(b.item);
+      if (fa !== fb) return fa - fb;
       const sa = saupjangRank(a.item),
         sb = saupjangRank(b.item);
       if (sa !== sb) return sa - sb;
