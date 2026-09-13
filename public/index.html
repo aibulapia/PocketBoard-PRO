@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.72a</title>
+ <title>MMEEC 현장 점검 포켓보드 2.72b</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,7 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.72a";
+const APP_VERSION = "2.72b";
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
 // 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
 // (server/supabase-admin-confirm-code-v1.sql 참고).
@@ -453,7 +453,7 @@ function App() {
   // (v2.70) 특이사항 메모 팝업
   const [showMemoModal, setShowMemoModal] = useState(false);
   const [expandedIds, setExpandedIds] = useState([]);
-  const [showCardResetConfirm, setShowCardResetConfirm] = useState(false);
+
   const [directWorkers, setDirectWorkers] = useState("");
   const [dailyWorkers, setDailyWorkers] = useState("");
   const [partnerName, setPartnerName] = useState("");
@@ -1519,7 +1519,7 @@ function App() {
     setSelectedItem(null);
     showToast("점검 기록이 저장되었습니다.");
   };
-  const handleCardReset = () => {
+  const handleCardResetRemoved = () => {
     if (!selectedItem) return;
     const updatedItems = items.map(item => {
       if (item.id !== selectedItem.id) return item;
@@ -1664,9 +1664,7 @@ function App() {
       return;
     }
     setShowPwModal(false);
-    if (pwTarget === "reset") {
-      doReset();
-    } else if (pwTarget === "company") {
+    if (pwTarget === "company") {
       setCompanyNameDraft(companyName);
       setShowCompanyEdit(true);
     }
@@ -1698,32 +1696,7 @@ function App() {
     setShowCompanyEdit(false);
     showToast("회사명이 저장됐습니다.");
   };
-  const doReset = async () => {
-    // (v2.71) 빈 목록으로 덮어쓰면, 아직 옛 목록을 들고 있는 다른 기기가 저장할 때
-    //  "서버에 없는 것은 살린다"는 병합 규칙에 걸려 통째로 되살아났다.
-    //  이제는 전부 치움 표시를 붙여 저장한다. 표시가 함께 넘어가므로 되살아나지 않는다.
-    const now = Date.now();
-    const cleared = (items || []).map(i => i.removedAt ? i : {
-      ...i,
-      removedAt: now
-    });
-    try {
-      await persistItems(cleared, {
-        sheetTitle: null,
-        periodStart: null,
-        periodEnd: null
-      });
-    } catch (e) {
-      console.error(e);
-    }
-    setSortedOrder([]);
-    setSheetTitle("");
-    setPeriodStart(null);
-    setPeriodEnd(null);
-    setActiveTab("전체");
-    saveBookmarkIds([]);
-    showToast("데이터가 초기화되었습니다.");
-  };
+
   const [showWeather, setShowWeather] = useState(false);
   const [weather, setWeather] = useState(() => {
     try {
@@ -2812,18 +2785,12 @@ function App() {
   }, "→ ", fmtExtend(extendHour), " 으로 표시됩니다")),
   // (v2.70) 특이사항 메모 입력칸은 상단 MEMO 버튼 팝업으로 옮겨졌다.
   React.createElement("div", {
-    class: "grid gap-2 pt-2 grid-cols-3" // (v2.56) 마스터=초기화·카톡·완료 / 그외=카톡·즐겨찾기·완료 → 둘 다 3칸
-  }, masterLevel >= 2 && React.createElement("button", {
-    type: "button",
-    onClick: () => setShowCardResetConfirm(true),
-    class: "w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]"
-  }, "초기화"), React.createElement("button", {
+    class: "grid gap-2 pt-2 grid-cols-2" // 카톡복사·즐겨찾기 2칸
+  }, React.createElement("button", {
     type: "button",
     onClick: e => handleKakaoCopy(selectedItem, e),
     class: "keep-light w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]"
-  }, "💬 카톡복사"),
-  // (v2.56) 마스터 화면에서는 즐겨찾기 버튼 제외 — 목록의 ★중요로 대체됨
-  masterLevel < 2 && React.createElement("button", {
+  }, "💬 카톡복사"), React.createElement("button", {
     type: "button",
     onClick: toggleBookmark,
     class: `w-full font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px] ${bookmarkIds.includes(selectedItem.id) ? "bg-amber-100 text-amber-700 border-2 border-amber-400" : "bg-slate-100 text-slate-600"}`
@@ -3122,31 +3089,7 @@ function App() {
     type: "button",
     onClick: closeAccess,
     class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all"
-  }, "닫기")))), showCardResetConfirm && React.createElement("div", {
-    onClick: () => setShowCardResetConfirm(false),
-    class: "fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6"
-  }, React.createElement("div", {
-    onClick: e => e.stopPropagation(),
-    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
-  }, React.createElement("div", {
-    class: "text-center"
-  }, React.createElement("div", {
-    class: "text-4xl mb-2"
-  }, "🗑️"), React.createElement("p", {
-    class: "text-base font-bold text-slate-800 leading-relaxed"
-  }, "입력된 내용이 삭제되고", React.createElement("br", null), "공사전 상태로 돌아갑니다.", React.createElement("br", null), "계속하시겠습니까?"), React.createElement("p", {
-    class: "text-xs text-slate-400 mt-2"
-  }, "체감온도 측정 기록은 삭제되지 않습니다.")), React.createElement("div", {
-    class: "grid grid-cols-2 gap-3"
-  }, React.createElement("button", {
-    type: "button",
-    onClick: () => setShowCardResetConfirm(false),
-    class: "w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]"
-  }, "취소"), React.createElement("button", {
-    type: "button",
-    onClick: handleCardReset,
-    class: "w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]"
-  }, "삭제")))), showNotice && notice && React.createElement("div", {
+  }, "닫기")))), showNotice && notice && React.createElement("div", {
     onClick: () => dismissNotice(),
     class: "fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6"
   }, React.createElement("div", {
@@ -3288,7 +3231,7 @@ function App() {
     class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
   }, React.createElement("h2", {
     class: "text-lg font-black text-slate-900 text-center"
-  }, pwTarget === "reset" ? "🔐 초기화 확인" : "🔐 회사명 수정"), React.createElement("p", {
+  }, "🔐 회사명 수정"), React.createElement("p", {
     class: "text-base text-slate-500 text-center"
   }, "암호를 입력해주세요."), React.createElement("input", {
     type: "password",

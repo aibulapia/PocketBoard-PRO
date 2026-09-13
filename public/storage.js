@@ -258,7 +258,10 @@ function mergeItems(existing, parsed, urgentOnly) {
       heatResults: old.heatResults || [],
       lastHeatStatus: old.lastHeatStatus || null,
       // v2.5 일일 사이클 필드 보존
-      pastWorkDays: old.pastWorkDays || 0,
+      // (v2.72b) pastWorkDays는 물려받지 않는다.
+      //  옛 값을 그대로 가져오면 엑셀을 올릴 때마다 날수가 쌓여,
+      //  첫날 공사가 "TODAY 3일째"로 보이는 문제가 있었다.
+      //  새 엑셀에서 계산한 값(p.pastWorkDays)을 그대로 쓴다.
       activeMark: old.activeMark || null,
       todayOff: old.todayOff || null,
       // (v2.57) 사람이 직접 끈 TODAY는 엑셀을 다시 올려도 꺼진 채로 유지된다.
