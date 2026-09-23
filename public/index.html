@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.72b</title>
+ <title>MMEEC 현장 점검 포켓보드 2.72c</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -157,7 +157,15 @@ const {
   useMemo,
   useRef
 } = React;
-const APP_VERSION = "2.72b";
+const APP_VERSION = "2.72c";
+// (v2.73) 추석 에디션: 9/24~9/27 기간에만 배너 표시, 기간 후 자동 원복
+const isChuseokEdition = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const start = new Date(y, 8, 24, 0, 0, 0); // 9월(0-index 8) 24일
+  const end = new Date(y, 8, 27, 23, 59, 59); // 9월 27일 끝까지
+  return now >= start && now <= end;
+};
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
 // 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
 // (server/supabase-admin-confirm-code-v1.sql 참고).
@@ -453,7 +461,11 @@ function App() {
   // (v2.70) 특이사항 메모 팝업
   const [showMemoModal, setShowMemoModal] = useState(false);
   const [expandedIds, setExpandedIds] = useState([]);
-  const [showCardResetConfirm, setShowCardResetConfirm] = useState(false);
+  // (v2.73) 목록 화면 인라인 편집: 공사위치·담당감독자
+  const [inlineEditId, setInlineEditId] = useState(null);
+  const [inlineSpotLocation, setInlineSpotLocation] = useState("");
+  const [inlineAssignedSupervisor, setInlineAssignedSupervisor] = useState("");
+
   const [directWorkers, setDirectWorkers] = useState("");
   const [dailyWorkers, setDailyWorkers] = useState("");
   const [partnerName, setPartnerName] = useState("");
@@ -1519,7 +1531,50 @@ function App() {
     setSelectedItem(null);
     showToast("점검 기록이 저장되었습니다.");
   };
-  const handleCardReset = () => {
+  // (v2.73) 목록 화면 인라인 편집: 공사위치·담당감독자를 바텀 페이지를 열지 않고 바로 수정
+  const openInlineEdit = (item, e) => {
+    if (e) e.stopPropagation();
+    setInlineEditId(item.id);
+    setInlineSpotLocation(item.spotLocation || "");
+    setInlineAssignedSupervisor(item.assignedSupervisor || "");
+  };
+  const closeInlineEdit = e => {
+    if (e) e.stopPropagation();
+    setInlineEditId(null);
+  };
+  const saveInlineEdit = (item, e) => {
+    if (e) e.stopPropagation();
+    const newSpot = inlineSpotLocation.trim();
+    const newSupervisor = inlineAssignedSupervisor.trim();
+    // 바텀 페이지와 동일한 규칙: 위치·감독자 중 하나만 있어도 공사중으로 본다.
+    const isChecked = newSpot !== "" || newSupervisor !== "";
+    const updatedItems = items.map(it => {
+      if (it.id !== item.id) return it;
+      return {
+        ...it,
+        spotLocation: newSpot,
+        assignedSupervisor: newSupervisor,
+        ...(it.isUrgent ? {
+          location: newSpot
+        } : {}),
+        status: isChecked ? "checked" : "pending",
+        dayKey: workday,
+        todayOn: workday,
+        todayForceOff: false,
+        activeMark: workday,
+        dateWorkers: hasWorkToday(it) ? it.dateWorkers : withTodayAssigned(it)
+      };
+    });
+    persistItems(updatedItems);
+    // 바텀 페이지가 같은 카드를 열어둔 상태라면 그쪽 입력값도 함께 맞춰준다.
+    if (selectedItem && selectedItem.id === item.id) {
+      setSpotLocation(newSpot);
+      setAssignedSupervisor(newSupervisor);
+    }
+    setInlineEditId(null);
+    showToast("공사위치·감독자가 저장되었습니다.");
+  };
+  const handleCardResetRemoved = () => {
     if (!selectedItem) return;
     const updatedItems = items.map(item => {
       if (item.id !== selectedItem.id) return item;
@@ -1664,9 +1719,7 @@ function App() {
       return;
     }
     setShowPwModal(false);
-    if (pwTarget === "reset") {
-      doReset();
-    } else if (pwTarget === "company") {
+    if (pwTarget === "company") {
       setCompanyNameDraft(companyName);
       setShowCompanyEdit(true);
     }
@@ -1698,32 +1751,7 @@ function App() {
     setShowCompanyEdit(false);
     showToast("회사명이 저장됐습니다.");
   };
-  const doReset = async () => {
-    // (v2.71) 빈 목록으로 덮어쓰면, 아직 옛 목록을 들고 있는 다른 기기가 저장할 때
-    //  "서버에 없는 것은 살린다"는 병합 규칙에 걸려 통째로 되살아났다.
-    //  이제는 전부 치움 표시를 붙여 저장한다. 표시가 함께 넘어가므로 되살아나지 않는다.
-    const now = Date.now();
-    const cleared = (items || []).map(i => i.removedAt ? i : {
-      ...i,
-      removedAt: now
-    });
-    try {
-      await persistItems(cleared, {
-        sheetTitle: null,
-        periodStart: null,
-        periodEnd: null
-      });
-    } catch (e) {
-      console.error(e);
-    }
-    setSortedOrder([]);
-    setSheetTitle("");
-    setPeriodStart(null);
-    setPeriodEnd(null);
-    setActiveTab("전체");
-    saveBookmarkIds([]);
-    showToast("데이터가 초기화되었습니다.");
-  };
+
   const [showWeather, setShowWeather] = useState(false);
   const [weather, setWeather] = useState(() => {
     try {
@@ -2227,7 +2255,96 @@ function App() {
   };
   return React.createElement("div", {
     class: `max-w-md mx-auto bg-slate-50 min-h-screen pb-32 flex flex-col relative shadow-xl${darkMode ? " dark" : ""}`
-  }, React.createElement("header", {
+  }, isChuseokEdition() && React.createElement("div", {
+    class: "relative overflow-hidden px-5 py-6 text-center",
+    style: {
+      background: "linear-gradient(135deg, #F9F5EE 0%, #F5F1E8 100%)"
+    }
+  }, React.createElement("div", {
+    class: "absolute rounded-full",
+    style: {
+      top: "-30px",
+      left: "-40px",
+      width: "160px",
+      height: "160px",
+      background: "radial-gradient(circle at 40% 40%, #FFE082, #FFD700)",
+      opacity: 0.6,
+      boxShadow: "0 0 30px rgba(255, 215, 0, 0.2)"
+    }
+  }), React.createElement("svg", {
+    class: "absolute",
+    style: {
+      top: "16px",
+      right: "16px",
+      width: "90px",
+      height: "80px"
+    }
+  }, React.createElement("path", {
+    d: "M 10 70 Q 35 45, 60 25 Q 85 15, 95 10",
+    stroke: "#8B6F47",
+    "stroke-width": "2.5",
+    fill: "none",
+    "stroke-linecap": "round"
+  }), React.createElement("path", {
+    d: "M 60 25 Q 72 38, 80 55",
+    stroke: "#A0826D",
+    "stroke-width": "2",
+    fill: "none",
+    "stroke-linecap": "round"
+  }), React.createElement("circle", {
+    cx: "45",
+    cy: "60",
+    r: "9",
+    fill: "#E07A4E"
+  }), React.createElement("circle", {
+    cx: "65",
+    cy: "38",
+    r: "8",
+    fill: "#E8944A"
+  }), React.createElement("circle", {
+    cx: "85",
+    cy: "25",
+    r: "7",
+    fill: "#EA9F4A"
+  }), React.createElement("circle", {
+    cx: "72",
+    cy: "55",
+    r: "8",
+    fill: "#E67A48"
+  }), React.createElement("ellipse", {
+    cx: "40",
+    cy: "48",
+    rx: "5",
+    ry: "7",
+    fill: "#7BA428",
+    transform: "rotate(-30 40 48)"
+  }), React.createElement("ellipse", {
+    cx: "62",
+    cy: "20",
+    rx: "5",
+    ry: "7",
+    fill: "#6B9420",
+    transform: "rotate(25 62 20)"
+  }), React.createElement("ellipse", {
+    cx: "90",
+    cy: "42",
+    rx: "4",
+    ry: "6",
+    fill: "#7BA428",
+    transform: "rotate(-40 90 42)"
+  })), React.createElement("div", {
+    class: "relative z-10"
+  }, React.createElement("h2", {
+    class: "text-xl font-bold",
+    style: {
+      color: "#5C4033"
+    }
+  }, "풍요로운"), React.createElement("h2", {
+    class: "text-2xl font-extrabold",
+    style: {
+      color: "#D97634"
+    }
+  }, "한가위 되세요"))), React.createElement("header", {
     class: "bg-white border-b border-slate-200 px-4 py-4 shadow-xs"
   }, React.createElement("div", {
     class: "flex items-center justify-between mb-3"
@@ -2452,13 +2569,13 @@ function App() {
     // (v2.57) ★는 맨 오른쪽 끝. 마스터는 눌러서 켜고 끔 / 그 외는 즐겨찾기 표시만.
     masterLevel >= 2 ? React.createElement("span", {
       onClick: e => toggleStar(item, e),
-      class: `text-2xl leading-none flex-shrink-0 select-none cursor-pointer active:scale-90 transition-all ${isStarred(item) ? "text-amber-500" : "text-slate-300"}`,
+      class: `text-lg leading-none flex-shrink-0 select-none cursor-pointer active:scale-90 transition-all ${isStarred(item) ? "text-amber-500" : "text-slate-300"}`,
       title: isStarred(item) ? "중요 표시 해제" : "중요 표시"
     }, "★") : bookmarkIds.includes(item.id) && React.createElement("span", {
-      class: "text-2xl leading-none text-amber-500 flex-shrink-0",
+      class: "text-lg leading-none text-amber-500 flex-shrink-0",
       title: "즐겨찾기"
     }, "★"))), React.createElement("h4", {
-      class: `text-lg font-bold text-slate-900 leading-snug ${cardOpen ? "mb-1" : ""}`
+      class: `text-sm font-bold text-slate-900 leading-snug ${cardOpen ? "mb-1" : ""}`
     }, item.title), !cardOpen ? null : React.createElement("p", {
       class: "text-base text-slate-500 mb-2 font-medium"
     }, "상세위치: ", React.createElement("span", {
@@ -2477,8 +2594,52 @@ function App() {
         if (autoOpen) setCardCollapsed(item, true);
       },
       class: "text-base text-slate-500 font-bold mb-2 active:scale-95 transition-all"
-    }, "▲ 접기"), cardOpen && React.createElement(React.Fragment, null, React.createElement("div", {
-      class: "bg-slate-50 rounded-xl p-2.5 space-y-1.5 text-sm"
+    }, "▲ 접기"), cardOpen && React.createElement(React.Fragment, null, inlineEditId === item.id ? React.createElement("div", {
+      class: "bg-amber-50 rounded-xl p-3 space-y-3 text-sm border border-amber-200",
+      onClick: e => e.stopPropagation()
+    }, React.createElement("div", {
+      class: "space-y-1.5"
+    }, React.createElement("label", {
+      class: "text-sm font-bold text-slate-800"
+    }, "🎯 공사위치"), React.createElement("input", {
+      type: "text",
+      autoFocus: true,
+      placeholder: "기둥번호·구역 직접 입력 (예: C-01, 샤시메인)",
+      value: inlineSpotLocation,
+      onChange: e => setInlineSpotLocation(e.target.value),
+      class: "w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 transition-all min-h-[44px]"
+    })), React.createElement("div", {
+      class: "space-y-1.5"
+    }, React.createElement("label", {
+      class: "text-sm font-bold text-slate-800"
+    }, "🟡 담당 감독자"), React.createElement("div", {
+      class: "flex flex-wrap gap-1.5 max-h-[110px] overflow-y-auto p-0.5"
+    }, getSupervisorPool(factoryDisplay(item.factory)).map(name => React.createElement("button", {
+      key: name,
+      type: "button",
+      onClick: () => setInlineAssignedSupervisor(name),
+      class: `px-2.5 py-2 text-sm font-semibold rounded-lg transition-all active:scale-95 min-h-[40px] ${inlineAssignedSupervisor === name ? "bg-amber-500 text-white shadow-xs" : "bg-white text-slate-700 border border-slate-200"}`
+    }, name)), getSupervisorPool(factoryDisplay(item.factory)).length === 0 && React.createElement("span", {
+      class: "text-xs text-slate-400 italic"
+    }, "등록된 추천 고정 감독자가 없습니다.")), React.createElement("input", {
+      type: "text",
+      placeholder: "명단에 없는 감독자 이름 직접 입력",
+      value: inlineAssignedSupervisor,
+      onChange: e => setInlineAssignedSupervisor(e.target.value),
+      class: "w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 transition-all min-h-[44px] mt-1"
+    })), React.createElement("div", {
+      class: "grid grid-cols-2 gap-2 pt-1"
+    }, React.createElement("button", {
+      type: "button",
+      onClick: e => closeInlineEdit(e),
+      class: "w-full bg-slate-100 text-slate-600 font-bold py-2.5 rounded-lg text-sm active:scale-95 transition-all min-h-[44px]"
+    }, "취소"), React.createElement("button", {
+      type: "button",
+      onClick: e => saveInlineEdit(item, e),
+      class: "w-full bg-amber-500 text-white font-bold py-2.5 rounded-lg text-sm active:scale-95 transition-all min-h-[44px]"
+    }, "확인"))) : React.createElement("div", {
+      class: "bg-slate-50 rounded-xl p-2.5 space-y-1.5 text-sm active:bg-slate-100 transition-all",
+      onClick: e => openInlineEdit(item, e)
     }, React.createElement("div", {
       class: "flex items-center justify-between border-t border-slate-200/50 pt-1.5"
     }, React.createElement("span", {
@@ -2812,18 +2973,12 @@ function App() {
   }, "→ ", fmtExtend(extendHour), " 으로 표시됩니다")),
   // (v2.70) 특이사항 메모 입력칸은 상단 MEMO 버튼 팝업으로 옮겨졌다.
   React.createElement("div", {
-    class: "grid gap-2 pt-2 grid-cols-3" // (v2.56) 마스터=초기화·카톡·완료 / 그외=카톡·즐겨찾기·완료 → 둘 다 3칸
-  }, masterLevel >= 2 && React.createElement("button", {
-    type: "button",
-    onClick: () => setShowCardResetConfirm(true),
-    class: "w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]"
-  }, "초기화"), React.createElement("button", {
+    class: "grid gap-2 pt-2 grid-cols-2" // 카톡복사·즐겨찾기 2칸
+  }, React.createElement("button", {
     type: "button",
     onClick: e => handleKakaoCopy(selectedItem, e),
     class: "keep-light w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px]"
-  }, "💬 카톡복사"),
-  // (v2.56) 마스터 화면에서는 즐겨찾기 버튼 제외 — 목록의 ★중요로 대체됨
-  masterLevel < 2 && React.createElement("button", {
+  }, "💬 카톡복사"), React.createElement("button", {
     type: "button",
     onClick: toggleBookmark,
     class: `w-full font-bold py-3.5 rounded-xl text-xs active:scale-95 transition-all min-h-[52px] ${bookmarkIds.includes(selectedItem.id) ? "bg-amber-100 text-amber-700 border-2 border-amber-400" : "bg-slate-100 text-slate-600"}`
@@ -3122,31 +3277,7 @@ function App() {
     type: "button",
     onClick: closeAccess,
     class: "w-full bg-slate-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all"
-  }, "닫기")))), showCardResetConfirm && React.createElement("div", {
-    onClick: () => setShowCardResetConfirm(false),
-    class: "fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6"
-  }, React.createElement("div", {
-    onClick: e => e.stopPropagation(),
-    class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
-  }, React.createElement("div", {
-    class: "text-center"
-  }, React.createElement("div", {
-    class: "text-4xl mb-2"
-  }, "🗑️"), React.createElement("p", {
-    class: "text-base font-bold text-slate-800 leading-relaxed"
-  }, "입력된 내용이 삭제되고", React.createElement("br", null), "공사전 상태로 돌아갑니다.", React.createElement("br", null), "계속하시겠습니까?"), React.createElement("p", {
-    class: "text-xs text-slate-400 mt-2"
-  }, "체감온도 측정 기록은 삭제되지 않습니다.")), React.createElement("div", {
-    class: "grid grid-cols-2 gap-3"
-  }, React.createElement("button", {
-    type: "button",
-    onClick: () => setShowCardResetConfirm(false),
-    class: "w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]"
-  }, "취소"), React.createElement("button", {
-    type: "button",
-    onClick: handleCardReset,
-    class: "w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3.5 rounded-xl text-base active:scale-95 transition-all min-h-[52px]"
-  }, "삭제")))), showNotice && notice && React.createElement("div", {
+  }, "닫기")))), showNotice && notice && React.createElement("div", {
     onClick: () => dismissNotice(),
     class: "fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6"
   }, React.createElement("div", {
@@ -3288,7 +3419,7 @@ function App() {
     class: "bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4"
   }, React.createElement("h2", {
     class: "text-lg font-black text-slate-900 text-center"
-  }, pwTarget === "reset" ? "🔐 초기화 확인" : "🔐 회사명 수정"), React.createElement("p", {
+  }, "🔐 회사명 수정"), React.createElement("p", {
     class: "text-base text-slate-500 text-center"
   }, "암호를 입력해주세요."), React.createElement("input", {
     type: "password",
