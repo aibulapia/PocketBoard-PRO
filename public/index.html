@@ -9,7 +9,7 @@
  <meta name="apple-mobile-web-app-status-bar-style" content="default">
  <meta name="theme-color" content="#f59e0b">
  <link rel="manifest" href="manifest.json">
- <title>MMEEC 현장 점검 포켓보드 2.73</title>
+ <title>MMEEC 현장 점검 포켓보드 2.73-fixed</title>
  <link rel="apple-touch-icon" href="icon-192.png">
  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -153,13 +153,10 @@ const {
   useMemo,
   useRef
 } = React;
-// (v2.73 수정) 코드에는 v2.73 변경분이 들어 있는데 버전 표기가 2.72c로 멈춰 있었다.
-// version.json 자동 갱신 로직도 이 값을 쓰므로 실제 배포 버전과 일치시킨다.
+
 const APP_VERSION = "2.73";
 // (v2.73) 추석 에디션: 9/24~9/26 기간에만 배너 표시, 기간 후 자동 원복
 const isChuseokEdition = () => {
-  // (v2.73 수정) 추석은 음력이라 매년 양력 날짜가 다르다. 연도를 고정하지 않으면
-  // 매년 9/24~26마다 배너가 잘못 표시됐다. 2026년 연휴(9/24~26)에만 표시한다.
   const now = new Date();
   const start = new Date(2026, 8, 24, 0, 0, 0); // 9월(0-index 8) 24일
   const end = new Date(2026, 8, 26, 23, 59, 59); // 9월 26일 끝까지
@@ -168,16 +165,10 @@ const isChuseokEdition = () => {
 // (v2.73) 체감온도 계산기: 2026-09-30을 끝으로 더 이상 사용하지 않아 10/1부터 완전히 숨김
 const HEAT_INDEX_CUTOFF = new Date(2026, 8, 30, 23, 59, 59);
 const isHeatIndexVisible = () => new Date() <= HEAT_INDEX_CUTOFF;
-// 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
-// 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
-// (server/supabase-admin-confirm-code-v1.sql 참고).
 async function sha256(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
-// (v2.73 수정) 클립보드 복사 공통 헬퍼. navigator.clipboard는 보안 컨텍스트(https)에서만
-// 존재하므로 카톡 인앱·http 환경에서는 undefined가 되어 기존 호출이 catch에도 걸리지 않고
-// 그냥 죽었다. undefined 가드 + execCommand 폴백으로 어느 환경에서든 성공/실패를 알려준다.
 const copyTextToClipboard = async text => {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
