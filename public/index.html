@@ -158,12 +158,12 @@ const {
   useRef
 } = React;
 const APP_VERSION = "2.72c";
-// (v2.73) 추석 에디션: 9/24~9/27 기간에만 배너 표시, 기간 후 자동 원복
+// (v2.73) 추석 에디션: 9/24~9/28 기간에만 배너 표시, 기간 후 자동 원복
 const isChuseokEdition = () => {
   const now = new Date();
   const y = now.getFullYear();
   const start = new Date(y, 8, 24, 0, 0, 0); // 9월(0-index 8) 24일
-  const end = new Date(y, 8, 27, 23, 59, 59); // 9월 27일 끝까지
+  const end = new Date(y, 8, 28, 23, 59, 59); // 9월 28일 끝까지
   return now >= start && now <= end;
 };
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
@@ -589,6 +589,9 @@ function App() {
   const [urgentWorkContent, setUrgentWorkContent] = useState("");
   const [urgentWorkTypes, setUrgentWorkTypes] = useState([]);
   const [urgentSupervisor, setUrgentSupervisor] = useState("");
+  // (v2.73) 긴급공사 등급 선택: A/B/C/PA/PB/PC
+  const [urgentGrade, setUrgentGrade] = useState("");
+  const URGENT_GRADE_OPTIONS = ["A", "B", "C", "PA", "PB", "PC"];
   const WORK_TYPE_OPTIONS = D.WORK_TYPE_OPTIONS || ["고소", "중량물", "화기", "밀폐", "건설기계", "전기", "자동화", "청소", "운반", "도색"];
   const tryFlushPending = React.useCallback(async () => {
     if (!MMEECStorage.flushPending) return;
@@ -863,6 +866,7 @@ function App() {
       spotLocation: generatedLocation,
       status: "pending",
       grade: "긴급",
+      urgentGrade: urgentGrade,
       workType: urgentWorkTypes.length > 0 ? urgentWorkTypes.join("+") : "일반",
       memo: "",
       isUrgent: true
@@ -876,6 +880,7 @@ function App() {
     setUrgentWorkContent("");
     setUrgentSupervisor("");
     setUrgentWorkTypes([]);
+    setUrgentGrade("");
     showToast("⚡ 긴급공사가 추가되었습니다.");
   };
   const showToast = message => {
@@ -1070,6 +1075,13 @@ function App() {
             break;
           }
         }
+      }
+      // (v2.73) 엑셀에 "9월" 같은 월 표시가 전혀 없으면, 예전에는 날짜 컬럼마다
+      //  "오늘보다 15일 이상 이전이면 다음 달"로 추측해 공사기간이 사실상 2주로 묶였다.
+      //  이제는 오늘 날짜의 월을 시작 기준으로 잡고, 날짜가 줄어드는 지점(예: 30→1)마다
+      //  자동으로 다음 달로 넘어가게 해서 기간 길이에 제한이 없다.
+      if (sheetMonth == null) {
+        sheetMonth = new Date().getMonth() + 1;
       }
       const scanDateRow = rowArr => {
         if (!rowArr) return;
@@ -2554,7 +2566,7 @@ function App() {
       class: `text-sm px-2 py-0.5 rounded-md font-black tracking-wide select-none transition-all flex-shrink-0 whitespace-nowrap cursor-pointer active:scale-95 ${offDay ? "bg-slate-100 text-slate-400 italic border border-dashed border-slate-300" : isTodayActive(item) ? "bg-sky-500 text-white" : "bg-slate-200 text-slate-400 italic"}`
     }, `TODAY${!offDay && isTodayActive(item) && workDayCount(item) >= 2 ? ` ${workDayCount(item)}일째` : ""}`), React.createElement("span", {
       class: `text-base px-2 py-0.5 rounded-md font-extrabold tracking-wide whitespace-nowrap ${item.grade === "긴급" ? "bg-rose-600 text-white" : (item.grade || "B").startsWith("A") ? "bg-rose-100 text-rose-700" : (item.grade || "B").startsWith("P") ? "keep-light bg-purple-100 text-purple-700" : "keep-light bg-amber-100 text-amber-800"}`
-    }, item.grade === "긴급" ? "⚡ 긴급" : `${item.grade || "B"}급`),
+    }, item.grade === "긴급" ? `⚡ 긴급${item.urgentGrade ? ` · ${item.urgentGrade}급` : ""}` : `${item.grade || "B"}급`),
     // (v2.57) 작업 구분(화·고·중 등)을 등급 옆에 표시. 값이 없으면 배지 자체를 띄우지 않는다.
     (item.workType || "").trim() && React.createElement("span", {
       class: "text-base keep-light bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold whitespace-nowrap",
@@ -2769,7 +2781,7 @@ function App() {
   // (v2.70) "NO.n 공사 정보 기록" 대신 엑셀의 등급·작업 구분을 공장 배지 옆에 둔다.
   selectedItem.isUrgent ? React.createElement("span", {
     class: "text-sm bg-rose-600 text-white px-2 py-0.5 rounded font-bold"
-  }, "⚡ 긴급") : React.createElement("span", {
+  }, `⚡ 긴급${selectedItem.urgentGrade ? ` · ${selectedItem.urgentGrade}급` : ""}`) : React.createElement("span", {
     class: `text-sm px-2 py-0.5 rounded font-bold ${(selectedItem.grade || "B").startsWith("A") ? "keep-light bg-rose-100 text-rose-700" : (selectedItem.grade || "B").startsWith("P") ? "keep-light bg-purple-100 text-purple-700" : "keep-light bg-amber-100 text-amber-800"}`
   }, `${selectedItem.grade || "B"}급`), (selectedItem.workType || "").trim() && React.createElement("span", {
     class: "text-sm keep-light bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold",
@@ -3651,10 +3663,23 @@ function App() {
   })), "공사명 자동 생성 결과"), React.createElement("p", {
     class: "text-base font-black text-slate-900 break-keep"
   }, `${urgentFactory} ${urgentSubFactory} ${urgentWorkLocation} ${urgentWorkContent}`.replace(/\s+/g, ' ').trim() || "상단 항목을 선택 및 입력해주세요.")), React.createElement("div", {
+    class: "space-y-2 pt-2 border-t border-slate-100"
+  }, React.createElement("label", {
+    class: "text-sm font-black text-slate-800 flex items-center gap-1"
+  }, "Step 4. 등급 선택 ", React.createElement("span", {
+    class: "text-slate-400 font-normal text-xs"
+  }, "(선택사항)")), React.createElement("div", {
+    class: "flex flex-wrap gap-1.5"
+  }, URGENT_GRADE_OPTIONS.map(g => React.createElement("button", {
+    key: g,
+    type: "button",
+    onClick: () => setUrgentGrade(prev => prev === g ? "" : g),
+    class: `px-3 py-2 text-sm font-semibold rounded-xl transition-all active:scale-95 min-h-[40px] ${urgentGrade === g ? "bg-rose-500 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`
+  }, g)))), React.createElement("div", {
     class: "space-y-1.5 pt-2 border-t border-slate-100"
   }, React.createElement("label", {
     class: "text-sm font-black text-slate-800"
-  }, "Step 4. 작업 구분 ", React.createElement("span", {
+  }, "Step 5. 작업 구분 ", React.createElement("span", {
     class: "text-slate-400 font-normal text-xs"
   }, "(복수 선택 가능)")), React.createElement("div", {
     class: "flex flex-wrap gap-2"
@@ -3667,7 +3692,7 @@ function App() {
     class: "space-y-2"
   }, React.createElement("label", {
     class: "text-sm font-black text-slate-800 flex items-center gap-1"
-  }, "Step 5. 담당 감독자 ", React.createElement("span", {
+  }, "Step 6. 담당 감독자 ", React.createElement("span", {
     class: "text-rose-500"
   }, "*")), React.createElement("div", {
     class: "flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto p-0.5"
