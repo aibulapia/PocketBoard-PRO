@@ -158,14 +158,17 @@ const {
   useRef
 } = React;
 const APP_VERSION = "2.72c";
-// (v2.73) 추석 에디션: 9/24~9/28 기간에만 배너 표시, 기간 후 자동 원복
+// (v2.73) 추석 에디션: 9/24~9/26 기간에만 배너 표시, 기간 후 자동 원복
 const isChuseokEdition = () => {
   const now = new Date();
   const y = now.getFullYear();
   const start = new Date(y, 8, 24, 0, 0, 0); // 9월(0-index 8) 24일
-  const end = new Date(y, 8, 28, 23, 59, 59); // 9월 28일 끝까지
+  const end = new Date(y, 8, 26, 23, 59, 59); // 9월 26일 끝까지
   return now >= start && now <= end;
 };
+// (v2.73) 체감온도 계산기: 2026-09-30을 끝으로 더 이상 사용하지 않아 10/1부터 완전히 숨김
+const HEAT_INDEX_CUTOFF = new Date(2026, 8, 30, 23, 59, 59);
+const isHeatIndexVisible = () => new Date() <= HEAT_INDEX_CUTOFF;
 // 2026-08-23 v2.54c: RESET_PW_HASH·COMPANY_PW_HASH(소스에 박혀있던 해시)는
 // 무차별 대입에 취약해 삭제. 서버 함수 admin_confirm_check로 이전함
 // (server/supabase-admin-confirm-code-v1.sql 참고).
@@ -2681,7 +2684,7 @@ function App() {
       }))) : null;
     })())), masterLevel >= 1 && item.memo && React.createElement("div", {
       class: "text-sm text-amber-700 bg-amber-50/50 p-1.5 rounded-lg mt-1 border border-amber-100/50"
-    }, "📝 ", item.memo), item.lastHeatStatus && (!item.lastHeatStatus.workday || item.lastHeatStatus.workday === workday) && React.createElement("div", {
+    }, "📝 ", item.memo), isHeatIndexVisible() && item.lastHeatStatus && (!item.lastHeatStatus.workday || item.lastHeatStatus.workday === workday) && React.createElement("div", {
       class: `flex items-center justify-between mt-2 px-3 py-2 rounded-xl ${item.lastHeatStatus.color === "red" ? "bg-red-600" : item.lastHeatStatus.color === "orange" ? "bg-orange-400" : item.lastHeatStatus.color === "yellow" ? "bg-yellow-400" : item.lastHeatStatus.color === "sky" ? "bg-sky-400" : "bg-slate-100"}`
     }, React.createElement("span", {
       class: "text-xs font-bold",
@@ -2797,7 +2800,7 @@ function App() {
   }, selectedItem.title), !selectedItem.isUrgent && React.createElement("p", {
     class: "text-sm text-slate-400 mt-1"
   }, "도면/원안 위치: ", selectedItem.location || "없음"), // (v2.70) 긴급공사 "작업구분" 줄 삭제 — 윗줄 작업 배지와 겹침
-  null), React.createElement("div", {
+  null), isHeatIndexVisible() && React.createElement("div", {
     style: {
       order: 50
     },
@@ -3341,7 +3344,10 @@ function App() {
     class: "text-sm font-black text-slate-500 mb-2"
   }, group), React.createElement("div", {
     class: "space-y-2"
-  }, HELP_ITEMS.filter(h => h.group === group).map(h => React.createElement("div", {
+  }, HELP_ITEMS.filter(h => h.group === group).map(h => h.id === "h6" && !isHeatIndexVisible() ? {
+    ...h,
+    a: "5공장 전용 기능. 공사전/중/종료 단계별로 작업 내용을 자동으로 정리해줍니다. \"안전보고문 생성\"을 누르면 내용을 확인·수정할 수 있는 창이 뜨고, 거기서 클립보드로 복사합니다. 상세화면은 전 공장 사용 가능합니다."
+  } : h).map(h => React.createElement("div", {
     key: h.id,
     class: "border border-slate-200 rounded-xl overflow-hidden"
   }, React.createElement("button", {
@@ -3393,7 +3399,7 @@ function App() {
     class: "font-black text-slate-800 mb-1"
   }, "📌 포켓보드?"), React.createElement("p", {
     class: "text-slate-600 leading-relaxed"
-  }, "휴일 공사 현장 안전관리 도구", React.createElement("br", null), "일별 공사 목록, 체감온도 측정,", React.createElement("br", null), "안전보고문 작성(5공장), 카톡 보고 공유", React.createElement("br", null), "긴급공사 등록, 기상 정보 확인", React.createElement("br", null), "날짜 넘겨 예정 공사 미리보기", React.createElement("br", null), "즐겨찾기, Today 켜고 끄기")), React.createElement("div", null, React.createElement("p", {
+  }, "휴일 공사 현장 안전관리 도구", React.createElement("br", null), isHeatIndexVisible() ? "일별 공사 목록, 체감온도 측정," : "일별 공사 목록,", React.createElement("br", null), "안전보고문 작성(5공장), 카톡 보고 공유", React.createElement("br", null), "긴급공사 등록, 기상 정보 확인", React.createElement("br", null), "날짜 넘겨 예정 공사 미리보기", React.createElement("br", null), "즐겨찾기, Today 켜고 끄기")), React.createElement("div", null, React.createElement("p", {
     class: "font-black text-slate-800 mb-1"
   }, "🔄 공사목록 업데이트"), React.createElement("p", {
     class: "text-slate-600"
