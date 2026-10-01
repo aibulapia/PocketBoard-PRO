@@ -2580,8 +2580,10 @@ function App() {
     },
     // (v2.57) TODAY 배지를 맨 앞으로. (v2.72) 다른 날 공사에도 띄워, 눌러서 그 날 공사로 당겨올 수 있게 한다.
     (dateOffset === 0 || offDay) && React.createElement("span", {
-      onClick: e => offDay ? toggleDayPin(item, selectedDate, e) : toggleTodayOff(item, e),
-      title: offDay ? "이 날짜의 공사로 지정" : "TODAY 켜기/끄기",
+      // (v2.73) 오늘 화면에서 손으로 끈 카드(todayForceOff)는 흐린 카드지만 핀이 아니라
+      //  TODAY 켜기/끄기로 연결해야 다시 켤 수 있다. (핀은 "끔" 기록을 지우지 못함)
+      onClick: e => offDay && !(dateOffset === 0 && item.todayForceOff === true) ? toggleDayPin(item, selectedDate, e) : toggleTodayOff(item, e),
+      title: offDay && !(dateOffset === 0 && item.todayForceOff === true) ? "이 날짜의 공사로 지정" : "TODAY 켜기/끄기",
       class: `text-sm px-2 py-0.5 rounded-md font-black tracking-wide select-none transition-all flex-shrink-0 whitespace-nowrap cursor-pointer active:scale-95 ${offDay ? "bg-slate-100 text-slate-400 italic border border-dashed border-slate-300" : isTodayActive(item) ? "bg-sky-500 text-white" : "bg-slate-200 text-slate-400 italic"}`
     }, `TODAY${!offDay && isTodayActive(item) && workDayCount(item) >= 2 ? ` ${workDayCount(item)}일째` : ""}`), React.createElement("span", {
       class: `text-base px-2 py-0.5 rounded-md font-extrabold tracking-wide whitespace-nowrap ${item.grade === "긴급" ? "bg-rose-600 text-white" : (item.grade || "B").startsWith("A") ? "bg-rose-100 text-rose-700" : (item.grade || "B").startsWith("P") ? "keep-light bg-purple-100 text-purple-700" : "keep-light bg-amber-100 text-amber-800"}`
